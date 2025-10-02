@@ -1,0 +1,173 @@
+{
+  "generated_at": "2025-09-14T17:05:13.191Z",
+  "services": [
+    {
+      "file": "analyticsService.ts",
+      "slug": "analytics",
+      "createBulk": false,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "animalDiseasesService.ts",
+      "slug": "animal-diseases",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "animalFieldsService.ts",
+      "slug": "animal-fields",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "animalService.ts",
+      "slug": "animals",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": true
+    },
+    {
+      "file": "authService.ts",
+      "slug": "auth",
+      "createBulk": false,
+      "statsMethod": false,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "breedsService.ts",
+      "slug": "breeds",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "controlService.ts",
+      "slug": "controls",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "diseaseService.ts",
+      "slug": "diseases",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "fieldService.ts",
+      "slug": "fields",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "foodTypesService.ts",
+      "slug": "food_types",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "geneticImprovementsService.ts",
+      "slug": "genetic-improvements",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "medicationsService.ts",
+      "slug": "medications",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "routeAdministrationsService.ts",
+      "slug": "route-administrations",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": true
+    },
+    {
+      "file": "securityService.ts",
+      "slug": "security",
+      "createBulk": false,
+      "statsMethod": false,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "speciesService.ts",
+      "slug": "species",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "treatmentMedicationService.ts",
+      "slug": "treatment-medications",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "treatmentsService.ts",
+      "slug": "treatments",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "treatmentVaccinesService.ts",
+      "slug": "treatment-vaccines",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "userService.ts",
+      "slug": "users",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "vaccinationsService.ts",
+      "slug": "vaccinations",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    },
+    {
+      "file": "vaccinesService.ts",
+      "slug": "vaccines",
+      "createBulk": true,
+      "statsMethod": true,
+      "headUsage": false,
+      "searchMethod": false
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+// Mock for react-spinners (CommonJS)
+module.exports = {
+  ClimbingBoxLoader: () => null,
+  BarLoader: () => null,
+  BeatLoader: () => null,
+  BounceLoader: () => null,
+  CircleLoader: () => null,
+  ClipLoader: () => null,
+  ClockLoader: () => null,
+  DotLoader: () => null,
+  FadeLoader: () => null,
+  GridLoader: () => null,
+  HashLoader: () => null,
+  MoonLoader: () => null,
+  PacmanLoader: () => null,
+  PropagateLoader: () => null,
+  PulseLoader: () => null,
+  PuffLoader: () => null,
+  RingLoader: () => null,
+  RiseLoader: () => null,
+  RotateLoader: () => null,
+  ScaleLoader: () => null,
+  SkewLoader: () => null,
+  SquareLoader: () => null,
+  SyncLoader: () => null
+};

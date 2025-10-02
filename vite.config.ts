@@ -1,0 +1,182 @@
+import { defineConfig, loadEnv } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { VitePWA } from 'vite-plugin-pwa';
+import path from 'path';
+import fs from 'fs';
+import { X509Certificate } from 'crypto';
+
+// https://vitejs.dev/config/
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const backendUrl = env.VITE_API_BASE_URL || (mode === 'development' ? 'https://127.0.0.1:8081' : 'https://finca.isladigital.xyz');
+  const backendUrlHttps = backendUrl.replace(/^http:\/\//, 'https://');
+  const proxyTarget = backendUrlHttps.replace(/\/$/, '').replace(/\/api\/v1$/, '');
+
+  const keyPath = path.resolve(__dirname, 'certificates', 'cert.key');
+  const certPath = path.resolve(__dirname, 'certificates', 'cert.crt');
+  const caPath = path.resolve(__dirname, 'certificates', 'ca.crt');
+
+  if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
+    throw new Error('[HTTPS] Certificados no encontrados en ./certificates (cert.key, cert.crt). Ejecuta scripts/generate_certs.ps1 o scripts/bin/mkcert.exe para crearlos.');
+  }
+
+  const keyBuf = fs.readFileSync(keyPath);
+  const certBuf = fs.readFileSync(certPath);
+
+  try {
+    const x509 = new X509Certificate(certBuf);
+    const validTo = new Date(x509.validTo);
+    if (!isNaN(validTo.getTime())) {
+      const daysRemaining = Math.floor((validTo.getTime() - Date.now()) / 86_400_000);
+      if (daysRemaining < 0) {
+        throw new Error(`[HTTPS] El certificado local ha expirado (${validTo.toISOString()}). Renueva ejecutando scripts/generate_certs.ps1.`);
+      } else if (daysRemaining <= 14) {
+        console.warn(`[HTTPS] Advertencia: el certificado local expira en ${daysRemaining} días (${validTo.toISOString()}). Considera renovarlo con scripts/generate_certs.ps1.`);
+      }
+    } else {
+      console.warn('[HTTPS] No se pudo determinar la fecha de expiración del certificado local.');
+    }
+  } catch (err) {
+    console.warn('[HTTPS] No fue posible inspeccionar el certificado local para validar su expiración:', err);
+  }
+
+  const httpsConfig = {
+    key: keyBuf,
+    cert: certBuf,
+    ...(fs.existsSync(caPath) ? { ca: fs.readFileSync(caPath) } : {})
+  };
+
+  return {
+    plugins: [
+      tailwindcss(),
+      react(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        manifest: {
+          name: 'Finca Villa Luz',
+          short_name: 'Finca',
+          description: 'Gestión de finca - offline first',
+          theme_color: '#166534',
+          background_color: '#ffffff',
+          display: 'standalone',
+          start_url: '/',
+          icons: [
+            { src: '/favicon.ico', sizes: '64x64 32x32 24x24 16x16', type: 'image/x-icon' }
+          ],
+        },
+        workbox: {
+          navigateFallback: '/index.html',
+          globPatterns: ['**/*.{js,css,html,svg,ico,png,jpg,jpeg}'],
+          runtimeCaching: [
+            {
+              urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/auth'),
+              handler: 'NetworkOnly',
+              options: { cacheName: 'auth-api-bypass' }
+            },
+            {
+              urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/auth/me'),
+              handler: 'NetworkOnly',
+              options: { cacheName: 'auth-me-bypass' }
+            },
+            {
+              urlPattern: ({ url }) => url.pathname.startsWith('/api/v1') && !url.pathname.startsWith('/api/v1/auth'),
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'api-cache',
+                networkTimeoutSeconds: 3,
+                matchOptions: { ignoreVary: true },
+                plugins: [
+                  {
+                    cacheWillUpdate: async ({ response }) => {
+                      if (!response || response.status !== 200) return null;
+                      return response;
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              urlPattern: ({ request }) => request.destination === 'image',
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'images-cache',
+                expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
+              }
+            },
+            {
+              urlPattern: ({ request }) => ['style', 'script', 'worker'].includes(request.destination),
+              handler: 'StaleWhileRevalidate',
+              options: { cacheName: 'assets-cache' }
+            },
+          ],
+          skipWaiting: true,
+          clientsClaim: true,
+        },
+        devOptions: {
+          // Habilita el SW de desarrollo solo si está explícitamente activado por variable
+          enabled: (env.VITE_ENABLE_PWA === 'true') && mode === 'development',
+          navigateFallback: 'index.html',
+        }
+      }),
+    ],
+    resolve: {
+        alias: {
+          '@': path.resolve(__dirname, './src'),
+        },
+        conditions: ['module'],
+        extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
+      },
+      esbuild: {
+      target: 'esnext'
+    },
+    build: {
+      target: 'esnext',
+      sourcemap: true,
+      rollupOptions: {
+        external: ['color'],
+        output: {
+          manualChunks: {
+            'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+            'ui-vendor': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-popover', '@radix-ui/react-tabs'],
+            'forms': ['react-hook-form', '@hookform/resolvers', 'zod'],
+            'charts': ['recharts'],
+          },
+        },
+      },
+      chunkSizeWarningLimit: 1000
+    },
+    server: {
+      https: httpsConfig,
+      host: env.VITE_DEV_HOST || 'localhost',
+      port: 5180, // Cambiar puerto a 5180
+      cors: true,
+      strictPort: true,
+      proxy: {
+        '/api/v1': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+          cookieDomainRewrite: '',
+          cookiePathRewrite: '/',
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              console.log('Proxy error:', err);
+            });
+            proxy.on('proxyReq', (_ /* not used */, req) => {
+              console.log('Sending Request to the Target:', req.method, req.url);
+            });
+            proxy.on('proxyRes', (proxyRes, req) => {
+              const setCookie = proxyRes.headers['set-cookie'];
+              if (setCookie) {
+                console.log('Received Set-Cookie from target for', req.method, req.url, '=>', setCookie);
+              } else if (req.url && req.url.includes('/auth/')) {
+                console.log('No Set-Cookie header for', req.method, req.url, 'status:', proxyRes.statusCode);
+              }
+            });
+          }
+        }
+      }
+    }
+  };
+});

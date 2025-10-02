@@ -1,0 +1,88 @@
+import api, { unwrapApi } from './api';
+import {
+	DashboardData,
+	AnimalStatistics,
+	HealthStatistics,
+	ProductionStatistics,
+	SystemAlert,
+	FilterOptions,
+} from '@/types/swaggerTypes';
+
+// --- Micro-cache in-memory para endpoints analíticos (amortiza ráfagas en 300–1000ms) ---
+const MICROCACHE_TTL_MS = 600; // ventana corta
+const microCache = new Map<string, { ts: number; data: any }>();
+const stableStringify = (obj: any) => {
+	if (!obj || typeof obj !== 'object') return '';
+	const keys = Object.keys(obj).sort();
+	const norm: Record<string, any> = {};
+	for (const k of keys) norm[k] = obj[k];
+	return JSON.stringify(norm);
+};
+const buildKey = (path: string, params?: any) => `${path}?${stableStringify(params)}`;
+
+async function getWithMicroCache<T>(path: string, params?: Partial<FilterOptions>): Promise<T> {
+	const key = buildKey(path, params);
+	const now = Date.now();
+	const hit = microCache.get(key);
+	if (hit && (now - hit.ts) <= MICROCACHE_TTL_MS) {
+		return hit.data as T;
+	}
+	try {
+		const res = await api.get(path, { params });
+		const data = unwrapApi<T>(res);
+		microCache.set(key, { ts: now, data });
+		return data;
+	} catch (e) {
+		// En error, limpiar posible entrada obsoleta
+		microCache.delete(key);
+		throw e;
+	}
+}
+
+/**
+ * Servicio de Analíticas y Métricas
+ * Centraliza llamados a endpoints estadísticos/analíticos.
+ * Se mantiene minimalista y alineado al contrato tipado existente.
+ */
+class AnalyticsService {
+	private base = '/analytics';
+
+	/** Compatibilidad legacy: health check simple si backend expone /analytics/health/statistics */
+	async getHealthCheck(): Promise<any> {
+		try {
+			const res = await api.get(`${this.base}/health/statistics`);
+			return unwrapApi(res);
+		} catch (e) {
+			return { status: 'unhealthy' };
+		}
+	}
+
+	/** Obtiene datos consolidados para dashboard administrativo */
+	async getDashboard(params?: Partial<FilterOptions>): Promise<DashboardData> {
+		return getWithMicroCache<DashboardData>(`${this.base}/dashboard`, params);
+	}
+
+	/** Estadísticas globales de animales */
+	async getAnimalStatistics(params?: Partial<FilterOptions>): Promise<AnimalStatistics> {
+		return getWithMicroCache<AnimalStatistics>(`${this.base}/animals/statistics`, params);
+	}
+
+	/** Estadísticas de salud (tratamientos, vacunas, enfermedades) */
+	async getHealthStatistics(params?: Partial<FilterOptions>): Promise<HealthStatistics> {
+		return getWithMicroCache<HealthStatistics>(`${this.base}/health/statistics`, params);
+	}
+
+	/** Estadísticas de producción / operación */
+	async getProductionStatistics(params?: Partial<FilterOptions>): Promise<ProductionStatistics> {
+		return getWithMicroCache<ProductionStatistics>(`${this.base}/production/statistics`, params);
+	}
+
+	/** Historial médico consolidado de un animal */
+	async getAnimalMedicalHistory(animalId: number, params?: Partial<FilterOptions>): Promise<import('@/types/analytics').MedicalHistory> {
+		const path = `${this.base}/animals/${animalId}/medical-history`;
+		return getWithMicroCache<import('@/types/analytics').MedicalHistory>(path, params);
+	}
+}
+
+export const analyticsService = new AnalyticsService();
+export default analyticsService;

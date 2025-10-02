@@ -1,0 +1,211 @@
+Authenticated Endpoint Scan Report (User: 1098/Administrator)
+Date: 2025-09-06
+
+This report details the results of a full API scan performed with the authentication credentials of user 1098 (Role: Administrador).
+
+---
+### Summary of Results
+---
+
+- **Authentication**: Successful. The user was able to log in and obtain a session.
+- **Authorization**: Successful. The session cookie was accepted by all protected endpoints.
+- **Data Access**: All major endpoints returned data successfully (HTTP 200 OK), confirming the administrator has full access.
+- **Logout**: Successful. The session was terminated correctly.
+
+---
+### Detailed Endpoint Results
+---
+
+=== Testing [GET] /api/v1/auth/profile ===
+{
+  "data": {
+    "address": "Calle 123 #45-67",
+    "created_at": "2025-09-06T17:34:32Z",
+    "email": "juan1@example.com",
+    "fullname": "Juan Pérez",
+    "id": 42,
+    "identification": 1098,
+    "phone": "3011234578",
+    "role": "Administrador",
+    "status": true
+  },
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [POST] /api/v1/auth/refresh ===
+{
+  "data": {
+    "access_token": "...",
+    "expires_in": 7200,
+    "token_type": "Bearer"
+  },
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/users ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/users/roles ===
+{
+  "data": [
+    "Administrador",
+    "Instructor",
+    "Aprendiz"
+  ],
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/users/status ===
+{
+  "data": [
+    "Activo",
+    "Inactivo"
+  ],
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/animals ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/animals/status ===
+{
+  "data": [
+    "Activo",
+    "Inactivo",
+    "Vendido",
+    "Fallecido"
+  ],
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/fields ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/animal-fields ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/species ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/breeds ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/diseases ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/animal-diseases ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/medications ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/vaccines ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/vaccinations ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/treatments ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/controls ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/food-types ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [GET] /api/v1/genetic-improvements ===
+{
+  "data": [...],
+  "meta": {"pagination": {...}},
+  "success": true
+}
+HTTPSTATUS:200
+
+=== Testing [POST] /api/v1/auth/logout ===
+{
+  "data": {
+    "message": "Logout successful"
+  },
+  "success": true
+}
+HTTPSTATUS:200
+
+---
+End of Report
+---
