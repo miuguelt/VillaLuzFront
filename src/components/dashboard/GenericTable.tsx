@@ -259,9 +259,9 @@ const GenericTable = React.memo(<T,>({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col h-full space-y-3">
       {enableSearchBar && (
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-shrink-0">
           <Input
             placeholder="Buscar..."
             value={searchInput}
@@ -271,9 +271,8 @@ const GenericTable = React.memo(<T,>({
         </div>
       )}
 
-      <div 
-        className={`relative border rounded-md ${needsVirtualization ? 'overflow-auto' : ''}`}
-        style={needsVirtualization ? { height: containerHeight } : undefined}
+      <div
+        className={`relative border rounded-md flex-1 min-h-0 overflow-auto`}
         onScroll={needsVirtualization ? handleScroll : undefined}
       >
         {refreshing && data.length > 0 && (
@@ -344,7 +343,7 @@ const GenericTable = React.memo(<T,>({
 
       {/* Paginación */}
       {meta && totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-shrink-0 py-2 px-3 bg-white border-t">
           <div className="text-sm text-muted-foreground">
             Página {page} de {totalPages} ({totalItems} registros)
           </div>

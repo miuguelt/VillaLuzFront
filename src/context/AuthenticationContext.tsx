@@ -206,7 +206,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Caché válido: usar datos cacheados sin llamar al backend
         setUser(cachedUser)
         setRole(cachedUser.role || null)
-        setName(cachedUser.name || null)
+        setName(cachedUser.fullname || null)
         setIsAuthenticated(true)
         setLoading(false)
         prefetchRoleRoutes(cachedUser.role)

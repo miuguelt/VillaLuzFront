@@ -144,6 +144,34 @@ export async function checkBreedDependencies(breedId: number): Promise<Dependenc
 
     const allAnimals = Array.isArray(animalsResp?.data) ? animalsResp.data : [];
 
+    console.log('[checkBreedDependencies] Respuesta del backend:', {
+      breedId,
+      totalAnimalsFromBackend: allAnimals.length,
+      totalReportedByBackend: animalsResp?.total,
+      firstFewAnimals: allAnimals.slice(0, 3).map(a => ({
+        id: a.id,
+        breed_id: (a as any).breed_id,
+        breeds_id: (a as any).breeds_id
+      }))
+    });
+
+    // DETECTAR BUG DEL BACKEND: si devuelve muchos animales pero ninguno con el breed_id correcto
+    if (allAnimals.length > 0) {
+      const allHaveWrongBreedId = allAnimals.every(a => {
+        const animalBreedId = (a as any).breed_id ?? (a as any).breeds_id;
+        return animalBreedId != breedId; // eslint-disable-line eqeqeq
+      });
+
+      if (allHaveWrongBreedId) {
+        // No bloquear: continuar con filtrado client-side y permitir eliminación si no hay coincidencias reales
+  console.warn('[checkBreedDependencies] ⚠️ Verificación de integridad: el backend no filtró por breed_id. Se valida en frontend y se permite eliminar solo si no existen dependencias reales.', {
+    detalle: `El backend devolvió ${allAnimals.length} animales pero NINGUNO tiene breed_id=${breedId}`,
+    motivo: 'La función verifica integridad referencial para evitar eliminar registros usados en otras tablas',
+    accion: 'Corregir el filtro en /api/v1/animals para el parámetro breed_id en el backend'
+  });
+      }
+    }
+
     // USAR HELPER para validar y filtrar (compensa bugs del backend)
     const animals = validateAndFilterDependencies(
       allAnimals,

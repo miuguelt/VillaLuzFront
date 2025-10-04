@@ -5,14 +5,14 @@ import { cn } from '@/lib/utils';
 import { Users, Heart } from 'lucide-react';
 
 interface AnimalNode {
-  idAnimal?: number;
+  id?: number;
   record?: string;
   name?: string;
   birth_date?: string;
   sex?: string;
   breed?: any;
-  idFather?: number | null;
-  idMother?: number | null;
+  father_id?: number | null;
+  mother_id?: number | null;
 }
 
 interface GeneticTreeModalProps {
@@ -23,36 +23,71 @@ interface GeneticTreeModalProps {
 }
 
 const GeneticTreeModal = ({ isOpen, onClose, animal, levels }: GeneticTreeModalProps) => {
-  if (!animal) return null;
-
   const [lineageMode, setLineageMode] = React.useState<'ambos' | 'paterna' | 'materna'>('ambos');
   const [depthShown, setDepthShown] = React.useState<number>(Math.max(1, (levels?.length ?? 1)));
 
-  const getId = (n: any): number | undefined => (n?.idAnimal ?? n?.id);
-  const getFatherId = (n: any): number | undefined => (n?.father_id ?? n?.idFather ?? n?.father?.id ?? n?.father?.idAnimal);
-  const getMotherId = (n: any): number | undefined => (n?.mother_id ?? n?.idMother ?? n?.mother?.id ?? n?.mother?.idAnimal);
+  const getId = (n: any): number | undefined => {
+    const id = n?.id ?? n?.idAnimal;
+    return id && Number.isInteger(Number(id)) && Number(id) > 0 ? Number(id) : undefined;
+  };
+
+  const getFatherId = (n: any): number | undefined => {
+    // PRIORIZAR idFather (formato del backend)
+    const fId = n?.idFather ?? n?.father_id ?? n?.father?.id ?? n?.father?.idAnimal;
+    return fId && Number.isInteger(Number(fId)) && Number(fId) > 0 ? Number(fId) : undefined;
+  };
+
+  const getMotherId = (n: any): number | undefined => {
+    // PRIORIZAR idMother (formato del backend)
+    const mId = n?.idMother ?? n?.mother_id ?? n?.mother?.id ?? n?.mother?.idAnimal;
+    return mId && Number.isInteger(Number(mId)) && Number(mId) > 0 ? Number(mId) : undefined;
+  };
 
   const displayLevels: any[][] = React.useMemo(() => {
+    if (!animal || !levels) return [];
     const limited = Array.isArray(levels) ? levels.slice(0, Math.max(1, depthShown)) : [];
-    if (lineageMode === 'ambos') return limited;
-    if (!limited || limited.length === 0) return [];
 
-    const root = limited[0]?.[0];
-    if (!root) return limited;
+    // Ordenar cada nivel para que padre esté antes que madre
+    const sorted = limited.map((level, idx) => {
+      if (idx === 0 || level.length <= 1) return level;
+
+      // Separar padres y madres basándose en su sexo
+      const fathers = level.filter((a: any) => {
+        const sex = a?.sex ?? a?.gender;
+        return sex === 'Macho';
+      });
+      const mothers = level.filter((a: any) => {
+        const sex = a?.sex ?? a?.gender;
+        return sex === 'Hembra';
+      });
+      const unknown = level.filter((a: any) => {
+        const sex = a?.sex ?? a?.gender;
+        return sex !== 'Macho' && sex !== 'Hembra';
+      });
+
+      // Orden: padres primero, luego madres, luego desconocidos
+      return [...fathers, ...mothers, ...unknown];
+    });
+
+    if (lineageMode === 'ambos') return sorted;
+    if (!sorted || sorted.length === 0) return [];
+
+    const root = sorted[0]?.[0];
+    if (!root) return sorted;
 
     const chain: any[] = [root];
-    for (let li = 1; li < limited.length; li++) {
+    for (let li = 1; li < sorted.length; li++) {
       const prev = chain[li - 1];
       const expectedId = lineageMode === 'paterna' ? getFatherId(prev) : getMotherId(prev);
       if (!expectedId) break;
-      const candidate = (limited[li] || []).find((n: any) => getId(n) === expectedId);
+      const candidate = (sorted[li] || []).find((n: any) => getId(n) === expectedId);
       if (!candidate) break;
       chain.push(candidate);
     }
     const filtered: any[][] = [];
     for (let i = 0; i < chain.length; i++) filtered.push([chain[i]]);
     return filtered;
-  }, [levels, depthShown, lineageMode]);
+  }, [animal, levels, depthShown, lineageMode]);
 
   const getRoleLabel = (ancestor: any, prevLevel: any[] | undefined) => {
     if (!prevLevel || prevLevel.length === 0) return null;
@@ -89,6 +124,8 @@ const GeneticTreeModal = ({ isOpen, onClose, animal, levels }: GeneticTreeModalP
     if (sex === 'Hembra') return '♀';
     return '•';
   };
+
+  if (!animal) return null;
 
   return (
     <GenericModal

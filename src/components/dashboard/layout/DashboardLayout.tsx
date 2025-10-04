@@ -82,7 +82,7 @@ const DashboardLayout: React.FC = () => {
       >
         <Header isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)} />
         <main
-          className={`flex-1 min-h-0 overflow-x-auto ${isCRUDFullBleed ? 'overflow-y-hidden' : 'overflow-y-auto'} bg-gray-50 transition-all duration-300 ease-in-out px-3 md:px-6 lg:px-8 pt-1 md:pt-2 ${isCRUDFullBleed ? 'pb-0' : 'pb-4 md:pb-6'}`}
+          className={`flex-1 min-h-0 overflow-x-auto ${isCRUDFullBleed ? 'overflow-y-hidden' : 'overflow-y-auto'} bg-gray-50 transition-all duration-300 ease-in-out px-2 sm:px-3 md:px-4 lg:px-6 pt-1 md:pt-2 ${isCRUDFullBleed ? 'pb-0' : 'pb-3 md:pb-4'}`}
         >
           <Outlet />
         </main>

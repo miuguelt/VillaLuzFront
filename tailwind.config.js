@@ -211,8 +211,8 @@ export default {
         'slide-out': 'slideOut 0.3s ease-in',
         'pulse-once': 'pulseOnce 1s ease-in-out',
         // Animaciones CRUD mejoradas - más dramáticas y visibles
-        'item-created': 'itemCreated 1.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        'item-deleting': 'itemDeleting 0.7s cubic-bezier(0.4, 0, 1, 1)',
+        'item-created': 'itemCreated 1s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'item-deleting': 'itemDeleting 0.6s cubic-bezier(0.4, 0, 1, 1)',
         'item-updated': 'itemUpdated 0.6s ease-in-out',
         'item-saving': 'itemSaving 1s ease-in-out infinite',
         'border-glow': 'borderGlow 1.5s ease-in-out',
@@ -248,23 +248,23 @@ export default {
             transform: 'scale(1.02)'
           }
         },
-        // Animación MEJORADA para items creados - entrada dramática con bounce
+        // Animación MEJORADA para items creados - entrada dramática con bounce más rápido
         itemCreated: {
           '0%': {
             opacity: '0',
-            transform: 'scale(0.8) translateY(-40px)',
-            filter: 'blur(3px)',
+            transform: 'scale(0.7) translateY(-50px)',
+            filter: 'blur(4px)',
           },
-          '40%': {
+          '50%': {
             opacity: '1',
-            transform: 'scale(1.08) translateY(8px)',
+            transform: 'scale(1.1) translateY(10px)',
             filter: 'blur(0px)',
           },
-          '60%': {
-            transform: 'scale(0.96) translateY(-3px)',
+          '70%': {
+            transform: 'scale(0.95) translateY(-4px)',
           },
-          '80%': {
-            transform: 'scale(1.02) translateY(1px)',
+          '85%': {
+            transform: 'scale(1.03) translateY(2px)',
           },
           '100%': {
             opacity: '1',
@@ -272,27 +272,27 @@ export default {
             filter: 'blur(0px)',
           }
         },
-        // Animación MEJORADA para items eliminándose - shake + compresión + slide out
+        // Animación MEJORADA para items eliminándose - shake + compresión + slide out más rápido
         itemDeleting: {
-          '0%, 10%': {
-            transform: 'translateX(-5px) scale(1, 1)',
+          '0%, 8%': {
+            transform: 'translateX(-6px) scale(1, 1)',
             opacity: '1',
           },
-          '5%, 15%': {
-            transform: 'translateX(5px) scale(1, 1)',
+          '4%, 12%': {
+            transform: 'translateX(6px) scale(1, 1)',
           },
-          '20%': {
+          '16%': {
             transform: 'translateX(0) scale(1, 1)',
           },
-          '40%': {
-            opacity: '0.7',
-            transform: 'scale(0.98, 0.7) translateX(-12px)',
-            filter: 'brightness(0.7)',
+          '35%': {
+            opacity: '0.6',
+            transform: 'scale(0.96, 0.6) translateX(-20px)',
+            filter: 'brightness(0.6)',
           },
           '100%': {
             opacity: '0',
-            transform: 'scale(0.4, 0.2) translateX(-120px)',
-            filter: 'brightness(0.4) blur(3px)',
+            transform: 'scale(0.3, 0.1) translateX(-150px)',
+            filter: 'brightness(0.3) blur(4px)',
           }
         },
         // Nueva animación para items editados - pulso de color

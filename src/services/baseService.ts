@@ -3,6 +3,7 @@ import { PageResult } from '@/types/commonTypes';
 import { extractListFromResponse } from './listExtractor';
 import { normalizePagination } from './responseNormalizer';
 import type { PaginatedResponse } from '@/types/swaggerTypes';
+import { getDefaultLimitByDevice } from '@/utils/viewportUtils';
 
 // Compatible flag for dev mode (avoids use of import.meta in Jest/CommonJS)
 const __DEV__ = (typeof (globalThis as any).process !== 'undefined' && (globalThis as any).process.env && (globalThis as any).process.env.NODE_ENV === 'development');
@@ -363,9 +364,19 @@ export class BaseService<T> {
       ...rest
     } = opts;
 
+    // Calcular límite dinámico basado en viewport si no se especifica
+    let defaultLimit = 10; // Fallback SSR
+    try {
+      if (typeof window !== 'undefined') {
+        defaultLimit = getDefaultLimitByDevice();
+      }
+    } catch (e) {
+      // Silently fallback to 10
+    }
+
     return {
       page: page ?? rest.page ?? 1,
-      limit: limit ?? per_page ?? rest.limit ?? 10,
+      limit: limit ?? per_page ?? rest.limit ?? defaultLimit,
       search: search ?? q,
       sort_by: sort_by ?? sortBy,
       sort_order: sort_order ?? order,

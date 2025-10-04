@@ -5,11 +5,11 @@ const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto rounded-lg shadow-md">
+  <div className="relative w-full h-full overflow-auto rounded-lg shadow-md">
     <table
       ref={ref}
       className={cn(
-        "w-full caption-bottom text-sm text-left [&_td:last-child]:text-right [&_th:last-child]:text-right",
+        "w-full caption-bottom text-sm text-left table-fixed [&_td:last-child]:text-right [&_th:last-child]:text-right",
         className
       )}
       {...props}
@@ -66,8 +66,9 @@ const TableRow = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <tr
     ref={ref}
+    data-table-row
     className={cn(
-      "border-b border-border hover:bg-muted transition-colors data-[state=selected]:bg-muted even:bg-muted",
+      "border-b border-border transition-all duration-500 ease-in-out data-[state=selected]:bg-muted even:bg-muted hover:bg-gradient-to-r hover:from-blue-400 hover:to-blue-700 hover:border-8 hover:border-blue-900 hover:shadow-[0_25px_50px_-12px_rgba(59,130,246,0.5),0_0_0_4px_rgba(37,99,235,0.8),inset_0_0_20px_rgba(59,130,246,0.3)] hover:relative hover:z-50 hover:scale-110 hover:font-bold hover:text-white cursor-pointer transform-gpu hover:backdrop-blur-sm",
       className
     )}
     {...props}
@@ -96,7 +97,7 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn("px-3 py-2 md:px-4 md:py-3 align-middle [&:has([role=checkbox])]:pr-0", className)}
+    className={cn("px-3 py-3 md:px-4 md:py-4 align-middle [&:has([role=checkbox])]:pr-0 overflow-hidden text-ellipsis whitespace-nowrap", className)}
     {...props}
   />
 ))

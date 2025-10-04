@@ -49,7 +49,10 @@ const DescendantsTreeModal = ({ isOpen, onClose, animal, levels }: DescendantsTr
     return '•';
   };
 
-  const getId = (n: any): number | undefined => (n?.idAnimal ?? n?.id);
+  const getId = (n: any): number | undefined => {
+    const id = n?.idAnimal ?? n?.id;
+    return id && Number.isInteger(Number(id)) && Number(id) > 0 ? Number(id) : undefined;
+  };
 
   return (
     <GenericModal

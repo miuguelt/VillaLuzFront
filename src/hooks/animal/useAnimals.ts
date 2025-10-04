@@ -15,18 +15,23 @@ const mapAnimalResponseToLocal = (a: Partial<AnimalResponse> & { [key: string]: 
   // removed deprecated name field mapping to avoid reliance in UI labels
   birth_date: a.birth_date ?? '',
   weight: a.weight ?? 0,
-  breed_id: a.breed_id ?? 0,
-  gender: a.gender ?? 'Macho',
+  breed_id: a.breed_id ?? a.breeds_id ?? 0,
+  breeds_id: a.breeds_id ?? a.breed_id ?? 0,
+  gender: a.gender ?? a.sex ?? 'Macho',
+  sex: a.sex ?? a.gender ?? 'Macho',
   status: a.status ?? 'Sano',
-  father_id: a.father_id,
-  mother_id: a.mother_id,
+  // CRÍTICO: Mantener idFather/idMother del backend + aliases para compatibilidad
+  idFather: a.idFather ?? a.father_id,
+  idMother: a.idMother ?? a.mother_id,
+  father_id: a.idFather ?? a.father_id,
+  mother_id: a.idMother ?? a.mother_id,
   notes: a.notes,
   breed: a.breed,
   father: a.father,
   mother: a.mother,
   created_at: a.created_at,
   updated_at: a.updated_at,
-});
+} as any);
 
 export interface UseAnimalsResult {
   animals: AnimalResponse[];

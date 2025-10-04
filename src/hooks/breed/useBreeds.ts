@@ -61,6 +61,17 @@ export function useBreeds(): UseBreedsResult {
     return mappedUpdated;
   };
 
+  const deleteBreed = async (id: number | string): Promise<boolean> => {
+    try {
+      const result = await resource.deleteItem(id);
+      return result;
+    } catch (error) {
+      console.error('[useBreeds] Error al eliminar breed:', error);
+      // Propagar el error para que AdminCRUDPage lo maneje
+      throw error;
+    }
+  };
+
   return {
     breeds: mapped,
     data: mapped,
@@ -70,11 +81,11 @@ export function useBreeds(): UseBreedsResult {
     refetch: resource.refetch as unknown as (params?: Record<string, any>) => Promise<Breeds[]>,
     addBreed,
     editBreed,
-    deleteBreed: resource.deleteItem,
+    deleteBreed,
     // Aliases estandarizados
     createItem: addBreed,
     updateItem: editBreed,
-    deleteItem: resource.deleteItem,
+    deleteItem: deleteBreed,
     setData: resource.setData as unknown as Dispatch<SetStateAction<Breeds[]>>,
   };
 }

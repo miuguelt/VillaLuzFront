@@ -98,7 +98,7 @@ export function useResource<T extends { id?: number | string }, P extends Record
   const crudInProgress = useRef<boolean>(false);
 
   // Cache persistente con TTL
-  const { getCache, setCache, invalidatePattern, invalidateByEndpoint } = useCache();
+  const { getCache, setCache, invalidateByEndpoint } = useCache();
   const { generateKey } = useCacheKey();
   const entityKeyRef = useRef<string>((service as any)?.endpoint || service.constructor?.name || 'resource');
   const prefix = cacheKeyPrefix || entityKeyRef.current;
@@ -137,12 +137,16 @@ export function useResource<T extends { id?: number | string }, P extends Record
     setSearchParams(sp, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const safeExecute = useCallback(async <R,>(fn: () => Promise<R>): Promise<R> => {
+  const safeExecute = useCallback(async <R,>(fn: () => Promise<R>): Promise<R | undefined> => {
     try {
       setLoading(true);
       setError(null);
       return await fn();
     } catch (e: any) {
+      if (axios.isCancel(e)) {
+        // Silently ignore canceled requests
+        return undefined;
+      }
       setError(e?.message || 'Error inesperado');
       throw e;
     } finally {
@@ -171,7 +175,7 @@ export function useResource<T extends { id?: number | string }, P extends Record
     const effectiveWithToken = { ...(effective || {}), cancelToken: cancelSource.current.token } as any;
 
     // 1) Intentar cache persistente (si cache=true)
-    let cacheKey = generateKey(prefix, effective);
+    const cacheKey = generateKey(prefix, effective);
 
     const hasData = Array.isArray(data) && data.length > 0;
     if (hasData) setRefreshing(true);
@@ -304,9 +308,26 @@ export function useResource<T extends { id?: number | string }, P extends Record
           }
 
           // Combinar: items recientes faltantes + respuesta del servidor
-          const mergedList = missingRecentItems.length > 0
+          let mergedList = missingRecentItems.length > 0
             ? [...missingRecentItems, ...finalList]
             : finalList;
+
+          // FILTRAR items eliminados recientemente que el backend aún devuelve
+          const deletedIds = recentlyDeletedIds.current;
+          if (deletedIds.size > 0) {
+            const beforeFilter = mergedList.length;
+            mergedList = mergedList.filter(item => !deletedIds.has(String((item as any)?.id)));
+            const afterFilter = mergedList.length;
+
+            if (beforeFilter !== afterFilter) {
+              console.warn('[useResource] Filtrados items eliminados recientemente que el backend aún devuelve:', {
+                beforeFilter,
+                afterFilter,
+                filtered: beforeFilter - afterFilter,
+                deletedIds: Array.from(deletedIds)
+              });
+            }
+          }
 
           setData(mergedList);
           setMeta({
@@ -384,9 +405,26 @@ export function useResource<T extends { id?: number | string }, P extends Record
           }
         }
 
-        const mergedList = missingRecentItems.length > 0
+        let mergedList = missingRecentItems.length > 0
           ? [...missingRecentItems, ...finalList]
           : finalList;
+
+        // FILTRAR items eliminados recientemente que el backend aún devuelve
+        const deletedIds = recentlyDeletedIds.current;
+        if (deletedIds.size > 0) {
+          const beforeFilter = mergedList.length;
+          mergedList = mergedList.filter(item => !deletedIds.has(String((item as any)?.id)));
+          const afterFilter = mergedList.length;
+
+          if (beforeFilter !== afterFilter) {
+            console.warn('[useResource] Filtrados items eliminados recientemente (getAll) que el backend aún devuelve:', {
+              beforeFilter,
+              afterFilter,
+              filtered: beforeFilter - afterFilter,
+              deletedIds: Array.from(deletedIds)
+            });
+          }
+        }
 
         setData(mergedList);
         setMeta(null);
@@ -394,8 +432,12 @@ export function useResource<T extends { id?: number | string }, P extends Record
           setCache(cacheKey, { data: finalList, timestamp: Date.now() }, cacheTTL);
         }
         return mergedList;
-      });
-      return result;
+    });
+    if (result === undefined) {
+      // Request was canceled, return current data
+      return data;
+    }
+    return result;
     } finally {
       if (hasData) setRefreshing(false);
       // NO resetear skipCacheUntil aquí - dejarlo expirar naturalmente por timestamp
@@ -407,12 +449,16 @@ export function useResource<T extends { id?: number | string }, P extends Record
   const recentlyCreatedTimestamps = useRef<Map<string, number>>(new Map());
   const recentlyCreatedItems = useRef<Map<string, T>>(new Map()); // Guardar items completos
 
+  // Ref para trackear items recién eliminados que deben filtrarse del refetch si el backend aún los devuelve
+  const recentlyDeletedIds = useRef<Set<string>>(new Set());
+  const recentlyDeletedTimestamps = useRef<Map<string, number>>(new Map());
+
   // CRUD helpers
   const createItem = useCallback(async (payload: Partial<T>) => {
     // Marcar CRUD en progreso para pausar polling
     crudInProgress.current = true;
     try {
-      return await safeExecute(async () => {
+      const result = await safeExecute(async () => {
         const created = await service.create(payload);
 
         // Trackear el ID del item creado para merge inteligente
@@ -459,10 +505,15 @@ export function useResource<T extends { id?: number | string }, P extends Record
         });
 
         return created;
-      }).catch((error) => {
-        console.error('[useResource] Error al crear item:', error);
-        return null;
       });
+      if (result === undefined) {
+        // Request was canceled
+        return null;
+      }
+      return result;
+    } catch (error) {
+      console.error('[useResource] Error al crear item:', error);
+      return null;
     } finally {
       // Marcar CRUD como completado inmediatamente - confiar en que el refetch sincronizará
       crudInProgress.current = false;
@@ -473,7 +524,7 @@ export function useResource<T extends { id?: number | string }, P extends Record
     // Marcar CRUD en progreso para pausar polling
     crudInProgress.current = true;
     try {
-      return await safeExecute(async () => {
+      const result = await safeExecute(async () => {
         const updated = await service.update(id, payload);
 
         // Trackear el ID del item actualizado
@@ -502,10 +553,15 @@ export function useResource<T extends { id?: number | string }, P extends Record
         });
 
         return updated;
-      }).catch((error) => {
-        console.error('[useResource] Error al actualizar item:', error);
-        return null;
       });
+      if (result === undefined) {
+        // Request was canceled
+        return null;
+      }
+      return result;
+    } catch (error) {
+      console.error('[useResource] Error al actualizar item:', error);
+      return null;
     } finally {
       // Marcar CRUD como completado inmediatamente
       crudInProgress.current = false;
@@ -516,7 +572,7 @@ export function useResource<T extends { id?: number | string }, P extends Record
     // Marcar CRUD en progreso para pausar polling
     crudInProgress.current = true;
     try {
-      return await safeExecute(async () => {
+      const result = await safeExecute(async () => {
         try {
           // El await aquí garantiza que el backend completó la eliminación
           const ok = await service.delete(id);
@@ -526,6 +582,19 @@ export function useResource<T extends { id?: number | string }, P extends Record
             recentlyCreatedIds.current.delete(deletedId);
             recentlyCreatedTimestamps.current.delete(deletedId);
             recentlyCreatedItems.current.delete(deletedId);
+
+            // NUEVO: Registrar item como eliminado recientemente para filtrarlo en refetch
+            recentlyDeletedIds.current.add(deletedId);
+            recentlyDeletedTimestamps.current.set(deletedId, Date.now());
+
+            // Auto-limpiar items eliminados después de 10 segundos
+            const now = Date.now();
+            for (const [delId, timestamp] of Array.from(recentlyDeletedTimestamps.current.entries())) {
+              if (now - timestamp > 10000) {
+                recentlyDeletedIds.current.delete(delId);
+                recentlyDeletedTimestamps.current.delete(delId);
+              }
+            }
 
             // PRIMERO: Invalidar caché completamente (persistente + en memoria del servicio)
             invalidateByEndpoint(prefix);
@@ -538,7 +607,8 @@ export function useResource<T extends { id?: number | string }, P extends Record
             setData(prev => prev.filter(i => String((i as any)?.id) !== String(id)));
 
             console.log('[useResource] Item eliminado exitosamente:', {
-              id: deletedId
+              id: deletedId,
+              deletedIdsTracked: Array.from(recentlyDeletedIds.current)
             });
           }
           return ok;
@@ -549,6 +619,10 @@ export function useResource<T extends { id?: number | string }, P extends Record
             recentlyCreatedIds.current.delete(deletedId);
             recentlyCreatedTimestamps.current.delete(deletedId);
             recentlyCreatedItems.current.delete(deletedId);
+
+            // Registrar como eliminado
+            recentlyDeletedIds.current.add(deletedId);
+            recentlyDeletedTimestamps.current.set(deletedId, Date.now());
 
             invalidateByEndpoint(prefix);
             if (typeof (service as any).clearCache === 'function') {
@@ -564,11 +638,16 @@ export function useResource<T extends { id?: number | string }, P extends Record
           // Propagar el error para que AdminCRUDPage lo maneje
           throw err;
         }
-      }).catch((err) => {
-        console.error('[useResource] Error al eliminar item:', err);
-        // Propagar el error para que AdminCRUDPage lo maneje
-        throw err;
       });
+      if (result === undefined) {
+        // Request was canceled
+        return false;
+      }
+      return result;
+    } catch (err) {
+      console.error('[useResource] Error al eliminar item:', err);
+      // Propagar el error para que AdminCRUDPage lo maneje
+      throw err;
     } finally {
       // Marcar CRUD como completado inmediatamente
       crudInProgress.current = false;

@@ -160,8 +160,12 @@ class AnimalsService extends BaseService<AnimalResponse> {
       gender,
       sex: gender, // Asegurar que el campo sex también esté disponible para compatibilidad
       status: this.normalizeStatus(item?.status ?? item?.estado),
-      father_id: item?.father_id ?? item?.idFather ?? item?.padre_id,
-      mother_id: item?.mother_id ?? item?.idMother ?? item?.madre_id,
+      // IMPORTANTE: Mantener idFather/idMother como campos principales (formato del backend)
+      idFather: item?.idFather ?? item?.father_id ?? item?.padre_id,
+      idMother: item?.idMother ?? item?.mother_id ?? item?.madre_id,
+      // Campos alternativos para compatibilidad
+      father_id: item?.idFather ?? item?.father_id ?? item?.padre_id,
+      mother_id: item?.idMother ?? item?.mother_id ?? item?.madre_id,
       notes: item?.notes ?? item?.observations ?? item?.observaciones,
       // Extras que la UI puede mostrar
       age_in_days,

@@ -100,6 +100,8 @@ function AdminBreedsPage() {
       pollIntervalMs={8000}
       refetchOnFocus={true}
       refetchOnReconnect={true}
+      // Activar hover mejorado con borde azul y fondo azul suave
+      enhancedHover={true}
     />
   );
 }

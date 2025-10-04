@@ -107,7 +107,7 @@ export interface CRUDFormSection<T> {
   }
 
 interface AdminCRUDPageProps<T extends { id: number }, TInput extends Record<string, any>> {
-  config: CRUDConfig<T, TInput>;  
+  config: CRUDConfig<T, TInput>;
   service: any; // BaseService instance
   initialFormData: TInput;
   mapResponseToForm?: (item: T) => TInput;
@@ -119,6 +119,8 @@ interface AdminCRUDPageProps<T extends { id: number }, TInput extends Record<str
   pollIntervalMs?: number;
   refetchOnFocus?: boolean;
   refetchOnReconnect?: boolean;
+  // Opciones de estilo hover personalizado
+  enhancedHover?: boolean; // Habilitar hover mejorado con borde azul y fondo azul suave
 }
 
 export function AdminCRUDPage<T extends { id: number }, TInput extends Record<string, any>>({
@@ -133,6 +135,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   pollIntervalMs,
   refetchOnFocus,
   refetchOnReconnect,
+  enhancedHover = false,
 }: AdminCRUDPageProps<T, TInput>) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const { showToast } = useToast();
@@ -163,13 +166,14 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
     return Math.max(5, Math.min(100, rows || 10));
   }, []);
 
-  const {
+const {
     data: items,
     loading,
     error,
     meta,
     setPage,
     setLimit,
+    setSearch,
     createItem,
     updateItem,
     deleteItem,
@@ -194,39 +198,46 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
 
   // Ref para guardar el snapshot anterior de displayItems sin causar re-renders
   const previousDisplayItemsRef = useRef<T[]>([]);
+  // Ref para rastrear si la inserción fue iniciada por el usuario (no por refrescos automáticos)
+  const isUserInsertedRef = useRef<boolean>(false);
 
   // Efecto para manejar la transición suave entre datos y scroll automático
   useEffect(() => {
     if (items && items.length > 0) {
       if (isFirstLoad) {
-        // Primera carga: mostrar datos inmediatamente
+        // Primera carga: mostrar datos inmediatamente SIN efectos
         setDisplayItems(items);
         previousDisplayItemsRef.current = items;
         setIsFirstLoad(false);
       } else {
-        // Detectar nuevos items para animación usando el ref del snapshot anterior
-        const currentIds = new Set(previousDisplayItemsRef.current.map(item => item.id));
-        const newIds = new Set<number | string>();
+        // Solo detectar items nuevos si fue una inserción manual del usuario
+        if (isUserInsertedRef.current) {
+          const currentIds = new Set(previousDisplayItemsRef.current.map(item => item.id));
+          const newIds = new Set<number | string>();
 
-        items.forEach(item => {
-          if (item.id && !currentIds.has(item.id)) {
-            newIds.add(item.id);
-          }
-        });
-
-        if (newIds.size > 0) {
-          setNewItems(newIds);
-          // Limpiar después de la animación mejorada (1200ms de animación + 800ms extra para que se aprecie completamente)
-          setTimeout(() => setNewItems(new Set()), 2000);
-
-          // Scroll automático al primer item nuevo después de que se renderice
-          setTimeout(() => {
-            const firstNewId = Array.from(newIds)[0];
-            const newRow = document.querySelector(`tr[data-item-id="${firstNewId}"]`);
-            if (newRow) {
-              newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          items.forEach(item => {
+            if (item.id && !currentIds.has(item.id)) {
+              newIds.add(item.id);
             }
-          }, 150); // Esperar un poco para que el DOM se actualice
+          });
+
+          if (newIds.size > 0) {
+            setNewItems(newIds);
+            // Limpiar después de la animación (1000ms de animación + 500ms extra)
+            setTimeout(() => setNewItems(new Set()), 1500);
+
+            // Scroll automático al primer item nuevo después de que se renderice
+            setTimeout(() => {
+              const firstNewId = Array.from(newIds)[0];
+              const newRow = document.querySelector(`tr[data-item-id="${firstNewId}"]`);
+              if (newRow) {
+                newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 200); // Delay para que la animación inicial se vea
+          }
+
+          // Resetear la flag después de procesar
+          isUserInsertedRef.current = false;
         }
 
         // Actualizar displayItems inmediatamente sin demora
@@ -258,8 +269,8 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
       onFormDataChange(data);
     }
   };
-  // leer query inicial desde ?q
-  const initialQ = (searchParams.get('q') || '').toString();
+// leer query inicial desde ?q y ?search
+  const initialQ = (searchParams.get('q') || searchParams.get('search') || '').toString();
   const [searchQuery, setSearchQuery] = useState<string>(initialQ);
   const lastSyncedQRef = useRef<string>(initialQ);
 
@@ -282,26 +293,15 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   }, [entityKey]);
   // No memoizamos los IDs de tombstones para evitar valores obsoletos tras múltiples eliminaciones
 
-  // Build filtered list based on search query
-  const normalizedQuery = (searchQuery || '').trim().toLowerCase();
+  // Filter items to exclude only tombstones; keep deleting items visible to show effect
   const filteredItems = useMemo(() => {
-    // Excluir temporalmente items marcados como eliminándose para evitar que reaparezcan
     const tombstoneIds = getTombstoneIds(entityKey);
-    const base = (currentItems || []).filter((i: T) => {
+    return (currentItems || []).filter((i: T) => {
       const idStr = String((i as any).id);
-      return !deletingItems.has(idStr) && !tombstoneIds.has(idStr);
+      // No ocultar elementos en proceso de eliminación para que se vea el borde rojo
+      return !tombstoneIds.has(idStr);
     });
-    if (!normalizedQuery) return base;
-    return base.filter((itemData: T) => {
-      const haystack = config.columns
-        .filter(col => col.filterable !== false)
-        .map(col => {
-          const value = itemData[col.key];
-          return value != null ? String(value).toLowerCase() : '';
-        });
-      return haystack.some(str => str.includes(normalizedQuery));
-    });
-  }, [currentItems, normalizedQuery, config.columns, deletingItems, entityKey, tombstoneVersion]);
+  }, [currentItems, entityKey, tombstoneVersion]);
 
   // Ordenamiento client-side con persistencia (aplicado a filteredItems)
   const visibleItems = useMemo(() => {
@@ -566,6 +566,9 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
           });
         }, 1000);
       } else {
+        // MARCAR que esta es una inserción manual del usuario
+        isUserInsertedRef.current = true;
+
         const createdItem = await createItem(formData as any);
         itemId = createdItem?.id;
         showToast(`✅ ${config.entityName} creado correctamente`, 'success');
@@ -586,49 +589,51 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         try { setPage(1); } catch { /* noop */ }
       }
 
-      // Refrescar datos SIN delays artificiales - confiar en la respuesta del backend
-      try {
-        await refetch();
-
-        // Verificar que el item creado/actualizado esté presente en la vista
-        const itemExists = items?.some((item: any) => String(item?.id) === String(itemId));
-
-        if (itemExists) {
-          console.log('[AdminCRUDPage] Refetch exitoso - item confirmado en la vista:', {
-            action: editingItem ? 'update' : 'create',
-            itemId,
-            currentDataLength: items?.length,
-            itemIds: items?.map((i: any) => i?.id)
-          });
-        } else if (!editingItem) {
-          // Solo loggear warning para creaciones (updates pueden estar en otra página)
-          console.warn('[AdminCRUDPage] Item creado pero NO aparece en la vista después del refetch:', {
-            itemId,
-            currentDataLength: items?.length,
-            currentPage,
-            pageSize,
-            itemIds: items?.map((i: any) => i?.id),
-            message: 'El item debería aparecer gracias al merge inteligente de useResource. Si ve este mensaje, revise la lógica de merge.'
-          });
-        }
-      } catch (error: any) {
-        // Solo loggear errores reales (no cancelaciones)
-        if (error?.code !== 'ERR_CANCELED' && !String(error?.message || '').toLowerCase().includes('cancel')) {
-          console.error('[AdminCRUDPage] Error al refrescar datos después de CRUD:', {
-            action: editingItem ? 'update' : 'create',
-            itemId,
-            error: {
-              message: error?.message,
-              code: error?.code,
-              response: error?.response?.data,
-              status: error?.response?.status
-            }
-          });
-        }
-      }
-
-      // Cerrar modal después de refrescar para evitar que el usuario vea datos viejos
+      // CERRAR MODAL INMEDIATAMENTE para apreciar las animaciones
       handleModalClose();
+
+      // Refrescar datos DESPUÉS de cerrar modal - delay mínimo para que el modal se cierre
+      setTimeout(async () => {
+        try {
+          const freshData = await refetch();
+
+          // Verificar que el item creado/actualizado esté presente en la vista
+          const itemExists = (freshData || []).some((item: any) => String(item?.id) === String(itemId));
+
+          if (itemExists) {
+            console.log('[AdminCRUDPage] Refetch exitoso - item confirmado en la vista:', {
+              action: editingItem ? 'update' : 'create',
+              itemId,
+              currentDataLength: freshData?.length,
+              itemIds: freshData?.map((i: any) => i?.id)
+            });
+          } else if (!editingItem) {
+            // Solo loggear warning para creaciones (updates pueden estar en otra página)
+            console.warn('[AdminCRUDPage] Item creado pero NO aparece en la vista después del refetch:', {
+              itemId,
+              currentDataLength: freshData?.length,
+              currentPage,
+              pageSize,
+              itemIds: freshData?.map((i: any) => i?.id),
+              message: 'El item debería aparecer gracias al merge inteligente de useResource. Si ve este mensaje, revise la lógica de merge.'
+            });
+          }
+        } catch (error: any) {
+          // Solo loggear errores reales (no cancelaciones)
+          if (error?.code !== 'ERR_CANCELED' && !String(error?.message || '').toLowerCase().includes('cancel')) {
+            console.error('[AdminCRUDPage] Error al refrescar datos después de CRUD:', {
+              action: editingItem ? 'update' : 'create',
+              itemId,
+              error: {
+                message: error?.message,
+                code: error?.code,
+                response: error?.response?.data,
+                status: error?.response?.status
+              }
+            });
+          }
+        }
+      }, 150); // 150ms para que el modal se cierre suavemente
     } catch (error: any) {
       // Extraer mensaje de error detallado del backend
       let errorMessage = `${t('crud.save_error', 'Error al guardar')} ${config.entityName.toLowerCase()}`;
@@ -704,10 +709,13 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground h-3.5 w-3.5" />
-            <Input
+<Input
               placeholder={config.searchPlaceholder || `${t('common.search', 'Buscar...')} ${config.entityName.toLowerCase()}s...`}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSearch?.(e.target.value);
+              }}
               className="pl-7 w-44 sm:w-56 h-7 text-xs sm:text-sm"
             />
           </div>
@@ -801,11 +809,13 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
     setDeletingItems(prev => new Set(prev).add(String(targetId)));
 
     try {
-
       const success = await deleteItem(targetId);
 
       if (success) {
         showToast(`🗑️ ${config.entityName} eliminado correctamente`, 'success');
+
+        // Esperar para que se vea claramente la animación de eliminación (borde rojo)
+        await new Promise(resolve => setTimeout(resolve, 1200));
 
         // Registrar tombstone extendido para ocultar temporalmente si el backend aún lo devuelve
         // 120 segundos (2 minutos) para dar tiempo a que el backend propague la eliminación
@@ -832,38 +842,52 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
           setPage(currentPage - 1);
         }
 
-        // Refrescar SIN delays - confiar en la respuesta del backend
+        // Dar tiempo adicional a la animación y al backend para sincronizar
+        await new Promise(resolve => setTimeout(resolve, 1200));
+
+        // Refrescar después del delay
         try {
-          await refetch();
+          const freshData = await refetch();
 
           // Verificar si el elemento fue correctamente eliminado
-          // IMPORTANTE: verificar en `items` (datos frescos del servidor), no en `currentItems` (memoizado)
-          const itemStillExists = (items || []).some((i: any) => String(i?.id) === String(targetId));
+          // IMPORTANTE: usar freshData (respuesta directa del refetch) en lugar de items (puede estar desactualizado)
+          const itemStillExists = (freshData || []).some((i: any) => String(i?.id) === String(targetId));
 
           if (!itemStillExists) {
             // Éxito: el item ya no existe en el backend
-            setDeletingItems(prev => {
-              const newSet = new Set(prev);
-              newSet.delete(String(targetId));
-              return newSet;
-            });
-
-            // Actualizar displayItems inmediatamente para sincronizar con los datos del servidor
-            setDisplayItems(items || []);
-
             console.log('[AdminCRUDPage] Item eliminado y confirmado por el servidor:', {
               id: targetId,
-              itemsInView: (items || []).map((i: any) => i?.id)
+              itemsInView: (freshData || []).map((i: any) => i?.id)
             });
           } else {
-            // El backend aún devuelve el item - loggear para debugging
-            console.warn('[AdminCRUDPage] Item eliminado localmente pero aún aparece en respuesta del servidor:', {
+            // El backend aún devuelve el item - intentar un segundo refetch después de 500ms
+            console.warn('[AdminCRUDPage] Item eliminado localmente pero aún aparece en respuesta del servidor, reintentando...:', {
               id: targetId,
-              serverItems: (items || []).map((i: any) => ({ id: i?.id })),
-              message: 'El servidor aún devuelve este item. Puede ser un problema de sincronización del backend.'
+              serverItems: (freshData || []).map((i: any) => ({ id: i?.id })),
+              message: 'El servidor aún devuelve este item. Reintentando refetch...'
             });
-            // El tombstone + polling regular eventualmente sincronizará
+
+            // Segundo intento después de 500ms adicionales
+            await new Promise(resolve => setTimeout(resolve, 500));
+            const freshData2 = await refetch();
+            const stillExists2 = (freshData2 || []).some((i: any) => String(i?.id) === String(targetId));
+
+            if (stillExists2) {
+              console.warn('[AdminCRUDPage] Item aún aparece después del segundo intento. Puede ser un problema del backend:', {
+                id: targetId,
+                serverItems: (freshData2 || []).map((i: any) => ({ id: i?.id }))
+              });
+            } else {
+              console.log('[AdminCRUDPage] Item eliminado confirmado en segundo intento');
+            }
           }
+
+          // Siempre quitar del estado deleting después del refetch (exitoso o no)
+          setDeletingItems(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(String(targetId));
+            return newSet;
+          });
         } catch (error: any) {
           if (error?.code !== 'ERR_CANCELED' && !String(error?.message || '').toLowerCase().includes('cancel')) {
             console.error('[AdminCRUDPage] Error al refrescar datos después de eliminar:', {
@@ -876,6 +900,12 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
               }
             });
           }
+          // Quitar de deletingItems incluso si el refetch falla
+          setDeletingItems(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(String(targetId));
+            return newSet;
+          });
         }
       } else {
         showToast(`Error al eliminar ${config.entityName.toLowerCase()}`, 'error');
@@ -905,8 +935,9 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         errorMessage = `⚠️ Este ${config.entityName.toLowerCase()} ya fue eliminado previamente. La vista se actualizará automáticamente.`;
         shouldRefetch = true;
 
-        // Registrar tombstone extendido para ocultar temporalmente el registro
+        // Esperar para mostrar el efecto de eliminación antes de ocultar con tombstone
         if (targetId != null) {
+          await new Promise(resolve => setTimeout(resolve, 1200));
           addTombstone(entityKey, String(targetId), 120000);
           setTombstoneVersion((v) => v + 1);
         }
@@ -949,8 +980,16 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
       }
       // Manejo de errores de red o servidor
       else if (status === 500) {
-        errorMessage = `⚠️ Error del servidor al eliminar ${config.entityName.toLowerCase()}. Intente nuevamente.`;
-        shouldRefetch = true;
+        // Extraer trace ID si está disponible para ayudar con debugging
+        const traceId = error?.response?.data?.trace_id;
+        errorMessage = `⚠️ Error del servidor al eliminar ${config.entityName.toLowerCase()}. ${traceId ? `(ID: ${traceId})` : ''} Por favor contacte al administrador del sistema.`;
+        console.error('[AdminCRUDPage] Error 500 del servidor:', {
+          entityName: config.entityName,
+          targetId,
+          traceId,
+          errorData: error?.response?.data
+        });
+        shouldRefetch = false; // No refetch en error 500 para evitar loops
       } else if (status === 403) {
         errorMessage = `⚠️ No tiene permisos para eliminar este ${config.entityName.toLowerCase()}.`;
       } else if (!status) {
@@ -1029,29 +1068,30 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   return (
     <AppLayout
       header={header}
-      className="px-2 sm:px-3 pt-0 sm:pt-0 pb-0 sm:pb-0 md:pb-0 lg:pb-0 max-w-screen-2xl min-h-0"
-      contentClassName="space-y-0"
+      className="px-2 sm:px-3 pt-0 sm:pt-0 pb-0 sm:pb-0 md:pb-0 lg:pb-0 max-w-screen-2xl min-h-0 flex flex-col h-full"
+      contentClassName="space-y-0 flex-1 flex flex-col min-h-0"
     >
-      <div className="space-y-1">
+      <div className="flex-shrink-0">
         <Toolbar />
+      </div>
 
-        {empty ? (
-          <EmptyState
-            title={config.emptyStateMessage || `${t('state.empty.title', 'Sin datos')}: ${config.entityName}`}
-            description={config.emptyStateDescription || t('state.empty.description', 'Crea el primer registro para comenzar.')}
-            action={config.enableCreateModal !== false && (
-              <Button onClick={openCreate} aria-label={`${t('common.create', 'Crear')} ${config.entityName.toLowerCase()}`}><strong>{t('common.create', 'Crear')} {config.entityName.toLowerCase()}</strong></Button>
-            )}
-          />
-        ) : (
-          <div className="bg-card border rounded-lg shadow-sm overflow-hidden">
-            <div
-              ref={tableWrapperRef}
-              className="overflow-x-auto overflow-y-auto"
-              style={{
-                maxHeight: wrapperMaxHeight != null ? `${wrapperMaxHeight}px` : undefined,
-              }}
-            >
+      {empty ? (
+        <EmptyState
+          title={config.emptyStateMessage || `${t('state.empty.title', 'Sin datos')}: ${config.entityName}`}
+          description={config.emptyStateDescription || t('state.empty.description', 'Crea el primer registro para comenzar.')}
+          action={config.enableCreateModal !== false && (
+            <Button onClick={openCreate} aria-label={`${t('common.create', 'Crear')} ${config.entityName.toLowerCase()}`}><strong>{t('common.create', 'Crear')} {config.entityName.toLowerCase()}</strong></Button>
+          )}
+        />
+      ) : (
+        <div className="bg-card border rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col min-h-0 mt-1">
+          <div
+            ref={tableWrapperRef}
+            className="overflow-x-auto overflow-y-auto flex-1"
+            style={{
+              maxHeight: wrapperMaxHeight != null ? `${wrapperMaxHeight}px` : undefined,
+            }}
+          >
               <table
                 ref={tableRef}
                 className="min-w-full divide-y divide-border/70 text-[12px] md:text-sm"
@@ -1099,8 +1139,17 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                       key={item.id}
                       data-item-id={item.id}
                       className={cn(
-                        "hover:bg-muted/40 h-8 md:h-9 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:bg-muted/50",
+                        "h-8 md:h-9 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:bg-muted/50",
                         "transition-all duration-300 relative overflow-visible",
+                        // Hover mejorado cuando enhancedHover está activado - verde como el efecto de inserción
+                        enhancedHover ? cn(
+                          "hover:bg-gradient-to-r hover:from-emerald-50/60 hover:via-green-100/50 hover:to-emerald-50/60",
+                          "dark:hover:from-emerald-950/30 dark:hover:via-emerald-900/25 dark:hover:to-emerald-950/30",
+                          "hover:border-l-4 hover:border-green-500 dark:hover:border-green-400",
+                          "hover:shadow-[0_2px_8px_rgba(16,185,129,0.25),inset_0_1px_0_rgba(255,255,255,0.1)]",
+                          "dark:hover:shadow-[0_2px_8px_rgba(16,185,129,0.15),inset_0_1px_0_rgba(255,255,255,0.05)]",
+                          "hover:scale-[1.005] hover:z-10"
+                        ) : "hover:bg-muted/40",
                         // Efecto de eliminación MEJORADO: shake + compresión + slide out + borde rojo grueso
                         isDeleting && cn(
                           "animate-item-deleting z-20",
@@ -1220,7 +1269,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
             </div>
 
             {/* Pagination footer */}
-            <div ref={footerRef} className="sticky bottom-0 z-10 bg-card/95 border-t backdrop-blur-sm shadow-sm">
+            <div ref={footerRef} className="sticky bottom-0 z-10 bg-card/95 border-t backdrop-blur-sm shadow-sm flex-shrink-0">
               <div className="px-2 py-2">
                 <div className="flex justify-end items-center text-[12px] md:text-sm">
                   <div className="flex items-center gap-3">
@@ -1789,7 +1838,6 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
           detailedMessage={dependencyCheckResult?.detailedMessage}
           dependencies={dependencyCheckResult?.dependencies}
         />
-      </div>
     </AppLayout>
   );
 }
