@@ -453,6 +453,7 @@ function AdminAnimalsPage() {
         validateForm={validateForm}
         customDetailContent={renderAnimalDetail}
         onFormDataChange={setFormData}
+        enhancedHover={true}
       />
 
       {isHistoryOpen && historyAnimal && (

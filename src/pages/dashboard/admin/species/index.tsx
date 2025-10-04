@@ -72,6 +72,7 @@ const AdminSpeciesPage = () => (
     initialFormData={initialFormData}
     mapResponseToForm={mapResponseToForm}
     validateForm={validateForm}
+    enhancedHover={true}
   />
 );
 

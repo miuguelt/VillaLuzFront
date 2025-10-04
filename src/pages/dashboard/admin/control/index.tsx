@@ -306,6 +306,7 @@ const AdminControlPage: React.FC = () => {
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
       customDetailContent={makeCustomDetailContent(animalOptions)}
+      enhancedHover={true}
     />
   );
 };

@@ -151,6 +151,7 @@ const AdminTreatmentVaccinesPage: React.FC = () => {
       initialFormData={initialFormData}
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
+      enhancedHover={true}
     />
   );
 };

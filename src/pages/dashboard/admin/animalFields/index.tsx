@@ -254,6 +254,7 @@ function AdminAnimalFieldsPage() {
         initialFormData={initialFormData}
         mapResponseToForm={mapResponseToForm}
         validateForm={validateForm}
+        enhancedHover={true}
       />
 
       {/* Modal para crear nuevo campo */}

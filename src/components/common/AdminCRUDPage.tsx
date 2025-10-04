@@ -1,6 +1,6 @@
-/* 
+/*
  * AdminCRUDPage
- * 
+ *
  * Contrato de configuración (CRUDConfig):
  * - columns: Array de columnas con { key, label, sortable?, filterable?, width?, render? }
  *   - width es number (nuevo contrato) y se mapea internamente a clase Tailwind "w-{n}".
@@ -8,7 +8,7 @@
  * - formSections: Estructura del formulario de creación/edición.
  * - customToolbar/customFilters: Elementos opcionales para la barra de acciones.
  * - enableCreateModal/enableEditModal/enableDelete/enableDetailModal: Opciones de capacidades.
- * 
+ *
  * Soporta:
  * - Búsqueda client-side con debounce (300ms) sincronizada a query params (?q=...).
  * - Ordenamiento client-side con persistencia en URL (?sort y ?dir) y aria-sort en encabezados.
@@ -16,9 +16,44 @@
  * - Confirmación accesible al eliminar mediante ConfirmDialog.
  * - Skeletons de carga para la tabla respetando el patrón visual.
  * - i18n con useT para textos comunes y toasts de feedback en crear/editar/eliminar.
- * 
+ *
  * Expectativas del servicio (useResource):
  * - No se cambian contratos ni signaturas. Sorting y búsqueda son client-side por defecto.
+ *
+ * ========================================
+ * 🎨 SISTEMA DE EFECTOS VISUALES POR COLOR
+ * ========================================
+ *
+ * Para una experiencia de usuario clara y sin confusiones:
+ *
+ * 🔵 AZUL (Hover):
+ *    - Cuándo: Al pasar el mouse sobre CUALQUIER elemento de la tabla
+ *    - Efecto: Borde azul izquierdo (6px) + sombra azul suave + ring azul
+ *    - Propósito: Indicar interactividad
+ *
+ * 🟢 VERDE (Inserción manual):
+ *    - Cuándo: SOLO cuando el usuario crea manualmente un nuevo elemento (createItem)
+ *    - NO aparece al: listar, refrescar, cambiar página, cargar inicialmente
+ *    - Efecto: Borde verde intenso (8px) + animación dramática + brillo + confetti
+ *    - Duración: 1.5 segundos
+ *    - Control: isUserInsertedRef.current debe ser true
+ *
+ * 🔴 ROJO (Eliminación):
+ *    - Cuándo: Al eliminar un elemento (deleteItem)
+ *    - Efecto: Borde rojo intenso (8px) + shake + compresión + slide out + tachado
+ *    - Duración: Variable según animación
+ *
+ * 🟡 AMARILLO (Actualización):
+ *    - Cuándo: Al actualizar un elemento existente (updateItem)
+ *    - Efecto: Borde amarillo/ámbar (6px) + pulso suave
+ *    - Duración: 1 segundo
+ *
+ * ⚪ SIN EFECTO (Listado normal):
+ *    - Cuándo: Al listar elementos existentes, refrescar datos, cambiar página
+ *    - Efecto: Ninguno (aparecen normales sin colores)
+ *    - Propósito: No confundir al usuario con elementos que ya existían
+ *
+ * ========================================
  */
 import { EmptyState } from '@/components/feedback/EmptyState';
 import React, { useEffect, useState, useRef, useMemo, memo } from 'react';
@@ -200,44 +235,61 @@ const {
   const previousDisplayItemsRef = useRef<T[]>([]);
   // Ref para rastrear si la inserción fue iniciada por el usuario (no por refrescos automáticos)
   const isUserInsertedRef = useRef<boolean>(false);
+  // Ref para guardar el ID del item recién creado y evitar efectos duplicados
+  const justCreatedItemIdRef = useRef<number | string | null>(null);
 
   // Efecto para manejar la transición suave entre datos y scroll automático
+  // IMPORTANTE: Este efecto SOLO muestra animación verde cuando isUserInsertedRef.current === true
+  // Esto previene que aparezcan efectos verdes al:
+  //  - Listar elementos existentes (carga inicial)
+  //  - Refrescar datos (polling/realtime)
+  //  - Cambiar de página
+  //  - Volver a la vista después de navegar
   useEffect(() => {
     if (items && items.length > 0) {
       if (isFirstLoad) {
-        // Primera carga: mostrar datos inmediatamente SIN efectos
+        // Primera carga: mostrar datos inmediatamente SIN efectos de color
+        console.log('[AdminCRUDPage] Primera carga - SIN efectos verdes');
         setDisplayItems(items);
         previousDisplayItemsRef.current = items;
         setIsFirstLoad(false);
       } else {
-        // Solo detectar items nuevos si fue una inserción manual del usuario
-        if (isUserInsertedRef.current) {
-          const currentIds = new Set(previousDisplayItemsRef.current.map(item => item.id));
-          const newIds = new Set<number | string>();
+        // Solo detectar items nuevos si fue una inserción manual del usuario (createItem)
+        if (isUserInsertedRef.current && justCreatedItemIdRef.current) {
+          console.log('[AdminCRUDPage] Inserción manual detectada - Buscando item específico:', justCreatedItemIdRef.current);
 
-          items.forEach(item => {
-            if (item.id && !currentIds.has(item.id)) {
-              newIds.add(item.id);
-            }
-          });
+          // Buscar SOLO el item específico que acabamos de crear
+          const createdItem = items.find(item => String(item.id) === String(justCreatedItemIdRef.current));
 
-          if (newIds.size > 0) {
+          if (createdItem && createdItem.id) {
+            console.log('[AdminCRUDPage] 🟢 Item creado encontrado - Aplicando efecto verde a:', createdItem.id);
+            const newIds = new Set<number | string>([createdItem.id]);
             setNewItems(newIds);
-            // Limpiar después de la animación (1000ms de animación + 500ms extra)
-            setTimeout(() => setNewItems(new Set()), 1500);
 
-            // Scroll automático al primer item nuevo después de que se renderice
+            // Limpiar después de la animación (1000ms de animación + 500ms extra)
             setTimeout(() => {
-              const firstNewId = Array.from(newIds)[0];
-              const newRow = document.querySelector(`tr[data-item-id="${firstNewId}"]`);
+              console.log('[AdminCRUDPage] Limpiando efecto verde');
+              setNewItems(new Set());
+              justCreatedItemIdRef.current = null; // Limpiar el ID guardado
+            }, 1500);
+
+            // Scroll automático al item nuevo después de que se renderice
+            setTimeout(() => {
+              const newRow = document.querySelector(`tr[data-item-id="${createdItem.id}"]`);
               if (newRow) {
                 newRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }
-            }, 200); // Delay para que la animación inicial se vea
-          }
+            }, 200);
 
-          // Resetear la flag después de procesar
-          isUserInsertedRef.current = false;
+            // Resetear la flag SOLO después de aplicar el efecto exitosamente
+            isUserInsertedRef.current = false;
+            console.log('[AdminCRUDPage] ✅ Efecto verde aplicado - Flag reseteada');
+          } else {
+            console.log('[AdminCRUDPage] ⚠️ Item creado aún no aparece en la lista - Manteniendo flag activa para próximo refetch');
+            // NO resetear isUserInsertedRef para que se intente de nuevo en el próximo refetch
+          }
+        } else {
+          console.log('[AdminCRUDPage] Actualización normal - SIN efecto verde');
         }
 
         // Actualizar displayItems inmediatamente sin demora
@@ -566,17 +618,24 @@ const {
           });
         }, 1000);
       } else {
-        // MARCAR que esta es una inserción manual del usuario
-        isUserInsertedRef.current = true;
+        // ✅ MARCAR que esta es una inserción manual del usuario
+        // Esta flag activa el efecto verde SOLO para este item específico
+        // NO se activará para:
+        //  - Elementos listados normalmente
+        //  - Refrescos automáticos (realtime)
+        //  - Cambios de página
 
         const createdItem = await createItem(formData as any);
         itemId = createdItem?.id;
-        showToast(`✅ ${config.entityName} creado correctamente`, 'success');
 
-        console.log('[AdminCRUDPage] Item creado, capturado ID:', {
-          createdItem,
-          itemId
-        });
+        // Guardar el ID del item recién creado ANTES de activar la flag
+        if (itemId) {
+          justCreatedItemIdRef.current = itemId;
+          isUserInsertedRef.current = true;
+          console.log('[AdminCRUDPage] ✅ Item creado manualmente - ID guardado:', itemId);
+        }
+
+        showToast(`✅ ${config.entityName} creado correctamente`, 'success');
 
         // Volver a la página 1 después de crear para ver el nuevo registro
         if (setPage && meta?.page && meta.page > 1) {
@@ -1102,7 +1161,7 @@ const {
                       return (
                         <th
                           key={String(col.key)}
-                          className={`px-2 py-1 text-left text-[11px] md:text-xs font-medium text-muted-foreground uppercase tracking-wider ${col.width ? `w-${col.width}` : ''} ${col.sortable === false ? '' : 'cursor-pointer select-none'}`}
+                          className={`px-1.5 sm:px-2 py-1 text-left text-[10px] sm:text-[11px] md:text-xs font-medium text-muted-foreground uppercase tracking-wider ${col.width ? `w-${col.width}` : ''} ${col.sortable === false ? '' : 'cursor-pointer select-none'} truncate`}
                           onClick={col.sortable === false ? undefined : () => toggleSort(col.key)}
                           aria-sort={
                             sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : sortDir === 'desc' ? 'descending' : 'none') : 'none'
@@ -1122,17 +1181,19 @@ const {
                       );
                     })}
                     {(config.enableDelete || config.customActions) && (
-                      <th className="px-2 py-1 text-left text-[11px] md:text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        {t('common.actions', 'Acciones')}
+                      <th className="px-1 sm:px-2 py-1 text-left text-[10px] sm:text-[11px] md:text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        <span className="hidden sm:inline">{t('common.actions', 'Acciones')}</span>
+                        <span className="sm:hidden">Acc.</span>
                       </th>
                     )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60 bg-card">
                   {visibleItems.map((item, index: number) => {
-                    const isDeleting = deletingItems.has(String(item.id!));
-                    const isNew = newItems.has(item.id!);
-                    const isUpdated = updatedItems.has(item.id!);
+                    // Determinar qué efectos visuales aplicar a este item
+                    const isDeleting = deletingItems.has(String(item.id!));  // 🔴 Rojo al eliminar
+                    const isNew = newItems.has(item.id!);                    // 🟢 Verde al insertar (SOLO si isUserInsertedRef.current fue true)
+                    const isUpdated = updatedItems.has(item.id!);            // 🟡 Amarillo al actualizar
 
                     return (
                     <tr
@@ -1141,16 +1202,17 @@ const {
                       className={cn(
                         "h-8 md:h-9 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:bg-muted/50",
                         "transition-all duration-300 relative overflow-visible",
-                        // Hover mejorado cuando enhancedHover está activado - verde como el efecto de inserción
+                        // 🔵 Hover: AZUL con bordes y sombras - aparece al pasar el mouse sobre CUALQUIER elemento
                         enhancedHover ? cn(
-                          "hover:bg-gradient-to-r hover:from-emerald-50/60 hover:via-green-100/50 hover:to-emerald-50/60",
-                          "dark:hover:from-emerald-950/30 dark:hover:via-emerald-900/25 dark:hover:to-emerald-950/30",
-                          "hover:border-l-4 hover:border-green-500 dark:hover:border-green-400",
-                          "hover:shadow-[0_2px_8px_rgba(16,185,129,0.25),inset_0_1px_0_rgba(255,255,255,0.1)]",
-                          "dark:hover:shadow-[0_2px_8px_rgba(16,185,129,0.15),inset_0_1px_0_rgba(255,255,255,0.05)]",
-                          "hover:scale-[1.005] hover:z-10"
+                          "hover:bg-gradient-to-r hover:from-blue-50/70 hover:via-blue-100/60 hover:to-blue-50/70",
+                          "dark:hover:from-blue-950/40 dark:hover:via-blue-900/35 dark:hover:to-blue-950/40",
+                          "hover:border-l-[6px] hover:border-r-2 hover:border-blue-500 dark:hover:border-blue-400",
+                          "hover:shadow-[0_3px_12px_rgba(59,130,246,0.4),inset_0_1px_2px_rgba(255,255,255,0.15),0_0_0_1px_rgba(59,130,246,0.3)]",
+                          "dark:hover:shadow-[0_3px_12px_rgba(59,130,246,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),0_0_0_1px_rgba(59,130,246,0.25)]",
+                          "hover:scale-[1.008] hover:z-10",
+                          "hover:ring-1 hover:ring-blue-400/50 dark:hover:ring-blue-500/40"
                         ) : "hover:bg-muted/40",
-                        // Efecto de eliminación MEJORADO: shake + compresión + slide out + borde rojo grueso
+                        // 🔴 ROJO: Efecto de eliminación - shake + compresión + slide out + borde rojo grueso
                         isDeleting && cn(
                           "animate-item-deleting z-20",
                           "bg-gradient-to-r from-red-100 via-red-200/90 to-red-100",
@@ -1164,7 +1226,8 @@ const {
                           "after:h-[2px] after:top-1/2 after:-translate-y-1/2",
                           "after:animate-[slideIn_0.3s_ease-out]"
                         ),
-                        // Efecto de creación MEJORADO: entrada dramática + brillo + partículas + shine
+                        // 🟢 VERDE: Efecto de creación SOLO cuando el usuario inserta manualmente
+                        // NO aparece al: listar, refrescar, cambiar página, o cargar inicialmente
                         isNew && cn(
                           "animate-item-created z-30",
                           "bg-gradient-to-r from-emerald-100 via-green-200/95 to-emerald-100",
@@ -1182,7 +1245,7 @@ const {
                           "after:bg-green-500 after:animate-confetti after:shadow-[0_0_10px_rgba(34,197,94,0.8)]",
                           "after:opacity-0"
                         ),
-                        // Efecto de actualización: pulso de color amarillo/naranja
+                        // 🟡 AMARILLO: Efecto de actualización - pulso de color amarillo/naranja
                         isUpdated && !isNew && !isDeleting && cn(
                           "animate-item-updated z-25",
                           "border-l-6 border-amber-500 dark:border-amber-400",
@@ -1204,7 +1267,7 @@ const {
                      {config.columns.map((col) => (
                        <td
                          key={String(col.key)}
-                         className={`px-2 py-1 whitespace-nowrap text-[11px] md:text-xs ${col.width ? `w-${col.width}` : ''} truncate max-w-[240px]`}
+                         className={`px-1.5 sm:px-2 py-1 whitespace-nowrap text-[11px] md:text-xs ${col.width ? `w-${col.width}` : ''} truncate max-w-[120px] sm:max-w-[180px] md:max-w-[240px]`}
                          title={col.render ? undefined : (fkLabelMap[String(col.key)]?.get(String((item as any)[col.key])) ?? String((item as any)[col.key] ?? ''))}
                        >
                          {col.render
@@ -1217,43 +1280,43 @@ const {
                        </td>
                      ))}
                       {(config.enableDetailModal !== false || config.enableEditModal !== false || config.enableDelete || config.customActions) && (
-                        <td className="px-2 py-1 whitespace-nowrap text-[11px] md:text-xs font-medium" onClick={(e) => e.stopPropagation()} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} >
-                          <div className="flex items-center gap-1">
+                        <td className="px-1 sm:px-2 py-1 whitespace-nowrap text-[11px] md:text-xs font-medium" onClick={(e) => e.stopPropagation()} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} >
+                          <div className="flex items-center gap-0.5 sm:gap-1">
                             {config.enableDetailModal !== false && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                                 onClick={(e) => { e.stopPropagation(); openDetail(item); }}
                                 aria-label={`${t('common.view', 'Ver')} ${config.entityName.toLowerCase()} ${item.id}`}
                               >
-                                <Eye className="h-4 w-4" />
+                                <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                               </Button>
                             )}
                             {config.enableEditModal !== false && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 hover:bg-amber-50 hover:text-amber-600 transition-colors"
+                                className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-amber-50 hover:text-amber-600 transition-colors"
                                 onClick={(e) => { e.stopPropagation(); openEdit(item); }}
                                 aria-label={`${t('common.edit', 'Editar')} ${config.entityName.toLowerCase()} ${item.id}`}
                               >
-                                <Edit className="h-4 w-4" />
+                                <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                               </Button>
                             )}
                             {config.enableDelete && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-red-50 hover:text-red-600 transition-colors"
                                 onClick={(e) => openDeleteConfirm(item.id, e)}
                                 disabled={deletingId === item.id}
                                 aria-label={`${t('common.delete', 'Eliminar')} ${config.entityName.toLowerCase()} ${item.id}`}
                               >
                                 {deletingId === item.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
                                 ) : (
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                                 )}
                               </Button>
                             )}
@@ -1270,29 +1333,31 @@ const {
 
             {/* Pagination footer */}
             <div ref={footerRef} className="sticky bottom-0 z-10 bg-card/95 border-t backdrop-blur-sm shadow-sm flex-shrink-0">
-              <div className="px-2 py-2">
-                <div className="flex justify-end items-center text-[12px] md:text-sm">
-                  <div className="flex items-center gap-3">
-                    <span className="text-[12px] md:text-sm text-muted-foreground">
-                      {t('common.page', 'Página')} {currentPage} {t('common.of', 'de')} {Math.max(totalPages, 1)}
+              <div className="px-2 py-1.5 sm:py-2">
+                <div className="flex justify-between sm:justify-end items-center text-[11px] sm:text-[12px] md:text-sm">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-[11px] sm:text-[12px] md:text-sm text-muted-foreground">
+                      <span className="hidden sm:inline">{t('common.page', 'Página')} </span>
+                      <span className="sm:hidden">Pág. </span>
+                      {currentPage} <span className="hidden sm:inline">{t('common.of', 'de')}</span><span className="sm:hidden">/</span> {Math.max(totalPages, 1)}
                     </span>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 sm:gap-2">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={loading || currentPage <= 1}
                         aria-label={t('common.previous', 'Anterior')}
-                        className="inline-flex items-center justify-center rounded-md border border-input bg-background h-9 w-9 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                        className="inline-flex items-center justify-center rounded-md border border-input bg-background h-7 w-7 sm:h-9 sm:w-9 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
                       >
-                        <ChevronLeft className="h-4 w-4" aria-hidden />
+                        <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
                       </button>
 
                       <button
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={loading || currentPage >= totalPages}
                         aria-label={t('common.next', 'Siguiente')}
-                        className="inline-flex items-center justify-center rounded-md border border-input bg-background h-9 w-9 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                        className="inline-flex items-center justify-center rounded-md border border-input bg-background h-7 w-7 sm:h-9 sm:w-9 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
                       >
-                        <ChevronRight className="h-4 w-4" aria-hidden />
+                        <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
                       </button>
                     </div>
                   </div>

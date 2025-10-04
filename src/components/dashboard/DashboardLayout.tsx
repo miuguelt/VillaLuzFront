@@ -51,14 +51,18 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <div className="flex flex-1 min-h-0">
           <RoleBasedSideBar {...sidebarProps} />
 
-          <main 
+          <main
             className={cn(
-              "flex-1 min-h-0 overflow-auto bg-gradient-to-b from-gray-300 scrollbar-hide transition-all duration-300 ease-in-out",
+              "flex-1 min-h-0 overflow-auto scrollbar-hide transition-all duration-300 ease-in-out flex flex-col",
               isDesktop ? `ml-[${sidebarWidth + 4}px]` : "ml-0"
             )}
           >
-            {/* Eliminar min-h calculada que forzaba altura adicional */}
-            {children}
+            {/* Contenido principal con gradiente */}
+            <div className="flex-1 min-h-full bg-gradient-to-b from-gray-300">
+              {children}
+            </div>
+
+            {/* Footer pegado al final sin espacios ni margen */}
             <Footer />
           </main>
 
@@ -68,7 +72,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               onClick={() => setIsSidebarOpen(false)}
             ></div>
           )}
-          
+
           {/* Monitor de rendimiento solo en desarrollo */}
           {viteEnv.DEV && viteEnv.VITE_ENABLE_PERFORMANCE_MONITORING === 'true' && (
             <Suspense fallback={<div className="flex justify-center items-center p-4"><span className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></span> Cargando monitor...</div>}>

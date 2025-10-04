@@ -232,6 +232,7 @@ function AdminMedicationsPage() {
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
       customDetailContent={renderDetail}
+      enhancedHover={true}
     />
   );
 }

@@ -268,6 +268,7 @@ const AdminTreatmentsPage: React.FC = () => {
         initialFormData={initialFormData}
         mapResponseToForm={mapResponseToForm}
         validateForm={validateForm}
+        enhancedHover={true}
       />
 
       {/* Modal de Insumos (Vacunas y Medicamentos) */}

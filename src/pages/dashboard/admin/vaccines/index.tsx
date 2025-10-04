@@ -135,6 +135,7 @@ function AdminVaccinesPage() {
       initialFormData={initialFormData}
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
+      enhancedHover={true}
     />
   );
 }

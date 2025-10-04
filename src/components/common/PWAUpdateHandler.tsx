@@ -68,7 +68,7 @@ export function PWAUpdateHandler() {
   };
 
   if (!updateAvailable) {
-    // Indicador de estado de conexión en modo offline
+    // Indicador de estado de conexión SOLO en modo offline
     if (!isOnline) {
       return (
         <div className="fixed bottom-4 right-4 z-50 animate-fade-in">
@@ -85,18 +85,7 @@ export function PWAUpdateHandler() {
       );
     }
 
-    // Indicador de conexión online
-    if (isOnline) {
-      return (
-        <div className="fixed bottom-4 right-4 z-50">
-          <div className="flex items-center space-x-1 text-green-600 bg-green-50 px-2 py-1 rounded-full text-xs">
-            <Wifi className="h-3 w-3" />
-            <span>Online</span>
-          </div>
-        </div>
-      );
-    }
-
+    // No mostrar nada cuando está online (mensaje eliminado)
     return null;
   }
 

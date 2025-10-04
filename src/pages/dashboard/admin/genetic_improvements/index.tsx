@@ -281,6 +281,7 @@ const AdminGeneticImprovementsPage = () => {
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
       customDetailContent={customDetailContent}
+      enhancedHover={true}
     />
   );
 };
