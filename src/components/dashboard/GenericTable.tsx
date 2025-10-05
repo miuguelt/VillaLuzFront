@@ -10,7 +10,7 @@ import {
   TableCaption,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, ChevronLeft, ChevronRight, Eye, Edit, Trash2 } from "lucide-react";
+import { MoreHorizontal, ChevronLeft, ChevronRight, Eye, Edit, Trash2, Search } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,8 @@ import {
 import { useSearchParams } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import SkeletonTable from "@/components/feedback/SkeletonTable";
+import { globalSearch, createSearchCache } from "@/utils/globalSearch";
+// import { PaginationBar } from "@/components/common"; // revertido: volvemos a controles previos
 
 // Compatible meta: admite total o totalItems para distintos orígenes
 interface CompatibleMeta {
@@ -59,6 +61,9 @@ interface GenericTableProps<T> {
   showEditButton?: boolean;
   showDeleteButton?: boolean;
   useDropdownActions?: boolean; // Para mantener compatibilidad con el dropdown anterior
+  // Búsqueda global
+  enableClientSideSearch?: boolean; // Habilitar búsqueda client-side global (default: false, usa server-side)
+  searchPlaceholder?: string; // Placeholder personalizado para el input de búsqueda
 }
 
 const GenericTable = React.memo(<T,>({
@@ -84,6 +89,8 @@ const GenericTable = React.memo(<T,>({
   showEditButton = true,
   showDeleteButton = false,
   useDropdownActions = false,
+  enableClientSideSearch = false,
+  searchPlaceholder = "Buscar...",
 }: GenericTableProps<T>) => {
   //Metodo para evaluar si hay un punto en el valor y obtener el valor de un objeto anidado
   const getValue = (obj: any, path: string) => {
@@ -109,9 +116,26 @@ const GenericTable = React.memo(<T,>({
   const [searchInput, setSearchInput] = React.useState<string>(search);
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Cache para búsqueda client-side (optimización)
+  const searchCacheRef = React.useRef(createSearchCache<T>());
+
   React.useEffect(() => {
     setSearchInput(search);
   }, [search]);
+
+  // Filtrado client-side global (búsqueda en TODOS los campos)
+  const filteredData = React.useMemo(() => {
+    if (!enableClientSideSearch || !search.trim()) {
+      return data;
+    }
+
+    // Usar globalSearch para buscar en todos los campos del objeto
+    return globalSearch(data, search, {
+      matchAll: false, // Modo OR: basta con que aparezca uno de los términos
+      maxDepth: 3, // Buscar hasta 3 niveles de profundidad en objetos anidados
+      cache: searchCacheRef.current,
+    });
+  }, [data, search, enableClientSideSearch]);
 
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
@@ -125,6 +149,9 @@ const GenericTable = React.memo(<T,>({
       }
       newParams.set("page", "1"); // Reset a página 1 al buscar
       setSearchParams(newParams);
+
+      // Limpiar caché de búsqueda cuando cambia el query
+      searchCacheRef.current.clear();
     }, searchDebounceMs);
   };
 
@@ -210,27 +237,30 @@ const GenericTable = React.memo(<T,>({
     );
   }) as React.FC<{ item: T }>;
 
-  // Lógica de virtualización
-  const needsVirtualization = enableVirtualization && data.length > 20;
-  const totalHeight = data.length * virtualizationRowHeight;
+  // Lógica de virtualización (usar datos filtrados)
+  const displayData = filteredData; // Usar datos filtrados por búsqueda global
+  const needsVirtualization = enableVirtualization && displayData.length > 20;
+  const totalHeight = displayData.length * virtualizationRowHeight;
   const containerHeight = Math.min(virtualizationHeight, totalHeight);
 
   const [scrollTop, setScrollTop] = React.useState(0);
   const startIndex = needsVirtualization ? Math.floor(scrollTop / virtualizationRowHeight) : 0;
-  const endIndex = needsVirtualization 
-    ? Math.min(startIndex + Math.ceil(containerHeight / virtualizationRowHeight) + virtualizationOverscan, data.length)
-    : data.length;
+  const endIndex = needsVirtualization
+    ? Math.min(startIndex + Math.ceil(containerHeight / virtualizationRowHeight) + virtualizationOverscan, displayData.length)
+    : displayData.length;
 
-  const slice = data.slice(Math.max(0, startIndex - virtualizationOverscan), endIndex);
+  const slice = displayData.slice(Math.max(0, startIndex - virtualizationOverscan), endIndex);
   const topPadding = Math.max(0, startIndex - virtualizationOverscan) * virtualizationRowHeight;
-  const bottomPadding = Math.max(0, data.length - endIndex) * virtualizationRowHeight;
+  const bottomPadding = Math.max(0, displayData.length - endIndex) * virtualizationRowHeight;
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop);
   };
 
-  // Cálculo de paginación
-  const totalItems = meta?.total ?? meta?.totalItems ?? data.length;
+  // Cálculo de paginación (usar displayData para reflejar búsqueda client-side)
+  const totalItems = enableClientSideSearch
+    ? displayData.length
+    : (meta?.total ?? meta?.totalItems ?? data.length);
   const totalPages = meta?.totalPages ?? Math.ceil(totalItems / limit);
   const hasNextPage = meta?.hasNextPage ?? page < totalPages;
   const hasPreviousPage = meta?.hasPreviousPage ?? page > 1;
@@ -240,13 +270,16 @@ const GenericTable = React.memo(<T,>({
       <div className="space-y-4">
         {enableSearchBar && (
           <div className="flex items-center space-x-2">
-            <Input
-              placeholder="Buscar..."
-              value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="max-w-sm"
-              disabled
-            />
+            <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder={searchPlaceholder}
+                value={searchInput}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-10"
+                disabled
+              />
+            </div>
           </div>
         )}
         <SkeletonTable 
@@ -261,13 +294,21 @@ const GenericTable = React.memo(<T,>({
   return (
     <div className="flex flex-col h-full space-y-3">
       {enableSearchBar && (
-        <div className="flex items-center space-x-2 flex-shrink-0">
-          <Input
-            placeholder="Buscar..."
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="max-w-sm"
-          />
+        <div className="flex items-center justify-between space-x-2 flex-shrink-0">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder={searchPlaceholder}
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          {enableClientSideSearch && search.trim() && (
+            <div className="text-sm text-muted-foreground whitespace-nowrap">
+              {displayData.length} de {data.length} registros
+            </div>
+          )}
         </div>
       )}
 
@@ -275,7 +316,7 @@ const GenericTable = React.memo(<T,>({
         className={`relative border rounded-md flex-1 min-h-0 overflow-auto`}
         onScroll={needsVirtualization ? handleScroll : undefined}
       >
-        {refreshing && data.length > 0 && (
+        {refreshing && displayData.length > 0 && (
           <div
             className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-muted to-transparent animate-pulse"
             aria-hidden="true"
@@ -323,7 +364,7 @@ const GenericTable = React.memo(<T,>({
                 )}
               </>
             ) : (
-              data.map((item: any) => (
+              displayData.map((item: any) => (
                 <TableRow key={String((item as any)[keyValue])}>
                   {columns.map((column) => {
                     const raw = getValue(item, column);
@@ -341,31 +382,29 @@ const GenericTable = React.memo(<T,>({
         </Table>
       </div>
 
-      {/* Paginación */}
+      {/* Paginación previa con botones y estilo original */}
       {meta && totalPages > 1 && (
-        <div className="flex items-center justify-between flex-shrink-0 py-2 px-3 bg-white border-t">
+        <div className="flex items-center justify-between mt-2">
           <div className="text-sm text-muted-foreground">
-            Página {page} de {totalPages} ({totalItems} registros)
+            Página {page} de {Math.max(totalPages, 1)}
           </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
+          <div className="flex items-center gap-2">
+            <button
               onClick={() => handlePageChange(page - 1)}
               disabled={!hasPreviousPage}
+              aria-label="Anterior"
+              className="inline-flex items-center justify-center rounded-md border border-input bg-background h-8 w-8 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             >
-              <ChevronLeft className="h-4 w-4" />
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+            </button>
+            <button
               onClick={() => handlePageChange(page + 1)}
               disabled={!hasNextPage}
+              aria-label="Siguiente"
+              className="inline-flex items-center justify-center rounded-md border border-input bg-background h-8 w-8 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
             >
-              Siguiente
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </button>
           </div>
         </div>
       )}

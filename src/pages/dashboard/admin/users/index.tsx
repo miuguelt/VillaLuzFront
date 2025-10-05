@@ -1,7 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { usersService } from '@/services/userService';
 import type { UserResponse } from '@/types/swaggerTypes';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Eye, History, User as UserIcon, Grid, Table } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 // Defino un input de formulario flexible para evitar forzar password en edición
 type UserFormInput = {
@@ -21,18 +26,22 @@ type UserFormInput = {
 // Columnas (width numérico -> w-{n})
 const columns: CRUDColumn<UserResponse & { [k: string]: any }>[] = [
   { key: 'id', label: 'ID', width: 12 },
-  { key: 'fullname', label: 'Nombre' },
+  { key: 'identification', label: 'Identificación', width: 20 },
+  { key: 'fullname', label: 'Nombre Completo' },
   { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Teléfono', render: (v) => v || '-' },
+  { key: 'address', label: 'Dirección', render: (v) => v || '-' },
   { key: 'role', label: 'Rol' },
-  { key: 'status', label: 'Estado', render: (v) => (typeof v === 'boolean' ? (v ? 'Activo' : 'Inactivo') : (v || '-')) },
+  { key: 'status', label: 'Estado', render: (v) => (typeof v === 'boolean' ? (v ? 'Activo' : 'Inactivo') : (v === 1 ? 'Activo' : 'Inactivo')) },
   { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
+  { key: 'updated_at', label: 'Actualizado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
 ];
 
 // Secciones del formulario
 const formSections: CRUDFormSection<UserFormInput>[] = [
   {
     title: 'Información Básica',
-    gridCols: 3,
+    gridCols: 2,
     fields: [
       { name: 'identification', label: 'Identificación', type: 'text', required: true, placeholder: 'Ej: 123456789' },
       { name: 'fullname', label: 'Nombre completo', type: 'text', required: true, placeholder: 'Ej: Juan Pérez' },
@@ -47,10 +56,10 @@ const formSections: CRUDFormSection<UserFormInput>[] = [
     ],
   },
   {
-    title: 'Contacto (opcional)',
+    title: 'Información de Contacto',
     gridCols: 2,
     fields: [
-      { name: 'phone', label: 'Teléfono', type: 'text', placeholder: 'Ej: +57 300...' },
+      { name: 'phone', label: 'Teléfono', type: 'text', required: true, placeholder: 'Ej: +57 300...' },
       { name: 'address', label: 'Dirección', type: 'text', placeholder: 'Dirección del usuario' },
     ],
   },
@@ -145,12 +154,14 @@ const validateForm = (formData: UserFormInput): string | null => {
     }
   }
 
-  // Validar teléfono si existe
-  if (formData.phone && formData.phone.trim()) {
-    const phoneClean = formData.phone.replace(/[\s\-\(\)]/g, '');
-    if (phoneClean.length < 7) {
-      return '⚠️ El número de teléfono parece incompleto.';
-    }
+  // Validar teléfono (OBLIGATORIO)
+  if (!formData.phone || !formData.phone.trim()) {
+    return '⚠️ El teléfono es obligatorio para contactar al usuario.';
+  }
+
+  const phoneClean = formData.phone.replace(/[\s\-\(\)]/g, '');
+  if (phoneClean.length < 7) {
+    return '⚠️ El número de teléfono parece incompleto. Debe tener al menos 7 dígitos.';
   }
 
   return null;
@@ -168,16 +179,154 @@ const initialFormData: UserFormInput = {
   address: '',
 };
 
-// Página principal
-const AdminUsersPage = () => (
-  <AdminCRUDPage
-    config={crudConfig}
-    service={usersService}
-    initialFormData={initialFormData}
-    mapResponseToForm={mapResponseToForm}
-    validateForm={validateForm}
-    enhancedHover={true}
-  />
-);
+// Componente de tarjeta para usuario
+const UserCard = ({ user }: { user: UserResponse & { [k: string]: any } }) => {
+  const navigate = useNavigate();
+  
+  const handleViewHistory = () => {
+    navigate(`/dashboard/admin/user-history/${user.identification}`);
+  };
+  
+  const handleViewInfo = () => {
+    navigate(`/dashboard/admin/user-detail/${user.id}`);
+  };
+
+  const isActive = typeof user.status === 'boolean' ? user.status : user.status === '1';
+  
+  return (
+    <Card className="hover:shadow-lg transition-shadow duration-200">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-semibold truncate">{user.fullname}</CardTitle>
+          <Badge variant={isActive ? "default" : "secondary"}>
+            {isActive ? 'Activo' : 'Inactivo'}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <UserIcon className="w-4 h-4" />
+          <span>ID: {user.identification}</span>
+          <span>•</span>
+          <span>{user.role}</span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-2 text-sm">
+          <div>
+            <span className="font-medium">Email:</span>
+            <p className="text-muted-foreground truncate">{user.email}</p>
+          </div>
+          {user.phone && (
+            <div>
+              <span className="font-medium">Teléfono:</span>
+              <p className="text-muted-foreground">{user.phone}</p>
+            </div>
+          )}
+          {user.address && (
+            <div>
+              <span className="font-medium">Dirección:</span>
+              <p className="text-muted-foreground truncate">{user.address}</p>
+            </div>
+          )}
+          <div className="flex justify-between text-xs text-muted-foreground pt-2 border-t">
+            <span>Creado: {user.created_at ? new Date(user.created_at).toLocaleDateString('es-ES') : '-'}</span>
+            <span>Actualizado: {user.updated_at ? new Date(user.updated_at).toLocaleDateString('es-ES') : '-'}</span>
+          </div>
+        </div>
+        <div className="flex gap-2 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleViewHistory}
+            className="flex-1"
+          >
+            <History className="w-4 h-4 mr-1" />
+            Historial
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleViewInfo}
+            className="flex-1"
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            Info
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// Página principal con estado para toggle de vista
+const AdminUsersPageWrapper = () => {
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const navigate = useNavigate();
+
+  // Acciones personalizadas para la tabla
+  const customActions = (item: UserResponse & { [k: string]: any }) => (
+    <div className="flex gap-1">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate(`/dashboard/admin/user-history/${item.identification}`)}
+        className="h-8 px-2"
+        title="Ver historial"
+      >
+        <History className="w-4 h-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => navigate(`/dashboard/admin/user-detail/${item.id}`)}
+        className="h-8 px-2"
+        title="Ver información"
+      >
+        <Eye className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+
+  // Toolbar personalizado con toggle de vista
+  const customToolbar = (
+    <div className="flex items-center gap-2">
+      <Button
+        variant={viewMode === 'table' ? 'primary' : 'outline'}
+        size="sm"
+        onClick={() => setViewMode('table')}
+      >
+        <Table className="w-4 h-4 mr-1" />
+        Tabla
+      </Button>
+      <Button
+        variant={viewMode === 'cards' ? 'primary' : 'outline'}
+        size="sm"
+        onClick={() => setViewMode('cards')}
+      >
+        <Grid className="w-4 h-4 mr-1" />
+        Tarjetas
+      </Button>
+    </div>
+  );
+
+  return (
+    <AdminCRUDPage
+      config={{
+        ...crudConfig,
+        customActions,
+        customToolbar,
+        viewMode,
+        renderCard: (item) => <UserCard user={item} />,
+      }}
+      service={usersService}
+      initialFormData={initialFormData}
+      mapResponseToForm={mapResponseToForm}
+      validateForm={validateForm}
+      enhancedHover={true}
+    />
+  );
+};
+
+// Página principal exportada
+const AdminUsersPage = () => <AdminUsersPageWrapper />;
 
 export default AdminUsersPage;

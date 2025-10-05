@@ -136,7 +136,7 @@ export function PaginationBar({
                 className={cn(
                   "px-3 py-2 min-w-[40px] border rounded-md text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-ring",
                   p === page
-                    ? "bg-primary-600 text-primary-foreground border-primary-600 shadow-sm"
+                    ? "bg-background text-foreground border-transparent ring-2 ring-[#3b82f6] shadow-sm"
                     : "border-border text-foreground hover:bg-muted"
                 )}
                 aria-label={`Ir a la página ${p}`}

@@ -41,7 +41,7 @@ export const ToastContainer: React.FC<{ className?: string }> = ({ className }) 
             )}
           >
             <div className="flex-1 min-w-0">
-              <p className="truncate" title={t.message}>{t.message}</p>
+              <p className="break-words" title={t.message}>{t.message}</p>
             </div>
             <button
               onClick={() => removeToast(t.id)}

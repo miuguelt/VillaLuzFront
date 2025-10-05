@@ -44,7 +44,7 @@ export const SkeletonTable: React.FC<SkeletonTableProps> = ({
               w ? `w-${w}` : '',
             ].join(' ')}
           >
-            <div className="h-4 w-full max-w-[240px] rounded bg-muted animate-pulse" />
+            <div className="h-4 w-full max-w-[240px] rounded bg-blue-100 dark:bg-blue-950/30 animate-pulse transition-colors duration-300" />
           </td>
         );
       })}

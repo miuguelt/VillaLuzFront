@@ -109,7 +109,7 @@ const GeneticTreeModal = ({ isOpen, onClose, animal, levels }: GeneticTreeModalP
 
   const getGenerationLabel = (levelIndex: number) => {
     switch (levelIndex) {
-      case 0: return 'Animal Actual';
+      case 0: return null; // Eliminado: no aporta información genética relevante
       case 1: return 'Padres';
       case 2: return 'Abuelos';
       case 3: return 'Bisabuelos';
@@ -206,18 +206,18 @@ const GeneticTreeModal = ({ isOpen, onClose, animal, levels }: GeneticTreeModalP
             <div className="flex flex-col items-center space-y-6 max-h-[60vh] overflow-y-auto px-2 py-4">
               {displayLevels.map((level, levelIndex) => (
                 <div key={levelIndex} className="w-full flex flex-col items-center">
-                  {/* Etiqueta de generación */}
-                  <div className="relative mb-6">
-                    <div className={cn(
-                      "px-6 py-2 rounded-full text-sm font-bold shadow-lg backdrop-blur-sm",
-                      "border-2 transition-all duration-300",
-                      levelIndex === 0
-                        ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-primary/50"
-                        : "bg-gradient-to-r from-card/80 to-muted/60 text-foreground border-border/50"
-                    )}>
-                      {getGenerationLabel(levelIndex)}
+                  {/* Etiqueta de generación - solo para niveles > 0 */}
+                  {getGenerationLabel(levelIndex) && (
+                    <div className="relative mb-6">
+                      <div className={cn(
+                        "px-6 py-2 rounded-full text-sm font-bold shadow-lg backdrop-blur-sm",
+                        "border-2 transition-all duration-300",
+                        "bg-gradient-to-r from-card/80 to-muted/60 text-foreground border-border/50"
+                      )}>
+                        {getGenerationLabel(levelIndex)}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Conexión vertical */}
                   {levelIndex > 0 && lineageMode === 'ambos' && (
@@ -333,22 +333,6 @@ const GeneticTreeModal = ({ isOpen, onClose, animal, levels }: GeneticTreeModalP
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Leyenda */}
-            <div className="flex flex-wrap justify-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-primary/80 border-2 border-primary/50" />
-                <span className="text-xs font-medium text-foreground/80">Animal actual</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 border-2 border-blue-300/50" />
-                <span className="text-xs font-medium text-foreground/80">Macho ♂</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-100 to-pink-50 border-2 border-pink-300/50" />
-                <span className="text-xs font-medium text-foreground/80">Hembra ♀</span>
-              </div>
             </div>
           </div>
         )}

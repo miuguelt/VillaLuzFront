@@ -6,6 +6,8 @@ import { useCache, useCacheKey } from '@/context/CacheContext';
 
 // Global registry of refetch callbacks for network-restore synchronization
 const __resourceRefetchers = new Set<() => Promise<any>>();
+// Global in-flight deduplication per cache key to coalesce concurrent refetches
+const __resourceInflight = new Map<string, Promise<any>>();
 
 export async function refetchAllResources(): Promise<void> {
   const fns = Array.from(__resourceRefetchers);
@@ -210,8 +212,9 @@ export function useResource<T extends { id?: number | string }, P extends Record
               setMeta(null);
             }
             // Refrescar en background inmediatamente (sin esperas en tiempo)
-            // Lanzar la actualización sin bloquear la UI
-            void safeExecute(async () => {
+            // Lanzar la actualización sin bloquear la UI (deduplicado por cacheKey)
+            if (!__resourceInflight.has(cacheKey)) {
+              const bgPromise = safeExecute(async () => {
                 const hasPaging = effective && (effective.page !== undefined || effective.limit !== undefined);
                 if (hasPaging) {
                   const resp: any = await (service as any).getPaginated(effectiveWithToken);
@@ -252,15 +255,21 @@ export function useResource<T extends { id?: number | string }, P extends Record
                   setMeta(null);
                   setCache(cacheKey, { data: finalList, timestamp: Date.now() }, cacheTTL);
                 }
-            }).catch(() => {
-              // Silenciosamente fallar background refresh
-            });
+              });
+              __resourceInflight.set(cacheKey, bgPromise as Promise<any>);
+              void bgPromise.finally(() => { __resourceInflight.delete(cacheKey); }).catch(() => {
+                // Silenciosamente fallar background refresh
+              });
+            }
             return finalList;
           }
         }
       }
 
-      const result = await safeExecute(async () => {
+      // Deduplicación de fetch principal por cacheKey
+      let fetchPromise = __resourceInflight.get(cacheKey);
+      if (!fetchPromise) {
+        fetchPromise = safeExecute(async () => {
         // Si hay page/limit en los params efectivos, usar paginado
         const hasPaging = effective && (effective.page !== undefined || effective.limit !== undefined);
         if (hasPaging) {
@@ -433,7 +442,11 @@ export function useResource<T extends { id?: number | string }, P extends Record
         }
         return mergedList;
     });
-    if (result === undefined) {
+        __resourceInflight.set(cacheKey, fetchPromise as Promise<any>);
+      }
+      const result = await fetchPromise;
+      __resourceInflight.delete(cacheKey);
+      if (result === undefined) {
       // Request was canceled, return current data
       return data;
     }

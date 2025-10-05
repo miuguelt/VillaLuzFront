@@ -137,6 +137,7 @@ function GlobalNetworkHandlers() {
   const { preloadCriticalRoutes } = useCache();
   const { isAuthenticated } = useAuth();
   const preloadStartedRef = useRef(false);
+  const lastRateLimitAtRef = useRef<number>(0);
 
   useEffect(() => {
     const onOnline = async () => {
@@ -174,6 +175,30 @@ function GlobalNetworkHandlers() {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
       window.removeEventListener('offline-queue-flushed', onQueueFlushed as EventListener);
+    };
+  }, [showToast]);
+
+  // Aviso global para límite de solicitudes excedido (HTTP 429)
+  useEffect(() => {
+    const onRateLimitExceeded = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      const endpointLabel =
+        typeof detail?.endpoint === 'string'
+          ? (detail.endpoint.includes('animals') ? 'Animales' : detail.endpoint)
+          : 'API';
+      const now = Date.now();
+      if (now - lastRateLimitAtRef.current < 15000) return; // evitar spam de toasts
+      lastRateLimitAtRef.current = now;
+      showToast(
+        `Se alcanzó el límite de solicitudes en ${endpointLabel}. ` +
+          `El servidor indicó RATE_LIMIT_EXCEEDED. Intenta nuevamente en breve; reduciremos la frecuencia automáticamente.`,
+        'warning',
+        6000
+      );
+    };
+    window.addEventListener('rate-limit-exceeded', onRateLimitExceeded as EventListener);
+    return () => {
+      window.removeEventListener('rate-limit-exceeded', onRateLimitExceeded as EventListener);
     };
   }, [showToast]);
 

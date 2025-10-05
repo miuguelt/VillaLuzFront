@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { ToastDurations } from '@/constants/colorSystem';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
@@ -26,10 +27,11 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Luego showToast depende de removeToast
-  const showToast = useCallback((message: string, type: ToastType = 'info', duration = 3500) => {
+  const showToast = useCallback((message: string, type: ToastType = 'info', duration?: number) => {
     const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev, { id, message, type, duration }]);
-    setTimeout(() => removeToast(id), duration);
+    const effectiveDuration = typeof duration === 'number' ? duration : (ToastDurations[type] ?? 3500);
+    setToasts((prev) => [...prev, { id, message, type, duration: effectiveDuration }]);
+    setTimeout(() => removeToast(id), effectiveDuration);
   }, [removeToast]);
 
   return (

@@ -9,6 +9,7 @@ type UserFormFields = {
   fullname: string;
   identification: number;
   email: string;
+  phone: string;
   role: UserRole;
   password?: string;
 };
@@ -24,6 +25,7 @@ export default function UserForm() {
         setValue('fullname', user.fullname);
         setValue('identification', user.identification);
         setValue('email', user.email);
+        setValue('phone', user.phone);
         setValue('role', user.role);
       });
     }
@@ -69,6 +71,14 @@ export default function UserForm() {
         <label>Email</label>
         <input type="email" {...register('email', { required: 'El email es obligatorio' })} />
         {renderError(errors.email)}
+      </div>
+      <div>
+        <label>Teléfono</label>
+        <input type="tel" {...register('phone', {
+          required: 'El teléfono es obligatorio',
+          minLength: { value: 7, message: 'El teléfono debe tener al menos 7 dígitos' }
+        })} />
+        {renderError(errors.phone)}
       </div>
       <div>
         <label>Rol</label>

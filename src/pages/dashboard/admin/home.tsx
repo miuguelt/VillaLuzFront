@@ -1,11 +1,18 @@
 import React from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import AdminUsersPage from './users/index';
+import UserHistory from './UserHistory';
+import UserDetail from './UserDetail';
 
 const AdminHome: React.FC = () => {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Admin Home</h1>
-      <p className="text-sm text-muted-foreground mt-2">Simplified admin home for build stability.</p>
-    </div>
+    <Routes>
+      <Route path="/" element={<Navigate to="/dashboard/admin/users" replace />} />
+      <Route path="/users" element={<AdminUsersPage />} />
+      <Route path="/user-history/:userId" element={<UserHistory />} />
+      <Route path="/user-detail/:userId" element={<UserDetail />} />
+      <Route path="*" element={<Navigate to="/dashboard/admin/users" replace />} />
+    </Routes>
   );
 };
 

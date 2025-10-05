@@ -28,6 +28,37 @@ class AnimalsService extends BaseService<AnimalResponse> {
     return undefined;
   }
 
+  // Detecta si el término de búsqueda parece una fecha o año (para habilitar búsqueda por columnas de fecha)
+  private isDateLike(term: any): boolean {
+    if (term === null || term === undefined) return false;
+    const s = String(term).trim();
+    if (!s) return false;
+    // Año (YYYY)
+    if (/^\d{4}$/.test(s)) return true;
+    // Formatos comunes de fecha: YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY, YYYY/MM/DD, YYYY-MM-DD
+    if (/^\d{4}[\/-]\d{1,2}[\/-]\d{1,2}$/.test(s)) return true;
+    if(/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}$/.test(s)) return true;
+    return false;
+  }
+
+  // Enriquece parámetros para que el backend busque también en columnas de fecha cuando el término es un año/fecha
+  private enrichParamsForDateSearch(params: Record<string, any> = {}): Record<string, any> {
+    const searchTerm = params.search ?? params.q;
+    if (!this.isDateLike(searchTerm)) return params;
+
+    const extraDateFields = ['birth_date', 'created_at', 'updated_at'];
+    const existingFields = (params.fields ? String(params.fields) : '').split(',').map(f => f.trim()).filter(Boolean);
+    const merged = Array.from(new Set([...existingFields, ...extraDateFields]));
+
+    return {
+      ...params,
+      // Forzar que ambos parámetros se envíen por compatibilidad y que fields incluya columnas de fecha
+      search: searchTerm,
+      q: searchTerm,
+      fields: merged.join(','),
+    };
+  }
+
   // Normaliza estado a forma canónica usada en UI
   private normalizeStatus(value: any): string | undefined {
     if (value === null || value === undefined) return undefined;
@@ -52,20 +83,13 @@ class AnimalsService extends BaseService<AnimalResponse> {
 
   // Construye payload compatible con backend (sex, breeds_id, etc.)
   private buildApiPayload(data: Partial<AnimalInput> & { [k: string]: any }): Record<string, any> {
-    console.log('[AnimalService] buildApiPayload - Input data:', data);
 
     const birthDate = this.parseDate(data.birth_date ?? (data as any).birthDate);
     const sex = this.normalizeSex(data.gender ?? (data as any).sex ?? (data as any).sexo);
     const breedsId = data.breed_id ?? (data as any).breeds_id ?? (data as any).raza_id ?? (data as any).breedId;
     const status = this.mapStatusToBackend(data.status ?? (data as any).estado);
 
-    console.log('[AnimalService] buildApiPayload - Transformed values:', {
-      sex,
-      breedsId,
-      status,
-      birthDate,
-      weight: data.weight
-    });
+
 
     // Validar campos requeridos por el backend
     if (!sex) {
@@ -90,7 +114,7 @@ class AnimalsService extends BaseService<AnimalResponse> {
       notes: data.notes ?? (data as any).observations ?? (data as any).observaciones,
     };
 
-    console.log('[AnimalService] buildApiPayload - Payload before cleanup:', payload);
+
 
     // Eliminar claves con undefined/null/0 inválidos (pero mantener weight=0 como válido)
     Object.keys(payload).forEach((k) => {
@@ -101,7 +125,7 @@ class AnimalsService extends BaseService<AnimalResponse> {
       }
       // Eliminar breeds_id si es 0 o negativo (valor inválido)
       else if (k === 'breeds_id' && (typeof v === 'number') && v <= 0) {
-        console.warn('[AnimalService] Removing invalid breeds_id:', v);
+
         delete (payload as any)[k];
       }
       // Eliminar idFather/idMother si son 0 (significa "sin padre/madre")
@@ -110,7 +134,7 @@ class AnimalsService extends BaseService<AnimalResponse> {
       }
     });
 
-    console.log('[AnimalService] buildApiPayload - Final payload:', payload);
+
     return payload;
   }
 
@@ -180,8 +204,15 @@ class AnimalsService extends BaseService<AnimalResponse> {
   }
 
   async getAnimalsPaginated(params?: Record<string, any>): Promise<PaginatedResponse<AnimalResponse>> {
-    const pag = await this.getPaginated(params);
+    const pag = await this.getPaginated(this.enrichParamsForDateSearch(params || {}));
     return { ...pag, data: (pag.data || []).map((it: any) => this.normalizeAnimal(it)) } as PaginatedResponse<AnimalResponse>;
+  }
+
+  // Sobrescribe getPaginated para inyectar fields cuando el término de búsqueda es un año/fecha
+  async getPaginated(params?: Record<string, any>): Promise<PaginatedResponse<AnimalResponse>> {
+    const enriched = this.enrichParamsForDateSearch(params || {});
+    const pag = await super.getPaginated(enriched);
+    return pag as PaginatedResponse<AnimalResponse>;
   }
 
   async getAnimalById(id: number): Promise<AnimalResponse> {
@@ -229,7 +260,7 @@ class AnimalsService extends BaseService<AnimalResponse> {
 
   async searchAnimals(query: string): Promise<AnimalResponse[]> {
     // /animals/search no está disponible en backend; usar query param estándar "search" -> BaseService lo mapea a "q"
-    const list = await this.getAll({ search: query });
+    const list = await this.getAll(this.enrichParamsForDateSearch({ search: query }));
     return (Array.isArray(list) ? list.map((it: any) => this.normalizeAnimal(it)) : list) as any;
   }
 

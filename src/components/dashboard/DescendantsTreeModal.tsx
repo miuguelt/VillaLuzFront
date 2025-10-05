@@ -33,7 +33,7 @@ const DescendantsTreeModal = ({ isOpen, onClose, animal, levels }: DescendantsTr
 
   const getGenerationLabel = (levelIndex: number) => {
     switch (levelIndex) {
-      case 0: return 'Animal Actual';
+      case 0: return null; // Eliminado: no aporta información genética relevante
       case 1: return 'Hijos';
       case 2: return 'Nietos';
       case 3: return 'Bisnietos';
@@ -104,18 +104,18 @@ const DescendantsTreeModal = ({ isOpen, onClose, animal, levels }: DescendantsTr
             <div className="flex flex-col items-center space-y-6 max-h-[60vh] overflow-y-auto px-2 py-4">
               {displayLevels.map((level, levelIndex) => (
                 <div key={levelIndex} className="w-full flex flex-col items-center">
-                  {/* Etiqueta de generación */}
-                  <div className="relative mb-6">
-                    <div className={cn(
-                      "px-6 py-2 rounded-full text-sm font-bold shadow-lg backdrop-blur-sm",
-                      "border-2 transition-all duration-300",
-                      levelIndex === 0
-                        ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground border-primary/50"
-                        : "bg-gradient-to-r from-card/80 to-muted/60 text-foreground border-border/50"
-                    )}>
-                      {getGenerationLabel(levelIndex)}
+                  {/* Etiqueta de generación - solo para niveles > 0 */}
+                  {getGenerationLabel(levelIndex) && (
+                    <div className="relative mb-6">
+                      <div className={cn(
+                        "px-6 py-2 rounded-full text-sm font-bold shadow-lg backdrop-blur-sm",
+                        "border-2 transition-all duration-300",
+                        "bg-gradient-to-r from-card/80 to-muted/60 text-foreground border-border/50"
+                      )}>
+                        {getGenerationLabel(levelIndex)}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Conexión vertical */}
                   {levelIndex > 0 && (

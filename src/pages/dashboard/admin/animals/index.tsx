@@ -4,6 +4,7 @@ import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/compon
 import { animalsService } from '@/services/animalService';
 import type { AnimalResponse, AnimalInput } from '@/types/swaggerTypes';
 import { breedsService } from '@/services/breedsService';
+
 import { AnimalHistoryModal } from '@/components/dashboard/AnimalHistoryModal';
 import GeneticTreeModal from '@/components/dashboard/GeneticTreeModal';
 import { useGeneticTree } from '@/hooks/animal/useGeneticTree';
@@ -14,6 +15,8 @@ import { ANIMAL_GENDERS, ANIMAL_STATES } from '@/constants/enums';
 import { History, GitBranch, Baby } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { checkAnimalDependencies } from '@/services/dependencyCheckService';
+import { Button } from '@/components/ui/button';
+import { GenericModal } from '@/components/common/GenericModal';
 
 // Mapear respuesta del backend al formulario
 const mapResponseToForm = (item: AnimalResponse & { [k: string]: any }): Partial<AnimalInput> => {
@@ -100,6 +103,16 @@ const initialFormData: Partial<AnimalInput> = {
 function AdminAnimalsPage() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState<Partial<AnimalInput>>(initialFormData);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
+    const saved = localStorage.getItem('adminAnimalsViewMode');
+    return saved === 'cards' ? 'cards' : 'table';
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('adminAnimalsViewMode', viewMode);
+    } catch {}
+  }, [viewMode]);
 
   // Hook para razas - usar getPaginated con límite alto para obtener todas
   const {
@@ -167,6 +180,12 @@ function AdminAnimalsPage() {
   const [descAnimal, setDescAnimal] = React.useState<any | null>(null);
   const [descLevels, setDescLevels] = React.useState<any[][]>([]);
   const { buildDescendantsTree } = useDescendantsTree();
+
+  // Estados para modales de FK
+  const [isBreedDetailOpen, setIsBreedDetailOpen] = useState(false);
+  const [selectedBreed, setSelectedBreed] = useState<any | null>(null);
+  const [isAnimalDetailOpen, setIsAnimalDetailOpen] = useState(false);
+  const [selectedAnimal, setSelectedAnimal] = useState<any | null>(null);
 
   // Secciones del formulario
   const formSectionsLocal: CRUDFormSection<Partial<AnimalInput>>[] = [
@@ -305,51 +324,10 @@ function AdminAnimalsPage() {
           : '-';
       }
     },
-    { 
-      key: 'created_at', 
-      label: 'Creado', 
-      render: (v) => v ? new Date(v as string).toLocaleDateString('es-ES') : '-' 
-    },
     {
-      key: "acciones",
-      label: "Acciones",
-      render: (_, record) => (
-        <div className="flex gap-1.5">
-          <button
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-200/60 rounded-lg hover:from-emerald-100 hover:to-emerald-50 hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-1 backdrop-blur-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              openHistoryModal(record);
-            }}
-            title="Ver historial médico completo"
-          >
-            <History className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline"></span>
-          </button>
-          <button
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-blue-700 bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/60 rounded-lg hover:from-blue-100 hover:to-blue-50 hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 backdrop-blur-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              openGeneticTreeModal(record);
-            }}
-            title="Ver árbol de antepasados (padres, abuelos, bisabuelos...)"
-          >
-            <GitBranch className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline"></span>
-          </button>
-          <button
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-purple-700 bg-gradient-to-br from-purple-50 to-purple-100/50 border border-purple-200/60 rounded-lg hover:from-purple-100 hover:to-purple-50 hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-1 backdrop-blur-sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              openDescendantsTreeModal(record);
-            }}
-            title="Ver árbol de descendientes (hijos, nietos, bisnietos...)"
-          >
-            <Baby className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline"></span>
-          </button>
-        </div>
-      ),
+      key: 'created_at',
+      label: 'Creado',
+      render: (v) => v ? new Date(v as string).toLocaleDateString('es-ES') : '-'
     },
   ];
   
@@ -383,6 +361,27 @@ function AdminAnimalsPage() {
     setDescAnimal(animal);
     setDescLevels(levels);
     setIsDescOpen(true);
+  };
+
+  // Funciones para abrir modales de FK
+  const openBreedDetailModal = async (breedId: number) => {
+    try {
+      const breed = await breedsService.getById(breedId);
+      setSelectedBreed(breed);
+      setIsBreedDetailOpen(true);
+    } catch (error) {
+      console.error('Error loading breed details:', error);
+    }
+  };
+
+  const openAnimalDetailModal = async (animalId: number) => {
+    try {
+      const animal = await animalsService.getById(animalId);
+      setSelectedAnimal(animal);
+      setIsAnimalDetailOpen(true);
+    } catch (error) {
+      console.error('Error loading animal details:', error);
+    }
   };
 
   // Contenido personalizado para el modal de detalle
@@ -425,6 +424,121 @@ function AdminAnimalsPage() {
     );
   };
 
+  // Función personalizada para renderizar tarjetas de animales
+  const renderAnimalCard = (item: AnimalResponse & { [k: string]: any }) => {
+    const breedId = item.breeds_id || item.breed_id;
+    const breedLabel = breedId
+      ? (breedOptions.find((b) => Number(b.value) === Number(breedId))?.label || (item.breed?.name) || `ID ${breedId}`)
+      : '-';
+
+    const fatherId = item.idFather || item.father_id;
+    const fatherLabel = fatherId
+      ? (fatherOptions.find((o) => Number(o.value) === Number(fatherId))?.label || `ID ${fatherId}`)
+      : '-';
+
+    const motherId = item.idMother || item.mother_id;
+    const motherLabel = motherId
+      ? (motherOptions.find((o) => Number(o.value) === Number(motherId))?.label || `ID ${motherId}`)
+      : '-';
+
+    const gender = item.sex || item.gender;
+    const birthDate = item.birth_date ? new Date(item.birth_date).toLocaleDateString('es-ES') : '-';
+    const ageMonths = item.age_in_months ?? '-';
+    const weight = item.weight ?? '-';
+    const status = item.status || '-';
+
+    return (
+      <div className="space-y-3">
+        {/* Información básica - mejor distribución para usar el ancho completo */}
+        <div className="grid grid-cols-1 gap-2 text-xs">
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Registro:</span>
+            <span className="font-medium text-foreground">{item.record || '-'}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Sexo:</span>
+            <span className="font-medium text-foreground">{gender || '-'}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Estado:</span>
+            <span className="font-medium text-foreground">{status}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Edad:</span>
+            <span className="font-medium text-foreground">{ageMonths} meses</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Peso:</span>
+            <span className="font-medium text-foreground">{weight} kg</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Nacimiento:</span>
+            <span className="font-medium text-foreground">{birthDate}</span>
+          </div>
+        </div>
+
+        {/* Raza con enlace - mejor uso del espacio */}
+        <div className="border-t pt-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Raza:</span>
+            {breedId ? (
+              <button
+                className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors truncate max-w-[60%]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openBreedDetailModal(Number(breedId));
+                }}
+                title="Ver detalle de la raza"
+              >
+                {breedLabel}
+              </button>
+            ) : (
+              <span className="text-xs font-medium text-muted-foreground">-</span>
+            )}
+          </div>
+        </div>
+
+        {/* Genealogía con enlaces - mejor distribución */}
+        <div className="border-t pt-2 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Padre:</span>
+            {fatherId ? (
+              <button
+                className="text-xs font-medium text-green-600 hover:text-green-800 hover:underline transition-colors truncate max-w-[60%]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openAnimalDetailModal(Number(fatherId));
+                }}
+                title="Ver detalle del padre"
+              >
+                {fatherLabel}
+              </button>
+            ) : (
+              <span className="text-xs font-medium text-muted-foreground">-</span>
+            )}
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Madre:</span>
+            {motherId ? (
+              <button
+                className="text-xs font-medium text-purple-600 hover:text-purple-800 hover:underline transition-colors truncate max-w-[60%]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openAnimalDetailModal(Number(motherId));
+                }}
+                title="Ver detalle de la madre"
+              >
+                {motherLabel}
+              </button>
+            ) : (
+              <span className="text-xs font-medium text-muted-foreground">-</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const crudConfigLocal: CRUDConfig<AnimalResponse & { [k: string]: any }, Partial<AnimalInput>> = {
     title: 'Animales',
     entityName: 'Animal',
@@ -437,6 +551,67 @@ function AdminAnimalsPage() {
     enableCreateModal: true,
     enableEditModal: true,
     enableDelete: true,
+    viewMode,
+    renderCard: renderAnimalCard,
+    customToolbar: (
+      <div className="flex items-center gap-1">
+        <Button
+          variant={viewMode === 'table' ? 'primary' : 'outline'}
+          size="sm"
+          className="h-7"
+          onClick={() => setViewMode('table')}
+          aria-label="Vista en tabla"
+        >
+          Tabla
+        </Button>
+        <Button
+          variant={viewMode === 'cards' ? 'primary' : 'outline'}
+          size="sm"
+          className="h-7"
+          onClick={() => setViewMode('cards')}
+          aria-label="Vista en tarjetas"
+        >
+          Tarjetas
+        </Button>
+      </div>
+    ),
+    customActions: (record) => (
+      <>
+        <button
+          className="icon-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            openHistoryModal(record as any);
+          }}
+          title="Ver historial médico completo"
+          aria-label="Ver historial"
+        >
+          <History />
+        </button>
+        <button
+          className="icon-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            openGeneticTreeModal(record as any);
+          }}
+          title="Ver árbol de antepasados (padres, abuelos, bisabuelos...)"
+          aria-label="Ver árbol genealógico"
+        >
+          <GitBranch />
+        </button>
+        <button
+          className="icon-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            openDescendantsTreeModal(record as any);
+          }}
+          title="Ver árbol de descendientes (hijos, nietos, bisnietos...)"
+          aria-label="Ver descendientes"
+        >
+          <Baby />
+        </button>
+      </>
+    ),
     // Verificación exhaustiva de dependencias antes de eliminar
     preDeleteCheck: async (id: number) => {
       return await checkAnimalDependencies(id);
@@ -455,6 +630,65 @@ function AdminAnimalsPage() {
         onFormDataChange={setFormData}
         enhancedHover={true}
       />
+
+      {/* Modal de detalle de raza */}
+      {isBreedDetailOpen && selectedBreed && (
+        <GenericModal
+          isOpen={isBreedDetailOpen}
+          onOpenChange={setIsBreedDetailOpen}
+          title={`Detalle de Raza: ${selectedBreed.name || selectedBreed.id}`}
+          description="Información detallada de la raza"
+          size="4xl"
+          enableBackdropBlur
+          className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><strong>ID:</strong> {selectedBreed.id}</div>
+              <div><strong>Nombre:</strong> {selectedBreed.name || '-'}</div>
+              <div><strong>Especie:</strong> {selectedBreed.species?.name || selectedBreed.species_id || '-'}</div>
+              <div><strong>Descripción:</strong> {selectedBreed.description || '-'}</div>
+              <div><strong>Creado:</strong> {selectedBreed.created_at ? new Date(selectedBreed.created_at).toLocaleString('es-ES') : '-'}</div>
+              <div><strong>Actualizado:</strong> {selectedBreed.updated_at ? new Date(selectedBreed.updated_at).toLocaleString('es-ES') : '-'}</div>
+            </div>
+          </div>
+        </GenericModal>
+      )}
+
+      {/* Modal de detalle de animal (padre/madre) */}
+      {isAnimalDetailOpen && selectedAnimal && (
+        <GenericModal
+          isOpen={isAnimalDetailOpen}
+          onOpenChange={setIsAnimalDetailOpen}
+          title={`Detalle de Animal: ${selectedAnimal.record || `ID ${selectedAnimal.id}`}`}
+          description="Información detallada del animal"
+          size="5xl"
+          enableBackdropBlur
+          className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><strong>ID:</strong> {selectedAnimal.id}</div>
+              <div><strong>Registro:</strong> {selectedAnimal.record || '-'}</div>
+              <div><strong>Sexo:</strong> {selectedAnimal.sex || selectedAnimal.gender || '-'}</div>
+              <div><strong>Estado:</strong> {selectedAnimal.status || '-'}</div>
+              <div><strong>Raza:</strong> {selectedAnimal.breed?.name || selectedAnimal.breeds?.name || '-'}</div>
+              <div><strong>Fecha de nacimiento:</strong> {selectedAnimal.birth_date ? new Date(selectedAnimal.birth_date).toLocaleDateString('es-ES') : '-'}</div>
+              <div><strong>Peso:</strong> {selectedAnimal.weight ? `${selectedAnimal.weight} kg` : '-'}</div>
+              <div><strong>Edad:</strong> {selectedAnimal.age_in_months ? `${selectedAnimal.age_in_months} meses` : '-'}</div>
+            </div>
+            {(selectedAnimal.father_id || selectedAnimal.mother_id) && (
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-2">Genealogía</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div><strong>Padre:</strong> {selectedAnimal.father?.record || selectedAnimal.father_id || '-'}</div>
+                  <div><strong>Madre:</strong> {selectedAnimal.mother?.record || selectedAnimal.mother_id || '-'}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        </GenericModal>
+      )}
 
       {isHistoryOpen && historyAnimal && (
         <AnimalHistoryModal

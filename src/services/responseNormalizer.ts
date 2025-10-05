@@ -70,11 +70,20 @@ export function normalizePagination<T>(response: any, preferredKeys: string[] = 
 
   const {
     items,
-    total = Array.isArray(paginated.items) ? paginated.items.length : 0,
+    total: totalRaw,
+    total_items,
     page = 1,
-    per_page: page_size = 10,
-    pages: totalPages = Math.ceil(total / page_size),
+    per_page,
+    limit,
+    pages,
+    total_pages,
   } = paginated as any;
+
+  const page_size: number = Number(per_page ?? limit ?? 10);
+  const total: number = Number(
+    totalRaw ?? total_items ?? (Array.isArray(items) ? items.length : 0)
+  );
+  const totalPages: number = Number(pages ?? total_pages ?? Math.ceil(total / page_size));
 
   return {
     items: items as T[],

@@ -4,6 +4,11 @@ import { extractListFromResponse } from './listExtractor';
 import { normalizePagination } from './responseNormalizer';
 import type { PaginatedResponse } from '@/types/swaggerTypes';
 import { getDefaultLimitByDevice } from '@/utils/viewportUtils';
+import {
+  getIndexedDBCache,
+  setIndexedDBCache,
+  invalidateIndexedDBCacheByPrefix
+} from '@/utils/indexedDBCache';
 
 // Compatible flag for dev mode (avoids use of import.meta in Jest/CommonJS)
 const __DEV__ = (typeof (globalThis as any).process !== 'undefined' && (globalThis as any).process.env && (globalThis as any).process.env.NODE_ENV === 'development');
@@ -70,30 +75,63 @@ export class BaseService<T> {
     return `${this.endpoint}:${sortedParams}`;
   }
 
-  protected getFromCache(key: string): T | T[] | PageResult<T> | PaginatedResponse<T> | null {
+  /**
+   * Obtiene datos del cache (memoria primero, luego IndexedDB)
+   */
+  protected async getFromCache(key: string): Promise<T | T[] | PageResult<T> | PaginatedResponse<T> | null> {
     if (!this.options.enableCache) return null;
-    const cached = this.cache.get(key);
-    if (cached && (Date.now() - cached.timestamp < this.options.cacheTimeout!)) {
-      return cached.data;
+
+    // 1. Cache en memoria (rápido)
+    const memCached = this.cache.get(key);
+    if (memCached && (Date.now() - memCached.timestamp < this.options.cacheTimeout!)) {
+      return memCached.data;
     }
-    this.cache.delete(key);
-    // Eliminada persistencia de caché
-    // this.persistCache();
+
+    // 2. Cache en IndexedDB (persistente)
+    try {
+      const idbKey = `service:${key}`;
+      const idbData = await getIndexedDBCache<any>(idbKey);
+      if (idbData) {
+        // Hidratar memoria
+        this.cache.set(key, { data: idbData, timestamp: Date.now() });
+        return idbData;
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('[BaseService] Error leyendo cache IndexedDB:', error);
+    }
+
     return null;
   }
 
+  /**
+   * Guarda datos en cache (memoria + IndexedDB)
+   */
   protected setCache(key: string, data: any): void {
-    if (this.options.enableCache) {
-      this.cache.set(key, { data, timestamp: Date.now() });
-      // Eliminada persistencia de caché
-      // this.persistCache();
-    }
+    if (!this.options.enableCache) return;
+
+    // 1. Memoria (sincrónico)
+    this.cache.set(key, { data, timestamp: Date.now() });
+
+    // 2. IndexedDB (asíncrono en background)
+    const idbKey = `service:${key}`;
+    void setIndexedDBCache(idbKey, data, this.options.cacheTimeout).catch(err => {
+      if (__DEV__) console.warn('[BaseService] Error escribiendo cache IndexedDB:', err);
+    });
   }
 
+  /**
+   * Limpia cache (memoria + IndexedDB)
+   */
   public clearCache(): void {
+    // 1. Limpiar memoria
     this.cache.clear();
-    // Eliminada persistencia de caché
-    // this.persistCache();
+
+    // 2. Limpiar IndexedDB en background
+    const prefix = `service:${this.endpoint}`;
+    void invalidateIndexedDBCacheByPrefix(prefix).catch(err => {
+      if (__DEV__) console.warn('[BaseService] Error limpiando cache IndexedDB:', err);
+    });
+
     if (__DEV__) {
       console.log(`[Cache] Cache cleared for ${this.endpoint}`);
     }
@@ -137,7 +175,7 @@ export class BaseService<T> {
     delete sanitizedParams.search;
 
     const cacheKey = this.getCacheKey(sanitizedParams);
-    const cached = this.getFromCache(cacheKey);
+    const cached = await this.getFromCache(cacheKey);
     if (cached) return cached as T[];
 
     // Intentar red; si offline o falla por red, caer a caché si existe
@@ -160,19 +198,21 @@ export class BaseService<T> {
     const normalizedParams = BaseService.buildListParams(params || {});
     const { cancelToken, ...normalizedWithoutToken } = normalizedParams as any;
     const cacheKey = this.getCacheKey(normalizedWithoutToken);
-    const cached = this.getFromCache(cacheKey);
+    const cached = await this.getFromCache(cacheKey);
     if (cached) return cached as unknown as PaginatedResponse<T>;
  
+    const searchValue = normalizedWithoutToken.q ?? normalizedWithoutToken.search;
     const requestParams: Record<string, any> = {
       ...normalizedWithoutToken,
       limit: normalizedWithoutToken.limit,
       sort_dir: normalizedWithoutToken.sort_dir ?? normalizedWithoutToken.sort_order,
-      q: normalizedWithoutToken.q ?? normalizedWithoutToken.search,
+      // Enviar ambos para máxima compatibilidad de backend
+      q: searchValue,
+      search: searchValue,
       fields: normalizedWithoutToken.fields,
     };
     delete requestParams.per_page;
     delete requestParams.sort_order;
-    delete requestParams.search;
 
     // Log cuando se filtrapor IDs específicos (como breed_id)
     const filterKeys = Object.keys(requestParams).filter(k => k.endsWith('_id') && requestParams[k]);
@@ -230,7 +270,7 @@ export class BaseService<T> {
     if (normalizedWithoutToken.fields) requestParams.fields = normalizedWithoutToken.fields;
 
     const cacheKey = this.getCacheKey({ id, ...requestParams });
-    const cached = this.getFromCache(cacheKey);
+    const cached = await this.getFromCache(cacheKey);
     if (cached) return cached as T;
 
     try {
@@ -307,9 +347,10 @@ export class BaseService<T> {
 
   async search(query: string, params?: Record<string, any>): Promise<T[]> {
     const normalizedParams = BaseService.buildListParams(params || {});
-    const searchParams = { ...normalizedParams, q: normalizedParams.search ?? query };
+    const searchValue = normalizedParams.search ?? query;
+    const searchParams = { ...normalizedParams, q: searchValue, search: searchValue };
     const cacheKey = this.getCacheKey(searchParams);
-    const cached = this.getFromCache(cacheKey);
+    const cached = await this.getFromCache(cacheKey);
     if (cached) return cached as T[];
 
     try {

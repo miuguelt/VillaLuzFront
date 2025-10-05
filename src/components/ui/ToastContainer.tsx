@@ -1,12 +1,21 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { ToastType, useToast } from '@/context/ToastContext';
+import { CheckCircle2, Info, AlertTriangle, XCircle } from 'lucide-react';
+import { ColorTokens } from '@/constants/colorSystem';
 
 const toastColors: Record<ToastType, string> = {
-  success: 'bg-green-600',
-  error: 'bg-red-600',
-  info: 'bg-blue-600',
-  warning: 'bg-yellow-500',
+  success: ColorTokens.success.bg,
+  error: ColorTokens.error.bg,
+  info: ColorTokens.info.bg,
+  warning: ColorTokens.warning.bg,
+};
+
+const toastIcons: Record<ToastType, React.ReactNode> = {
+  success: <CheckCircle2 className="h-5 w-5" aria-hidden />,
+  error: <XCircle className="h-5 w-5" aria-hidden />,
+  info: <Info className="h-5 w-5" aria-hidden />,
+  warning: <AlertTriangle className="h-5 w-5" aria-hidden />,
 };
 
 export const ToastContainer: React.FC = () => {
@@ -17,11 +26,14 @@ export const ToastContainer: React.FC = () => {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`min-w-[220px] max-w-xs px-4 py-3 rounded shadow-lg text-white flex items-center gap-2 ${toastColors[toast.type || 'info']} animate-fade-in`}
+          className={`min-w-[240px] max-w-sm px-4 py-3 rounded-lg shadow-lg text-white flex items-center gap-2 ${toastColors[toast.type || 'info']} animate-fade-in border ${ColorTokens[(toast.type || 'info') as ToastType].border}`}
           role="status"
           tabIndex={0}
         >
-          <span className="flex-1">{toast.message}</span>
+          <span className="flex items-center gap-2">
+            {toastIcons[toast.type || 'info']}
+            <span className="flex-1">{toast.message}</span>
+          </span>
           <button
             onClick={() => removeToast(toast.id)}
             className="ml-2 text-white hover:text-white focus:outline-none"

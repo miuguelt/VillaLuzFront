@@ -69,6 +69,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Toolbar } from '@/components/common/Toolbar';
+// Revert: eliminar paginación unificada para volver a estilo anterior
 import { ErrorState } from '@/components/feedback/ErrorState';
 import { useToast } from '@/context/ToastContext';
 import { useT } from '@/i18n';
@@ -76,6 +77,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';import { Skele
 import { animalsService } from '@/services/animalService';
 import { Combobox } from '@/components/ui/combobox';
 import { addTombstone, getTombstoneIds, clearExpired } from '@/utils/tombstones';
+import { globalSearch, createSearchCache } from '@/utils/globalSearch';
 
 // Interfaces para configuración del componente
 export interface CRUDColumn<T> {
@@ -139,6 +141,10 @@ export interface CRUDFormSection<T> {
     confirmDeleteDescription?: string;     // Descripción personalizada del diálogo de confirmación de borrado
     showIdInDetailTitle?: boolean;         // Mostrar u ocultar el ID en el título del modal de detalle (default: true)
     preDeleteCheck?: (id: number) => Promise<{ hasDependencies: boolean; message?: string }>; // Chequeo previo antes de eliminar
+  // Vista alternativa en tarjetas
+  viewMode?: 'table' | 'cards';
+  // Contenido interno opcional para cada tarjeta
+  renderCard?: (item: T) => React.ReactNode;
   }
 
 interface AdminCRUDPageProps<T extends { id: number }, TInput extends Record<string, any>> {
@@ -188,18 +194,9 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   const [detailItem, setDetailItem] = useState<T | null>(null);
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
 
-  // Límite inicial dinámico según viewport para evitar cargas adicionales innecesarias
-  const initialLimit = useMemo(() => {
-    if (typeof window === 'undefined') return 10;
-    const winH = window.innerHeight;
-    // Estimar espacio ocupado por header + toolbar + padding + footer
-    const reserved = 260; // px
-    const theadH = 36; // px
-    const rowH = 40; // px (altura promedio por fila)
-    const available = Math.max(0, winH - reserved);
-    const rows = Math.floor((available - theadH) / Math.max(1, rowH));
-    return Math.max(5, Math.min(100, rows || 10));
-  }, []);
+  // Límite inicial fijo estándar para consistencia y mejor UX
+  // Valores comunes: 10, 20, 50, 100
+  const initialLimit = 10;
 
 const {
     data: items,
@@ -321,12 +318,14 @@ const {
       onFormDataChange(data);
     }
   };
-// leer query inicial desde ?q y ?search
-  const initialQ = (searchParams.get('q') || searchParams.get('search') || '').toString();
-  const [searchQuery, setSearchQuery] = useState<string>(initialQ);
-  const lastSyncedQRef = useRef<string>(initialQ);
+// leer query inicial desde ?search (sincronizado con useResource)
+  const initialSearch = (searchParams.get('search') || '').toString();
+  const [searchQuery, setSearchQuery] = useState<string>(initialSearch);
+  const lastSyncedSearchRef = useRef<string>(initialSearch);
 
-  const currentPage = meta?.page || 1;
+  // Priorizar la página desde la URL para evitar resets a 1
+  const pageFromURL = parseInt((searchParams.get('page') || '').toString(), 10);
+  const currentPage = Number.isFinite(pageFromURL) && pageFromURL > 0 ? pageFromURL : (meta?.page || 1);
   const pageSize = meta?.limit || 10;
   const totalItems = meta?.total || 0;
   const totalPages = meta?.totalPages || Math.ceil(totalItems / pageSize);
@@ -348,17 +347,58 @@ const {
   // Filter items to exclude only tombstones; keep deleting items visible to show effect
   const filteredItems = useMemo(() => {
     const tombstoneIds = getTombstoneIds(entityKey);
-    return (currentItems || []).filter((i: T) => {
+    const filtered = (currentItems || []).filter((i: T) => {
       const idStr = String((i as any).id);
       // No ocultar elementos en proceso de eliminación para que se vea el borde rojo
-      return !tombstoneIds.has(idStr);
+      const isTombstone = tombstoneIds.has(idStr);
+      if (isTombstone) {
+        console.log('[AdminCRUDPage] 🪦 Item filtrado por tombstone:', idStr);
+      }
+      return !isTombstone;
     });
+    console.log('[AdminCRUDPage] Filtrado completo - Items originales:', currentItems?.length, 'Filtrados:', filtered.length, 'Tombstones:', Array.from(tombstoneIds));
+    return filtered;
   }, [currentItems, entityKey, tombstoneVersion]);
 
-  // Ordenamiento client-side con persistencia (aplicado a filteredItems)
+  // Cache para búsqueda global optimizada
+  const searchCacheRef = useRef(createSearchCache<T>());
+
+  // Búsqueda: aplicar globalSearch client-side para asegurar que encuentre todos los campos
+  const searchedItems = useMemo(() => {
+    const effectiveQuery = ((searchParams.get('search') || searchQuery) || '').toString().trim();
+    if (!effectiveQuery) return filteredItems;
+
+    console.log('[AdminCRUDPage] Búsqueda activa:', {
+      query: effectiveQuery,
+      itemsDisponibles: filteredItems.length,
+      endpoint: (service as any).endpoint || 'unknown'
+    });
+
+    // Aplicar globalSearch client-side para búsqueda en TODOS los campos
+    // Esto asegura que números de 4 cifras como "1098" se busquen tanto en fechas como en identification
+    const clientResults = globalSearch(filteredItems, effectiveQuery, {
+      matchAll: false, // Modo OR: basta con que aparezca en cualquier campo
+      maxDepth: 3,
+      cache: searchCacheRef.current
+    });
+
+    console.log('[AdminCRUDPage] Resultados de globalSearch client-side:', {
+      query: effectiveQuery,
+      resultados: clientResults.length,
+      muestraResultados: clientResults.slice(0, 3).map(item => ({
+        id: (item as any).id,
+        identification: (item as any).identification,
+        fullname: (item as any).fullname
+      }))
+    });
+
+    return clientResults;
+  }, [filteredItems, searchQuery, searchParams, service]);
+
+  // Ordenamiento client-side con persistencia (aplicado a searchedItems)
   const visibleItems = useMemo(() => {
-    if (!sortKey || sortDir === 'none') return filteredItems;
-    const arr = [...filteredItems];
+    if (!sortKey || sortDir === 'none') return searchedItems;
+    const arr = [...searchedItems];
     arr.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
@@ -380,7 +420,21 @@ const {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     return arr;
-  }, [filteredItems, sortKey, sortDir]);
+  }, [searchedItems, sortKey, sortDir]);
+
+  // Log de debugging para paginación (DEBE estar después de visibleItems)
+  useEffect(() => {
+    console.log('[AdminCRUDPage.Pagination] Estado de paginación:', {
+      meta,
+      currentPage,
+      pageSize,
+      totalItems,
+      totalPages,
+      calculatedPages: Math.ceil(totalItems / pageSize),
+      metaTotalPages: meta?.totalPages,
+      itemsShown: visibleItems?.length || 0
+    });
+  }, [meta, currentPage, pageSize, totalItems, totalPages, visibleItems]);
 
   // Dynamic height calculation refs - optimizado para reducir parpadeo
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
@@ -497,26 +551,33 @@ const {
     setSearchParams(sp, { replace: true });
   };
 
-  // Debounce of search and sync with URL (?q=)
+  // Debounce de búsqueda y sync con URL (?search=) y useResource
   useEffect(() => {
     const handle = setTimeout(() => {
-      if (lastSyncedQRef.current === searchQuery) return;
+      if (lastSyncedSearchRef.current === searchQuery) return;
       const sp = new URLSearchParams(searchParams);
-      if (searchQuery) sp.set('q', searchQuery);
-      else sp.delete('q');
-      // no tocamos page/limit (server-side) to not break contracts
+      if (searchQuery) sp.set('search', searchQuery);
+      else sp.delete('search');
+      // Resetear a página 1 cuando se busca
+      sp.set('page', '1');
       setSearchParams(sp, { replace: true });
-      lastSyncedQRef.current = searchQuery;
-    }, 300);
+      lastSyncedSearchRef.current = searchQuery;
+      // Notificar a useResource para que refetch con el nuevo parámetro search
+      // El backend debe manejar correctamente números como identificaciones
+      setSearch?.(searchQuery);
+
+      // Limpiar caché de búsqueda cuando cambia el query
+      searchCacheRef.current.clear();
+    }, 500);
     return () => clearTimeout(handle);
-  }, [searchQuery, searchParams, setSearchParams]);
+  }, [searchQuery, searchParams, setSearchParams, setSearch]);
 
   // Maintain state in sync if navigate with back/forward
   useEffect(() => {
-    const q = (searchParams.get('q') || '').toString();
-    if (q !== lastSyncedQRef.current) {
-      lastSyncedQRef.current = q;
-      setSearchQuery(q);
+    const search = (searchParams.get('search') || '').toString();
+    if (search !== lastSyncedSearchRef.current) {
+      lastSyncedSearchRef.current = search;
+      setSearchQuery(search);
     }
     const s = searchParams.get('sort');
     const d = searchParams.get('dir') as 'asc' | 'desc' | null;
@@ -560,8 +621,29 @@ const {
   }, [searchParams, config.enableEditModal]);
 
   const handlePageChange = (page: number) => {
+    console.log('[AdminCRUDPage.handlePageChange] Cambio de página solicitado:', {
+      requestedPage: page,
+      currentPage,
+      totalPages,
+      totalItems,
+      pageSize,
+      isValid: page >= 1 && page <= totalPages && page !== currentPage,
+      hasSetPage: typeof setPage === 'function'
+    });
+
     if (page >= 1 && page <= totalPages && page !== currentPage) {
-      setPage?.(page);
+      if (!setPage) {
+        console.error('[AdminCRUDPage.handlePageChange] setPage no está disponible');
+        return;
+      }
+      console.log('[AdminCRUDPage.handlePageChange] ✅ Llamando setPage(' + page + ')');
+      setPage(page);
+    } else {
+      console.warn('[AdminCRUDPage.handlePageChange] ❌ Cambio de página bloqueado:', {
+        reason: page < 1 ? 'página < 1' :
+                page > totalPages ? 'página > totalPages' :
+                page === currentPage ? 'ya estás en esta página' : 'condición desconocida'
+      });
     }
   };
 
@@ -768,16 +850,31 @@ const {
         <div className="flex items-center gap-2">
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-muted-foreground h-3.5 w-3.5" />
-<Input
+            <Input
               placeholder={config.searchPlaceholder || `${t('common.search', 'Buscar...')} ${config.entityName.toLowerCase()}s...`}
               value={searchQuery}
               onChange={(e) => {
+                // Solo actualizar el estado local; el refetch se dispara por el debounce
                 setSearchQuery(e.target.value);
-                setSearch?.(e.target.value);
               }}
               className="pl-7 w-44 sm:w-56 h-7 text-xs sm:text-sm"
             />
           </div>
+          <Button
+            size="sm"
+            className="h-7"
+            onClick={() => {
+              const sp = new URLSearchParams(searchParams);
+              if (searchQuery) sp.set('search', searchQuery); else sp.delete('search');
+              sp.set('page', '1');
+              setSearchParams(sp, { replace: true });
+              lastSyncedSearchRef.current = searchQuery;
+              setSearch?.(searchQuery);
+            }}
+            aria-label={t('common.search', 'Buscar')}
+          >
+            {t('common.search', 'Buscar')}
+          </Button>
           {config.enableCreateModal !== false && (
             <Button size="sm" className="h-7" onClick={openCreate} aria-label={`${t('common.create', 'Crear')} ${config.entityName.toLowerCase()}`}>
               {t('common.create', 'Crear')} {config.entityName.toLowerCase()}
@@ -799,6 +896,7 @@ const {
     dependencies?: Array<{ entity: string; count: number; samples?: string[] }>;
   } | null>(null);
   const [checkingDependencies, setCheckingDependencies] = useState(false);
+  const isConfirmingDelete = useRef(false);
 
   const openDeleteConfirm = async (id: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -838,8 +936,11 @@ const {
   const handleConfirmDelete = async () => {
     if (targetId == null) return;
 
+    // Capturar el targetId localmente para evitar que se resetee por operaciones posteriores
+    const idToDelete = targetId;
+
     console.log('[handleConfirmDelete] Ejecutando, dependencyCheckResult:', {
-      targetId,
+      targetId: idToDelete,
       hasDependencies: dependencyCheckResult?.hasDependencies,
       fullResult: dependencyCheckResult
     });
@@ -860,15 +961,22 @@ const {
 
     console.log('[handleConfirmDelete] Procediendo con eliminación (sin dependencias)');
 
-    setDeletingId(targetId);
+    setDeletingId(idToDelete);
     setConfirmOpen(false); // Cerrar el diálogo
     setDependencyCheckResult(null); // Limpiar resultado
+    // Limpiar targetId INMEDIATAMENTE para permitir abrir nuevos diálogos
+    setTargetId(null);
 
     // Marcar item como "deleting" para animación de fade-out
-    setDeletingItems(prev => new Set(prev).add(String(targetId)));
+    setDeletingItems(prev => {
+      const newSet = new Set(prev);
+      newSet.add(String(idToDelete));
+      console.log('[AdminCRUDPage] ➕ Agregando item a deletingItems:', String(idToDelete), 'Set completo:', Array.from(newSet));
+      return newSet;
+    });
 
     try {
-      const success = await deleteItem(targetId);
+      const success = await deleteItem(idToDelete);
 
       if (success) {
         showToast(`🗑️ ${config.entityName} eliminado correctamente`, 'success');
@@ -878,15 +986,15 @@ const {
 
         // Registrar tombstone extendido para ocultar temporalmente si el backend aún lo devuelve
         // 120 segundos (2 minutos) para dar tiempo a que el backend propague la eliminación
-        addTombstone(entityKey, String(targetId), 120000);
+        addTombstone(entityKey, String(idToDelete), 120000);
         setTombstoneVersion((v) => v + 1);
 
         // Cerrar modales si el item eliminado estaba abierto
-        if (isDetailOpen && detailItem?.id === targetId) {
+        if (isDetailOpen && detailItem?.id === idToDelete) {
           setIsDetailOpen(false);
           setDetailIndex(null);
         }
-        if (isModalOpen && editingItem?.id === targetId) {
+        if (isModalOpen && editingItem?.id === idToDelete) {
           setIsModalOpen(false);
           setEditingItem(null);
         }
@@ -894,7 +1002,8 @@ const {
         // Verificar si después de eliminar, la página actual quedará vacía
         const currentPageItems = displayItems.length - 1; // -1 porque ya lo eliminamos
         const willBeEmpty = currentPageItems === 0;
-        const currentPage = meta?.page || 1;
+        const pageFromURL = parseInt((searchParams.get('page') || '').toString(), 10);
+        const currentPage = Number.isFinite(pageFromURL) && pageFromURL > 0 ? pageFromURL : (meta?.page || 1);
 
         // Si la página actual quedará vacía y no es la primera página, ir a la página anterior
         if (willBeEmpty && currentPage > 1 && setPage) {
@@ -910,18 +1019,18 @@ const {
 
           // Verificar si el elemento fue correctamente eliminado
           // IMPORTANTE: usar freshData (respuesta directa del refetch) en lugar de items (puede estar desactualizado)
-          const itemStillExists = (freshData || []).some((i: any) => String(i?.id) === String(targetId));
+          const itemStillExists = (freshData || []).some((i: any) => String(i?.id) === String(idToDelete));
 
           if (!itemStillExists) {
             // Éxito: el item ya no existe en el backend
             console.log('[AdminCRUDPage] Item eliminado y confirmado por el servidor:', {
-              id: targetId,
+              id: idToDelete,
               itemsInView: (freshData || []).map((i: any) => i?.id)
             });
           } else {
             // El backend aún devuelve el item - intentar un segundo refetch después de 500ms
             console.warn('[AdminCRUDPage] Item eliminado localmente pero aún aparece en respuesta del servidor, reintentando...:', {
-              id: targetId,
+              id: idToDelete,
               serverItems: (freshData || []).map((i: any) => ({ id: i?.id })),
               message: 'El servidor aún devuelve este item. Reintentando refetch...'
             });
@@ -929,11 +1038,11 @@ const {
             // Segundo intento después de 500ms adicionales
             await new Promise(resolve => setTimeout(resolve, 500));
             const freshData2 = await refetch();
-            const stillExists2 = (freshData2 || []).some((i: any) => String(i?.id) === String(targetId));
+            const stillExists2 = (freshData2 || []).some((i: any) => String(i?.id) === String(idToDelete));
 
             if (stillExists2) {
               console.warn('[AdminCRUDPage] Item aún aparece después del segundo intento. Puede ser un problema del backend:', {
-                id: targetId,
+                id: idToDelete,
                 serverItems: (freshData2 || []).map((i: any) => ({ id: i?.id }))
               });
             } else {
@@ -944,13 +1053,14 @@ const {
           // Siempre quitar del estado deleting después del refetch (exitoso o no)
           setDeletingItems(prev => {
             const newSet = new Set(prev);
-            newSet.delete(String(targetId));
+            const deleted = newSet.delete(String(idToDelete));
+            console.log('[AdminCRUDPage] ➖ Removiendo item de deletingItems:', String(idToDelete), 'Exitoso:', deleted, 'Set resultante:', Array.from(newSet));
             return newSet;
           });
         } catch (error: any) {
           if (error?.code !== 'ERR_CANCELED' && !String(error?.message || '').toLowerCase().includes('cancel')) {
             console.error('[AdminCRUDPage] Error al refrescar datos después de eliminar:', {
-              id: targetId,
+              id: idToDelete,
               error: {
                 message: error?.message,
                 code: error?.code,
@@ -962,7 +1072,7 @@ const {
           // Quitar de deletingItems incluso si el refetch falla
           setDeletingItems(prev => {
             const newSet = new Set(prev);
-            newSet.delete(String(targetId));
+            newSet.delete(String(idToDelete));
             return newSet;
           });
         }
@@ -971,7 +1081,7 @@ const {
         // Quitar de deletingItems si falló
         setDeletingItems(prev => {
           const newSet = new Set(prev);
-          newSet.delete(String(targetId));
+          newSet.delete(String(idToDelete));
           return newSet;
         });
       }
@@ -995,18 +1105,16 @@ const {
         shouldRefetch = true;
 
         // Esperar para mostrar el efecto de eliminación antes de ocultar con tombstone
-        if (targetId != null) {
-          await new Promise(resolve => setTimeout(resolve, 1200));
-          addTombstone(entityKey, String(targetId), 120000);
-          setTombstoneVersion((v) => v + 1);
-        }
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        addTombstone(entityKey, String(idToDelete), 120000);
+        setTombstoneVersion((v) => v + 1);
 
         // Cerrar modales si el item ya no existe
-        if (isDetailOpen && detailItem?.id === targetId) {
+        if (isDetailOpen && detailItem?.id === idToDelete) {
           setIsDetailOpen(false);
           setDetailIndex(null);
         }
-        if (isModalOpen && editingItem?.id === targetId) {
+        if (isModalOpen && editingItem?.id === idToDelete) {
           setIsModalOpen(false);
           setEditingItem(null);
         }
@@ -1014,7 +1122,8 @@ const {
         // Verificar paginación (igual que en caso de éxito)
         const currentPageItems = displayItems.length;
         const willBeEmpty = currentPageItems === 1;
-        const currentPage = meta?.page || 1;
+        const pageFromURL = parseInt((searchParams.get('page') || '').toString(), 10);
+        const currentPage = Number.isFinite(pageFromURL) && pageFromURL > 0 ? pageFromURL : (meta?.page || 1);
 
         if (willBeEmpty && currentPage > 1 && setPage) {
           setPage(currentPage - 1);
@@ -1044,7 +1153,7 @@ const {
         errorMessage = `⚠️ Error del servidor al eliminar ${config.entityName.toLowerCase()}. ${traceId ? `(ID: ${traceId})` : ''} Por favor contacte al administrador del sistema.`;
         console.error('[AdminCRUDPage] Error 500 del servidor:', {
           entityName: config.entityName,
-          targetId,
+          targetId: idToDelete,
           traceId,
           errorData: error?.response?.data
         });
@@ -1058,13 +1167,11 @@ const {
       showToast(errorMessage, 'error');
 
       // Quitar de deletingItems si hay error
-      if (targetId) {
-        setDeletingItems(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(String(targetId));
-          return newSet;
-        });
-      }
+      setDeletingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(String(idToDelete));
+        return newSet;
+      });
 
       // Refrescar datos si es necesario (404, 500, etc.)
       if (shouldRefetch) {
@@ -1087,7 +1194,7 @@ const {
       }
     } finally {
       setDeletingId(null);
-      setTargetId(null);
+      // NO resetear targetId aquí - ya se reseteó al inicio para permitir abrir nuevos diálogos
     }
   };
 
@@ -1151,6 +1258,108 @@ const {
               maxHeight: wrapperMaxHeight != null ? `${wrapperMaxHeight}px` : undefined,
             }}
           >
+               {config.viewMode === 'cards' ? (
+                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                   {visibleItems.map((item) => {
+                     const isDeleting = deletingItems.has(String(item.id!));
+                     const isNew = newItems.has(item.id!);
+                     const isUpdated = updatedItems.has(item.id!);
+                     const firstCol = config.columns[0];
+                     const rawTitle = (item as any)[firstCol?.key];
+                     const mappedTitle = fkLabelMap[String(firstCol?.key)]?.get(String(rawTitle));
+                     const titleText = mappedTitle ?? String(rawTitle ?? `${config.entityName} #${item.id}`);
+                     return (
+                       <Card
+                         key={item.id}
+                         className={cn(
+                           'cursor-pointer transition-all duration-200 border-2 shadow-lg hover:shadow-xl',
+                           'bg-gradient-to-br from-card via-card to-card/95',
+                           'backdrop-blur-sm',
+                           enhancedHover ? 'hover:border-blue-400 hover:bg-muted/30 hover:scale-[1.02] hover:-translate-y-1' : '',
+                           isDeleting ? 'ring-4 ring-red-400 bg-red-50 border-red-300 shadow-red-200' : '',
+                           isNew ? 'ring-4 ring-green-400 bg-green-50 border-green-300 shadow-green-200' : '',
+                           isUpdated ? 'ring-4 ring-amber-400 bg-amber-50/30 border-amber-300 shadow-amber-200' : '',
+                           'dark:shadow-gray-800/20'
+                         )}
+                         onClick={() => { config.enableDetailModal !== false && openDetail(item); }}
+                         role="button"
+                         tabIndex={0}
+                         onKeyDown={(e) => {
+                           if (e.key === 'Enter' || e.key === ' ') {
+                             e.preventDefault();
+                             config.enableDetailModal !== false && openDetail(item);
+                           }
+                         }}
+                       >
+                        <CardHeader className="py-2">
+                          <CardTitle className="text-sm truncate" title={titleText}>{titleText}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="py-2">
+                          {config.renderCard ? (
+                            config.renderCard(item)
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2 text-[11px] md:text-xs">
+                              {config.columns.map((col) => {
+                                const raw = (item as any)[col.key];
+                                const mapped = fkLabelMap[String(col.key)]?.get(String(raw));
+                                return (
+                                  <div key={String(col.key)} className="min-w-0">
+                                    <div className="text-muted-foreground">{col.label}</div>
+                                    <div className="truncate" title={String(mapped ?? raw ?? '-')}>{String(mapped ?? raw ?? '-')}</div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {(config.enableDetailModal !== false || config.enableEditModal !== false || config.enableDelete || config.customActions) && (
+                            <div className="mt-3 w-full overflow-x-auto flex flex-nowrap items-center gap-1.5 sm:gap-2" onClick={(e) => e.stopPropagation()}>
+                              {config.enableDetailModal !== false && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-9 w-9 sm:h-10 sm:w-10 p-0 border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300"
+                                  onClick={() => openDetail(item)}
+                                  aria-label={`${t('common.view', 'Ver')} ${config.entityName.toLowerCase()} ${item.id}`}
+                                >
+                                  <Eye className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                                </Button>
+                              )}
+                              {config.enableEditModal !== false && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-9 w-9 sm:h-10 sm:w-10 p-0 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-700 dark:hover:text-amber-300"
+                                  onClick={() => openEdit(item)}
+                                  aria-label={`${t('common.edit', 'Editar')} ${config.entityName.toLowerCase()} ${item.id}`}
+                                >
+                                  <Edit className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                                </Button>
+                              )}
+                              {config.enableDelete && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-9 w-9 sm:h-10 sm:w-10 p-0 border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-700 dark:hover:text-red-300"
+                                  onClick={(e) => openDeleteConfirm(item.id, e)}
+                                  disabled={deletingId === item.id}
+                                  aria-label={`${t('common.delete', 'Eliminar')} ${config.entityName.toLowerCase()} ${item.id}`}
+                                >
+                                  {deletingId === item.id ? (
+                                    <Loader2 className="h-4.5 w-4.5 sm:h-5 sm:w-5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                                  )}
+                                </Button>
+                              )}
+                              {config.customActions && config.customActions(item)}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : (
               <table
                 ref={tableRef}
                 className="min-w-full divide-y divide-border/70 text-[12px] md:text-sm"
@@ -1194,6 +1403,10 @@ const {
                     const isDeleting = deletingItems.has(String(item.id!));  // 🔴 Rojo al eliminar
                     const isNew = newItems.has(item.id!);                    // 🟢 Verde al insertar (SOLO si isUserInsertedRef.current fue true)
                     const isUpdated = updatedItems.has(item.id!);            // 🟡 Amarillo al actualizar
+
+                    if (isDeleting) {
+                      console.log('[AdminCRUDPage] 🔴 Renderizando item en estado DELETING:', item.id, 'deletingItems:', Array.from(deletingItems));
+                    }
 
                     return (
                     <tr
@@ -1281,45 +1494,45 @@ const {
                      ))}
                       {(config.enableDetailModal !== false || config.enableEditModal !== false || config.enableDelete || config.customActions) && (
                         <td className="px-1 sm:px-2 py-1 whitespace-nowrap text-[11px] md:text-xs font-medium" onClick={(e) => e.stopPropagation()} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} >
-                          <div className="flex items-center gap-0.5 sm:gap-1">
-                            {config.enableDetailModal !== false && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                                onClick={(e) => { e.stopPropagation(); openDetail(item); }}
-                                aria-label={`${t('common.view', 'Ver')} ${config.entityName.toLowerCase()} ${item.id}`}
-                              >
-                                <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              </Button>
-                            )}
-                            {config.enableEditModal !== false && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-amber-50 hover:text-amber-600 transition-colors"
-                                onClick={(e) => { e.stopPropagation(); openEdit(item); }}
-                                aria-label={`${t('common.edit', 'Editar')} ${config.entityName.toLowerCase()} ${item.id}`}
-                              >
-                                <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                              </Button>
-                            )}
-                            {config.enableDelete && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 sm:h-8 sm:w-8 p-0 hover:bg-red-50 hover:text-red-600 transition-colors"
-                                onClick={(e) => openDeleteConfirm(item.id, e)}
-                                disabled={deletingId === item.id}
-                                aria-label={`${t('common.delete', 'Eliminar')} ${config.entityName.toLowerCase()} ${item.id}`}
-                              >
-                                {deletingId === item.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                )}
-                              </Button>
-                            )}
+                           <div className="flex items-center gap-1 sm:gap-1.5 flex-nowrap">
+                             {config.enableDetailModal !== false && (
+                               <Button
+                                  variant="ghost"
+                                 size="sm"
+                                 className="h-8 w-8 sm:h-8 sm:w-8 p-0 border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-200"
+                                 onClick={(e) => { e.stopPropagation(); openDetail(item); }}
+                                 aria-label={`${t('common.view', 'Ver')} ${config.entityName.toLowerCase()} ${item.id}`}
+                               >
+                                 <Eye className="h-4 w-4" />
+                               </Button>
+                             )}
+                             {config.enableEditModal !== false && (
+                               <Button
+                                  variant="ghost"
+                                 size="sm"
+                                 className="h-8 w-8 sm:h-8 sm:w-8 p-0 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-700 dark:hover:text-amber-300 transition-all duration-200"
+                                 onClick={(e) => { e.stopPropagation(); openEdit(item); }}
+                                 aria-label={`${t('common.edit', 'Editar')} ${config.entityName.toLowerCase()} ${item.id}`}
+                               >
+                                 <Edit className="h-4 w-4" />
+                               </Button>
+                             )}
+                             {config.enableDelete && (
+                               <Button
+                                  variant="ghost"
+                                 size="sm"
+                                 className="h-8 w-8 sm:h-8 sm:w-8 p-0 border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200"
+                                 onClick={(e) => openDeleteConfirm(item.id, e)}
+                                 disabled={deletingId === item.id}
+                                 aria-label={`${t('common.delete', 'Eliminar')} ${config.entityName.toLowerCase()} ${item.id}`}
+                               >
+                                 {deletingId === item.id ? (
+                                   <Loader2 className="h-4 w-4 animate-spin" />
+                                 ) : (
+                                   <Trash2 className="h-4 w-4" />
+                                 )}
+                               </Button>
+                             )}
                             {config.customActions && config.customActions(item)}
                           </div>
                         </td>
@@ -1329,13 +1542,16 @@ const {
                   })}
                 </tbody>
               </table>
+              )}
             </div>
 
-            {/* Pagination footer */}
+            {/* Pagination footer (estilo original con botones) */}
             <div ref={footerRef} className="sticky bottom-0 z-10 bg-card/95 border-t backdrop-blur-sm shadow-sm flex-shrink-0">
               <div className="px-2 py-1.5 sm:py-2">
-                <div className="flex justify-between sm:justify-end items-center text-[11px] sm:text-[12px] md:text-sm">
-                  <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex justify-between items-center text-[11px] sm:text-[12px] md:text-sm gap-2">
+
+
+                  <div className="flex items-center gap-2 sm:gap-3 ml-auto">
                     <span className="text-[11px] sm:text-[12px] md:text-sm text-muted-foreground">
                       <span className="hidden sm:inline">{t('common.page', 'Página')} </span>
                       <span className="sm:hidden">Pág. </span>
@@ -1428,23 +1644,35 @@ const {
                             )}
                           </label>
 
-                          {field.type === 'textarea' && (
-                            <Textarea
-                              id={String(field.name)}
-                              value={(formData as any)[field.name] || ''}
-                              onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
-                              placeholder={field.placeholder}
-                              rows={3}
-                              disabled={saving}
-                              className={cn(
-                                "w-full min-h-[80px] resize-none text-sm",
-                                "border-border/50 focus:border-primary/50",
-                                "bg-background/50 focus:bg-background/80",
-                                "transition-all duration-200",
-                                "backdrop-blur-sm"
-                              )}
-                            />
-                          )}
+                          {field.type === 'textarea' && (() => {
+                            const currentValue = (formData as any)[field.name];
+                            const showWarning = field.required && (!currentValue || currentValue === '');
+                            return (
+                              <div className="space-y-1">
+                                <Textarea
+                                  id={String(field.name)}
+                                  value={currentValue || ''}
+                                  onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                                  placeholder={field.placeholder}
+                                  rows={3}
+                                  disabled={saving}
+                                  aria-invalid={showWarning}
+                                  className={cn(
+                                    "w-full min-h-[80px] resize-none text-sm",
+                                    showWarning
+                                      ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
+                                      : "border-border/50 focus:border-primary/50",
+                                    "bg-background/50 focus:bg-background/80",
+                                    "transition-all duration-300",
+                                    "backdrop-blur-sm"
+                                  )}
+                                />
+                                {showWarning && (
+                                  <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                         {field.type === 'select' && field.options && (
                           (() => {
@@ -1550,8 +1778,8 @@ const {
                                   )}
                                 />
                                 {isLoading && (
-                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  <div className="flex items-center gap-2 text-xs text-[#3b82f6]">
+                                    <Loader2 className="h-3 w-3 animate-spin text-[#3b82f6]" />
                                     <span>Buscando opciones...</span>
                                   </div>
                                 )}
@@ -1581,56 +1809,92 @@ const {
                           </div>
                         )}
 
-                          {field.type === 'number' && (
-                            <Input
-                              id={String(field.name)}
-                              type="number"
-                              value={(formData as any)[field.name] || ''}
-                              onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value ? Number(e.target.value) : undefined })}
-                              placeholder={field.placeholder}
-                              min={field.validation?.min}
-                              max={field.validation?.max}
-                              disabled={saving}
-                              className={cn(
-                                "w-full min-h-[44px] text-sm",
-                                "border-border/50 focus:border-primary/50",
-                                "bg-background/50 focus:bg-background/80",
-                                "transition-all duration-200 backdrop-blur-sm"
-                              )}
-                            />
-                          )}
+                          {field.type === 'number' && (() => {
+                            const currentValue = (formData as any)[field.name];
+                            const showWarning = field.required && (currentValue == null || currentValue === '' || Number.isNaN(Number(currentValue)));
+                            return (
+                              <div className="space-y-1">
+                                <Input
+                                  id={String(field.name)}
+                                  type="number"
+                                  value={(formData as any)[field.name] || ''}
+                                  onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value ? Number(e.target.value) : undefined })}
+                                  placeholder={field.placeholder}
+                                  min={field.validation?.min}
+                                  max={field.validation?.max}
+                                  disabled={saving}
+                                  aria-invalid={showWarning}
+                                  className={cn(
+                                    "w-full min-h-[44px] text-sm",
+                                    showWarning
+                                      ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
+                                      : "border-border/50 focus:border-primary/50",
+                                    "bg-background/50 focus:bg-background/80",
+                                    "transition-all duration-300 backdrop-blur-sm"
+                                  )}
+                                />
+                                {showWarning && (
+                                  <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                                )}
+                              </div>
+                            );
+                          })()}
 
-                          {field.type === 'date' && (
-                            <Input
-                              id={String(field.name)}
-                              type="date"
-                              value={(formData as any)[field.name] || ''}
-                              onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
-                              disabled={saving}
-                              className={cn(
-                                "w-full min-h-[44px] text-sm",
-                                "border-border/50 focus:border-primary/50",
-                                "bg-background/50 focus:bg-background/80",
-                                "transition-all duration-200 backdrop-blur-sm"
-                              )}
-                            />
-                          )}
+                          {field.type === 'date' && (() => {
+                            const currentValue = (formData as any)[field.name];
+                            const showWarning = field.required && (!currentValue || currentValue === '');
+                            return (
+                              <div className="space-y-1">
+                                <Input
+                                  id={String(field.name)}
+                                  type="date"
+                                  value={(formData as any)[field.name] || ''}
+                                  onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                                  disabled={saving}
+                                  aria-invalid={showWarning}
+                                  className={cn(
+                                    "w-full min-h-[44px] text-sm",
+                                    showWarning
+                                      ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
+                                      : "border-border/50 focus:border-primary/50",
+                                    "bg-background/50 focus:bg-background/80",
+                                    "transition-all duration-300 backdrop-blur-sm"
+                                  )}
+                                />
+                                {showWarning && (
+                                  <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                                )}
+                              </div>
+                            );
+                          })()}
 
-                          {(field.type === 'text' || field.type === 'multiselect') && (
-                            <Input
-                              id={String(field.name)}
-                              value={(formData as any)[field.name] || ''}
-                              onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
-                              placeholder={field.placeholder}
-                              disabled={saving}
-                              className={cn(
-                                "w-full min-h-[44px] text-sm",
-                                "border-border/50 focus:border-primary/50",
-                                "bg-background/50 focus:bg-background/80",
-                                "transition-all duration-200 backdrop-blur-sm"
-                              )}
-                            />
-                          )}
+                          {(field.type === 'text' || field.type === 'multiselect') && (() => {
+                            const currentValue = (formData as any)[field.name];
+                            const showWarning = field.required && (!currentValue || currentValue === '');
+                            return (
+                              <div className="space-y-1">
+                                <Input
+                                  id={String(field.name)}
+                                  value={(formData as any)[field.name] || ''}
+                                  onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                                  placeholder={field.placeholder}
+                                  disabled={saving}
+                                  aria-invalid={showWarning}
+                                  className={cn(
+                                    "w-full min-h-[44px] text-sm",
+                                    showWarning
+                                      ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
+                                      : "border-border/50 focus:border-primary/50",
+                                    "bg-background/50 focus:bg-background/80",
+                                    "transition-all duration-300 backdrop-blur-sm"
+                                  )}
+                                />
+                                {showWarning && (
+                                  <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       ))}
                     </div>
@@ -1849,7 +2113,8 @@ const {
           open={confirmOpen}
           onOpenChange={(open) => {
             setConfirmOpen(open);
-            if (!open) {
+            // Si se cierra manualmente (cancelar/ESC), resetear estado
+            if (!open && !isConfirmingDelete.current) {
               setTargetId(null);
               setDependencyCheckResult(null);
             }
@@ -1888,7 +2153,7 @@ const {
             // Si hay dependencias, solo cerrar el modal (no ejecutar eliminación)
             if (dependencyCheckResult?.hasDependencies) {
               console.log('[ConfirmDialog.onConfirm] Hay dependencias, SOLO cerrando modal (no eliminando)');
-              setConfirmOpen(false);
+              // Resetear manualmente ya que no se ejecutará handleConfirmDelete
               setTargetId(null);
               setDependencyCheckResult(null);
               return;
@@ -1896,7 +2161,10 @@ const {
 
             // Si no hay dependencias, proceder con la eliminación
             console.log('[ConfirmDialog.onConfirm] No hay dependencias, llamando handleConfirmDelete()');
-            handleConfirmDelete();
+            isConfirmingDelete.current = true;
+            handleConfirmDelete().finally(() => {
+              isConfirmingDelete.current = false;
+            });
           }}
           // Nuevas props para mostrar dependencias detalladas
           showWarningIcon={dependencyCheckResult?.hasDependencies || false}

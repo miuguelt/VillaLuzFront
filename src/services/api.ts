@@ -2,6 +2,7 @@ import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 
 import { getCookie } from '@/utils/cookieUtils'
 import { unwrapApi } from '@/utils/apiUnwrap';
 import { extractJWT } from '@/utils/tokenUtils';
+import { getIndexedDBCache, setIndexedDBCache, startIndexedDBCacheCleanup } from '@/utils/indexedDBCache';
 
 // ENV y configuración
 const env: Record<string, any> = ((globalThis as any)?.['import']?.['meta']?.['env'])
@@ -12,6 +13,7 @@ const REFRESH_TIMEOUT = Number(env.VITE_REFRESH_TIMEOUT ?? 8000);
 const FORCE_ABSOLUTE = String(env.VITE_FORCE_ABSOLUTE_BASE_URL ?? '').toLowerCase() === 'true';
 const DEBUG_LOG = String(env.VITE_DEBUG_MODE ?? '').toLowerCase() === 'true';
 const AUTH_STORAGE_KEY = env.VITE_AUTH_STORAGE_KEY || 'finca_access_token';
+const HTTP_CACHE_TTL = Number(env.VITE_HTTP_CACHE_TTL ?? 20000); // TTL por defecto 20s
 
 // Bases de URL
 const baseURL = FORCE_ABSOLUTE ? (env.VITE_API_BASE_URL || '/api/v1/') : '/api/v1/';
@@ -297,6 +299,47 @@ api.interceptors.response.use(
     const status = error?.response?.status;
     const path = normalizePath(originalRequest?.url as any);
 
+    // Aviso global: límite de solicitudes excedido (HTTP 429)
+    if (status === 429) {
+      try {
+        const detail = {
+          event: 'RATE_LIMIT_EXCEEDED',
+          endpoint: path,
+          status,
+          message: error?.response?.data?.message || error?.message || 'Demasiadas solicitudes',
+          timestamp: new Date().toISOString(),
+        };
+        if (typeof window !== 'undefined' && 'dispatchEvent' in window) {
+          window.dispatchEvent(new CustomEvent('rate-limit-exceeded', { detail }));
+        }
+        // Registrar ventana de backoff si el servidor sugiere Retry-After / RateLimit-Reset
+        try {
+          const headers = error?.response?.headers ?? {} as Record<string, any>;
+          const retryAfter = headers['retry-after'] ?? headers['Retry-After'];
+          const rlReset = headers['ratelimit-reset'] ?? headers['RateLimit-Reset'];
+          let delayMs = 30000; // 30s por defecto
+          const toInt = (v: any) => {
+            if (v == null) return undefined;
+            const s = Array.isArray(v) ? v[0] : v;
+            const n = parseInt(String(s), 10);
+            return Number.isNaN(n) ? undefined : n;
+          };
+          const retrySecs = toInt(retryAfter);
+          if (retrySecs != null) {
+            delayMs = Math.max(retrySecs * 1000, 5000);
+          } else {
+            const resetSecs = toInt(rlReset);
+            if (resetSecs != null) {
+              const nowSecs = Math.floor(Date.now() / 1000);
+              delayMs = Math.max((resetSecs - nowSecs) * 1000, 5000);
+            }
+          }
+          // rateLimitBackoff se declara más abajo; el closure lo resolverá a runtime
+          try { rateLimitBackoff.set(path, Date.now() + delayMs); } catch {}
+        } catch {}
+      } catch { /* noop */ }
+    }
+
     // Evitar recursión
     if (!originalRequest._retry) originalRequest._retry = false;
 
@@ -334,6 +377,7 @@ api.interceptors.response.use(
 // --- COALESCING de GET global (single-flight) para igualar comportamiento dev/prod ---
 // Evita enviar múltiples GET idénticos (método+URL+params) simultáneamente y comparte la misma promesa
 const inflightGet = new Map<string, Promise<any>>();
+const rateLimitBackoff = new Map<string, number>();
 const stableStringify = (obj: any) => {
   if (!obj || typeof obj !== 'object') return '';
   const keys = Object.keys(obj).sort();
@@ -348,20 +392,100 @@ const buildGetKey = (url: string, config?: any) => {
   return `GET ${full}?${paramsStr}`;
 };
 
+// Iniciar limpieza automática de cache IndexedDB al importar este módulo
+if (typeof window !== 'undefined') {
+  startIndexedDBCacheCleanup(300000); // Cada 5 minutos
+}
+
+// Cache dual: memoria (rápido) + IndexedDB (persistente)
+const memoryCache = new Map<string, { data: any; expiry: number }>();
+
+/**
+ * Lee del cache (memoria primero, luego IndexedDB)
+ */
+async function readCache(key: string): Promise<any | null> {
+  const cacheKey = `http-cache:${key}`;
+
+  // 1. Intentar memoria primero (ultra rápido)
+  const memEntry = memoryCache.get(cacheKey);
+  if (memEntry && Date.now() <= memEntry.expiry) {
+    return memEntry.data;
+  }
+
+  // 2. Fallback a IndexedDB (persistente entre sesiones)
+  try {
+    const idbData = await getIndexedDBCache<any>(cacheKey);
+    if (idbData) {
+      // Hidratar memoria con dato de IndexedDB
+      memoryCache.set(cacheKey, {
+        data: idbData,
+        expiry: Date.now() + HTTP_CACHE_TTL,
+      });
+      return idbData;
+    }
+  } catch (error) {
+    console.warn('[api] Error leyendo cache IndexedDB:', error);
+  }
+
+  return null;
+}
+
+/**
+ * Escribe en cache (memoria + IndexedDB)
+ */
+function writeCache(key: string, data: any, ttlMs: number = HTTP_CACHE_TTL): void {
+  const cacheKey = `http-cache:${key}`;
+  const expiry = Date.now() + Math.max(1000, ttlMs);
+
+  // 1. Escribir en memoria (sincrónico, rápido)
+  memoryCache.set(cacheKey, { data, expiry });
+
+  // 2. Escribir en IndexedDB (asíncrono, persistente) en background
+  void setIndexedDBCache(cacheKey, data, ttlMs).catch(err => {
+    console.warn('[api] Error escribiendo cache IndexedDB:', err);
+  });
+}
+
 const originalGet = api.get.bind(api);
-(api as any).get = (url: string, config?: any) => {
+(api as any).get = async (url: string, config?: any) => {
   // Si se proporcionó cancelToken o signal, no coalescar para respetar cancelaciones de componente
   const hasCancel = !!(config && (config.cancelToken || config.signal));
   if (hasCancel) {
     return originalGet(url, config);
   }
   const key = buildGetKey(url, config);
+
+  // Si existe backoff activo por rate limit, servir caché si está disponible
+  try {
+    const path = normalizePath(url as any);
+    const until = rateLimitBackoff.get(path) || 0;
+    if (until && Date.now() < until) {
+      const cachedBackoff = await readCache(key);
+      if (cachedBackoff) {
+        if (DEBUG_LOG) console.log('[api] Cache durante backoff:', key);
+        return { data: cachedBackoff, status: 200, statusText: 'OK', headers: {}, config } as AxiosResponse;
+      }
+    }
+  } catch {}
+
+  // Cache fresco primero (ahora asíncrono por IndexedDB)
+  const cached = await readCache(key);
+  if (cached) {
+    if (DEBUG_LOG) console.log('[api] Cache HIT:', key);
+    return { data: cached, status: 200, statusText: 'OK', headers: {}, config } as AxiosResponse;
+  }
+
   const existing = inflightGet.get(key);
   if (existing) {
     if (DEBUG_LOG) console.log('[api] Coalesced GET:', key);
     return existing;
   }
-  const p = originalGet(url, config);
+
+  const p = originalGet(url, config).then((resp: AxiosResponse) => {
+    // Guardar en caché la respuesta (ahora en IndexedDB + memoria)
+    try { writeCache(key, resp.data, HTTP_CACHE_TTL); } catch {}
+    return resp;
+  });
   inflightGet.set(key, p);
   const clear = () => inflightGet.delete(key);
   p.then(clear, clear);

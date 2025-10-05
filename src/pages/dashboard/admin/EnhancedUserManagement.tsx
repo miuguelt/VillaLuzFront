@@ -262,10 +262,10 @@ const EnhancedUserManagement: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead>Identificación</TableHead>
-                  <TableHead className="w-52">Nombre Completo</TableHead>
-                  <TableHead className="w-48">Email</TableHead>
+                  <TableHead>Nombre Completo</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Estado</TableHead>
-                  <TableHead className="w-200">Rol</TableHead>
+                  <TableHead>Rol</TableHead>
                   <TableHead>Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -273,8 +273,8 @@ const EnhancedUserManagement: React.FC = () => {
                 {filteredUsers.map((user: UserResponse) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.identification}</TableCell>
-                    <TableCell>{user.fullname}</TableCell>
-                    <TableCell>{user.email}</TableCell>
+                    <TableCell className="max-w-xs break-words">{user.fullname}</TableCell>
+                    <TableCell className="max-w-xs break-words">{user.email}</TableCell>
                     <TableCell>
                       <Badge
                         variant={isActiveStatus(user.status) ? "default" : "secondary"}

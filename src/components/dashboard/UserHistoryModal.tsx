@@ -270,7 +270,7 @@ export const UserHistoryModal = ({ user, onClose }: UserHistoryModalProps) => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm truncate">{user.email}</p>
+                <p className="text-sm break-words">{user.email}</p>
               </CardContent>
             </Card>
             
@@ -403,7 +403,7 @@ export const UserHistoryModal = ({ user, onClose }: UserHistoryModalProps) => {
                               {activity.icon}
                             </div>
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 break-words">
                             <div className="flex items-center justify-between">
                               <h4 className="text-sm font-medium text-gray-900">{activity.title}</h4>
                               <div className="flex items-center space-x-2">

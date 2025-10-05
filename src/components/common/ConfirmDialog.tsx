@@ -2,6 +2,7 @@ import React from "react";
 import { GenericModal } from "@/components/common/GenericModal";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * ConfirmDialog: diálogo de confirmación accesible basado en GenericModal.
@@ -75,6 +76,11 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   // Si hay mensaje detallado o dependencias, usar tamaño más grande
   const effectiveSize = detailedMessage || dependencies ? "md" : size;
+  const isDestructive = confirmVariant === "destructive";
+  const modalClassName = cn(
+    className,
+    isDestructive ? "" : ""
+  );
 
   return (
     <GenericModal
@@ -83,7 +89,7 @@ export function ConfirmDialog({
       title={title}
       description={description}
       size={effectiveSize}
-      className={className}
+      className={modalClassName}
       draggable={draggable}
     >
       {/* Contenido adicional con advertencias detalladas */}
@@ -169,7 +175,9 @@ export function ConfirmDialog({
           }}
           aria-label={confirmLabel}
           disabled={disabled}
+          className={cn("transition-colors duration-300", isDestructive ? "focus-visible:ring-red-500" : "")}
         >
+          {isDestructive && <AlertTriangle className="mr-1.5 h-4 w-4" aria-hidden />}
           {confirmLabel}
         </Button>
       </div>
