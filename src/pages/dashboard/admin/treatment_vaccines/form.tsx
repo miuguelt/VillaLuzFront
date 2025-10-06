@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { treatmentVaccinesService } from '@/services/treatmentVaccinesService';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 export type TreatmentVaccineFormFields = {
   treatment_id: number;
@@ -62,6 +63,8 @@ export default function TreatmentVaccineForm() {
     return null;
   };
 
+  const today = getTodayColombia();
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div>
@@ -91,17 +94,51 @@ export default function TreatmentVaccineForm() {
       </div>
       <div>
         <label>Fecha de expiración</label>
-        <input type="date" {...register('expiry_date')} />
+        <input 
+          type="date" 
+          {...register('expiry_date', {
+            validate: value => {
+              if (!value) return true; // Es opcional
+              const expiryDate = new Date(value);
+              const todayDate = new Date();
+              todayDate.setHours(0, 0, 0, 0);
+              return expiryDate >= todayDate || 'La fecha de expiración no puede ser anterior a hoy';
+            }
+          })} 
+        />
         {renderError(errors.expiry_date)}
       </div>
       <div>
         <label>Fecha programada</label>
-        <input type="date" {...register('scheduled_date')} />
+        <input 
+          type="date" 
+          {...register('scheduled_date', {
+            validate: value => {
+              if (!value) return true; // Es opcional
+              const scheduledDate = new Date(value);
+              const todayDate = new Date();
+              todayDate.setHours(0, 0, 0, 0);
+              return scheduledDate >= todayDate || 'La fecha programada no puede ser anterior a hoy';
+            }
+          })} 
+        />
         {renderError(errors.scheduled_date)}
       </div>
       <div>
         <label>Fecha de administración</label>
-        <input type="date" {...register('administered_date')} />
+        <input 
+          type="date" 
+          max={today}
+          {...register('administered_date', {
+            validate: value => {
+              if (!value) return true; // Es opcional
+              const administeredDate = new Date(value);
+              const todayDate = new Date();
+              todayDate.setHours(0, 0, 0, 0);
+              return administeredDate <= todayDate || 'La fecha de administración no puede ser futura';
+            }
+          })} 
+        />
         {renderError(errors.administered_date)}
       </div>
       <div>

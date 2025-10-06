@@ -4,6 +4,7 @@ import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/compon
 import { animalsService } from '@/services/animalService';
 import type { AnimalResponse, AnimalInput } from '@/types/swaggerTypes';
 import { breedsService } from '@/services/breedsService';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 import { AnimalHistoryModal } from '@/components/dashboard/AnimalHistoryModal';
 import GeneticTreeModal from '@/components/dashboard/GeneticTreeModal';
@@ -14,7 +15,7 @@ import { useForeignKeySelect } from '@/hooks/useForeignKeySelect';
 import { ANIMAL_GENDERS, ANIMAL_STATES } from '@/constants/enums';
 import { History, GitBranch, Baby } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { checkAnimalDependencies } from '@/services/dependencyCheckService';
+import { checkAnimalDependencies, clearAnimalDependencyCache } from '@/services/dependencyCheckService';
 import { Button } from '@/components/ui/button';
 import { GenericModal } from '@/components/common/GenericModal';
 
@@ -90,7 +91,7 @@ const validateForm = (formData: Partial<AnimalInput>): string | null => {
 // Datos iniciales
 const initialFormData: Partial<AnimalInput> = {
   record: '',
-  birth_date: new Date().toISOString().split('T')[0],
+  birth_date: getTodayColombia(),
   weight: undefined, // Requerido: será validado antes de enviar
   breed_id: undefined as any, // Forzar que el usuario seleccione
   gender: 'Macho',
@@ -200,11 +201,11 @@ function AdminAnimalsPage() {
           required: true, 
           placeholder: 'Ej: REC0001' 
         },
-        { 
-          name: 'birth_date', 
-          label: 'Fecha de Nacimiento', 
-          type: 'date', 
-          required: true 
+        {
+          name: 'birth_date',
+          label: 'Fecha de Nacimiento',
+          type: 'date',
+          required: true
         },
         {
           name: 'breed_id',
@@ -614,6 +615,8 @@ function AdminAnimalsPage() {
     ),
     // Verificación exhaustiva de dependencias antes de eliminar
     preDeleteCheck: async (id: number) => {
+      // Limpiar caché para evitar dependencias falsas de animales recién creados
+      clearAnimalDependencyCache(id);
       return await checkAnimalDependencies(id);
     },
   };

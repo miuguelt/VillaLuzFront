@@ -10,6 +10,7 @@ import { vaccinesService } from '@/services/vaccinesService';
 import { medicationsService } from '@/services/medicationsService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import type { TreatmentResponse, TreatmentInput, TreatmentVaccineResponse, TreatmentMedicationResponse, VaccineResponse, MedicationResponse } from '@/types/swaggerTypes';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 // MOVIDO: columnas se declaran dentro del componente para poder usar openAssociations
 const AdminTreatmentsPage: React.FC = () => {
@@ -577,7 +578,7 @@ const validateForm = (formData: TreatmentInput & { [k: string]: any }): string |
 // Datos iniciales (solo Potreros requeridos)
 const initialFormData: TreatmentInput & { [k: string]: any } = {
   animal_id: 0,
-  treatment_date: new Date().toISOString().split('T')[0],
+  treatment_date: getTodayColombia(),
   diagnosis: '',
   description: '',
   dosis: '',

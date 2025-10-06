@@ -23,6 +23,93 @@ import { vaccinesService } from './vaccinesService';
 import { foodTypesService } from './foodTypesService';
 import { geneticImprovementsService } from './geneticImprovementsService';
 
+interface CacheEntry {
+  result: DependencyCheckResult;
+  timestamp: number;
+}
+
+class DependencyCache {
+  private cache = new Map<string, CacheEntry>();
+  private readonly TTL = 60000; // 60 segundos para animales
+
+  private getKey(entityType: string, entityId: number): string {
+    return `${entityType}:${entityId}`;
+  }
+
+  get(entityType: string, entityId: number): DependencyCheckResult | null {
+    const key = this.getKey(entityType, entityId);
+    const entry = this.cache.get(key);
+    
+    if (!entry) return null;
+    
+    if (Date.now() - entry.timestamp > this.TTL) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return entry.result;
+  }
+
+  set(entityType: string, entityId: number, result: DependencyCheckResult): void {
+    const key = this.getKey(entityType, entityId);
+    this.cache.set(key, {
+      result,
+      timestamp: Date.now()
+    });
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  clearEntity(entityType: string, entityId: number): void {
+    const key = this.getKey(entityType, entityId);
+    this.cache.delete(key);
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+}
+
+const dependencyCache = new DependencyCache();
+
+/**
+ * Limpia la caché de dependencias para un animal específico
+ * Útil para animales recién creados para evitar dependencias falsas
+ */
+export function clearAnimalDependencyCache(animalId: number): void {
+  console.log(`[clearAnimalDependencyCache] Limpiando caché para animal ID: ${animalId}`);
+  dependencyCache.clearEntity('animal', animalId);
+}
+
+/**
+ * Limpia toda la caché de dependencias
+ */
+export function clearDependencyCache(): void {
+  dependencyCache.clear();
+}
+
+/**
+ * Verifica si un animal es recién creado (basado en la fecha de creación)
+ */
+async function isRecentlyCreatedAnimal(animalId: number): Promise<boolean> {
+  try {
+    const animal = await animalsService.getAnimalById(animalId);
+    if (!animal?.created_at) return false;
+    
+    const createdAt = new Date(animal.created_at);
+    const now = new Date();
+    const diffMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+    
+    // Considerar recién creado si tiene menos de 5 minutos
+    return diffMinutes < 5;
+  } catch (error) {
+    console.error('[isRecentlyCreatedAnimal] Error:', error);
+    return false;
+  }
+}
+
 export interface DependencyCheckResult {
   hasDependencies: boolean;
   message?: string;
@@ -223,16 +310,63 @@ export async function checkBreedDependencies(breedId: number): Promise<Dependenc
  * Verifica dependencias de un Animal antes de eliminarlo
  */
 export async function checkAnimalDependencies(animalId: number): Promise<DependencyCheckResult> {
+  console.log(`[checkAnimalDependencies] Verificando dependencias para animal ID: ${animalId}`);
+  
+  // Verificar caché primero
+  const cached = dependencyCache.get('animal', animalId);
+  if (cached) {
+    console.log(`[checkAnimalDependencies] Usando caché para animal ID: ${animalId}`);
+    return cached;
+  }
+  
+  // Verificar si es un animal recién creado para evitar falsas advertencias
+  try {
+    const animal = await animalsService.getAnimalById(animalId);
+    if (animal?.created_at) {
+      const createdAt = new Date(animal.created_at);
+      const now = new Date();
+      const diffMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+      
+      // Considerar recién creado si tiene menos de 5 minutos
+      if (diffMinutes < 5) {
+        console.log(`[checkAnimalDependencies] Animal recién creado detectado (ID: ${animalId}), omitiendo verificación de dependencias`);
+        const result = { hasDependencies: false };
+        dependencyCache.set('animal', animalId, result);
+        return result;
+      }
+    }
+  } catch (error) {
+    console.error('[checkAnimalDependencies] Error verificando si es recién creado:', error);
+  }
+
   try {
     const dependencies: DependencyCheckResult['dependencies'] = [];
     let totalDeps = 0;
     let detailParts: string[] = [];
 
-    // 1. Verificar si es padre de otros animales
-    const childrenResp = await animalsService.getAnimalsPaginated({ father_id: animalId, limit: 5, page: 1, fields: 'id,record' });
+    // EJECUTAR TODAS LAS VERIFICACIONES EN PARALELO PARA OPTIMIZAR RENDIMIENTO
+    const [
+      childrenResp,
+      offspringResp,
+      treatmentsResp,
+      vaccinationsResp,
+      diseasesResp,
+      fieldsResp,
+      improvementsResp
+    ] = await Promise.all([
+      // Optimizado: límite reducido a 3 para early exit
+      animalsService.getAnimalsPaginated({ father_id: animalId, limit: 3, page: 1, fields: 'id,record' }),
+      animalsService.getAnimalsPaginated({ mother_id: animalId, limit: 3, page: 1, fields: 'id,record' }),
+      treatmentsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,treatment_date' }),
+      vaccinationsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,vaccination_date' }),
+      animalDiseasesService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,diagnosis_date' }),
+      animalFieldsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,assignment_date' }),
+      geneticImprovementsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,improvement_date' })
+    ]);
+
+    // Procesar hijos (padre)
     const children = Array.isArray(childrenResp?.data) ? childrenResp.data : [];
     const childrenCount = childrenResp?.total || children.length;
-
     if (childrenCount > 0) {
       const childRecords = children.slice(0, 3).map((a: any) => a.record || `ID ${a.id}`);
       const moreText = childrenCount > 3 ? ` y ${childrenCount - 3} más` : '';
@@ -241,11 +375,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
       totalDeps += childrenCount;
     }
 
-    // 2. Verificar si es madre de otros animales
-    const offspringResp = await animalsService.getAnimalsPaginated({ mother_id: animalId, limit: 5, page: 1, fields: 'id,record' });
+    // Procesar hijos (madre)
     const offspring = Array.isArray(offspringResp?.data) ? offspringResp.data : [];
     const offspringCount = offspringResp?.total || offspring.length;
-
     if (offspringCount > 0) {
       const offspringRecords = offspring.slice(0, 3).map((a: any) => a.record || `ID ${a.id}`);
       const moreText = offspringCount > 3 ? ` y ${offspringCount - 3} más` : '';
@@ -254,11 +386,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
       totalDeps += offspringCount;
     }
 
-    // 3. Verificar tratamientos
-    const treatmentsResp = await treatmentsService.getPaginated({ animal_id: animalId, limit: 5, page: 1, fields: 'id,treatment_date' });
+    // Procesar tratamientos
     const treatments = Array.isArray(treatmentsResp?.data) ? treatmentsResp.data : [];
     const treatmentsCount = treatmentsResp?.total || treatments.length;
-
     if (treatmentsCount > 0) {
       const treatmentDates = treatments.slice(0, 3).map((t: any) => {
         const date = t.treatment_date ? new Date(t.treatment_date).toLocaleDateString('es-ES') : 'Sin fecha';
@@ -270,11 +400,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
       totalDeps += treatmentsCount;
     }
 
-    // 4. Verificar vacunaciones
-    const vaccinationsResp = await vaccinationsService.getPaginated({ animal_id: animalId, limit: 5, page: 1, fields: 'id,vaccination_date' });
+    // Procesar vacunaciones
     const vaccinations = Array.isArray(vaccinationsResp?.data) ? vaccinationsResp.data : [];
     const vaccinationsCount = vaccinationsResp?.total || vaccinations.length;
-
     if (vaccinationsCount > 0) {
       const vaccinationDates = vaccinations.slice(0, 3).map((v: any) => {
         const date = v.vaccination_date ? new Date(v.vaccination_date).toLocaleDateString('es-ES') : 'Sin fecha';
@@ -286,11 +414,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
       totalDeps += vaccinationsCount;
     }
 
-    // 5. Verificar enfermedades
-    const diseasesResp = await animalDiseasesService.getPaginated({ animal_id: animalId, limit: 5, page: 1, fields: 'id,diagnosis_date' });
+    // Procesar enfermedades
     const diseases = Array.isArray(diseasesResp?.data) ? diseasesResp.data : [];
     const diseasesCount = diseasesResp?.total || diseases.length;
-
     if (diseasesCount > 0) {
       const diseaseDates = diseases.slice(0, 3).map((d: any) => {
         const date = d.diagnosis_date ? new Date(d.diagnosis_date).toLocaleDateString('es-ES') : 'Sin fecha';
@@ -302,11 +428,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
       totalDeps += diseasesCount;
     }
 
-    // 6. Verificar asignaciones a potreros
-    const fieldsResp = await animalFieldsService.getPaginated({ animal_id: animalId, limit: 5, page: 1, fields: 'id,assignment_date' });
+    // Procesar asignaciones a potreros
     const fields = Array.isArray(fieldsResp?.data) ? fieldsResp.data : [];
     const fieldsCount = fieldsResp?.total || fields.length;
-
     if (fieldsCount > 0) {
       const fieldDates = fields.slice(0, 3).map((f: any) => {
         const date = f.assignment_date ? new Date(f.assignment_date).toLocaleDateString('es-ES') : 'Sin fecha';
@@ -318,11 +442,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
       totalDeps += fieldsCount;
     }
 
-    // 7. Verificar mejoras genéticas
-    const improvementsResp = await geneticImprovementsService.getPaginated({ animal_id: animalId, limit: 5, page: 1, fields: 'id,improvement_date' });
+    // Procesar mejoras genéticas
     const improvements = Array.isArray(improvementsResp?.data) ? improvementsResp.data : [];
     const improvementsCount = improvementsResp?.total || improvements.length;
-
     if (improvementsCount > 0) {
       const improvementDates = improvements.slice(0, 3).map((i: any) => {
         const date = i.improvement_date ? new Date(i.improvement_date).toLocaleDateString('es-ES') : 'Sin fecha';
@@ -334,23 +456,34 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
       totalDeps += improvementsCount;
     }
 
-    if (totalDeps > 0) {
-      return {
-        hasDependencies: true,
-        message: `⚠️ No se puede eliminar este animal porque tiene ${totalDeps} registro(s) relacionado(s).`,
+    // Construir resultado
+    const result: DependencyCheckResult = {
+      hasDependencies: totalDeps > 0,
+      ...(totalDeps > 0 && {
+        message: `⚠️ No se puede eliminar este animal porque tiene ${totalDeps} dependencia(s).`,
         detailedMessage: `Este animal tiene las siguientes dependencias que deben ser eliminadas primero:\n\n` +
-          detailParts.join('\n\n') + '\n\n' +
-          `**Acciones sugeridas:**\n` +
-          `1. Eliminar todos los registros relacionados (tratamientos, vacunaciones, etc.)\n` +
-          `2. Para los hijos, reasignar el padre/madre a otro animal o establecer como desconocido\n` +
-          `3. Luego podrá eliminar este animal`,
+          detailParts.join('\n\n') +
+          `\n\n**Acciones sugeridas:**\n` +
+          `1. Eliminar o reasignar todas las dependencias listadas\n` +
+          `2. Luego podrá eliminar este animal`,
         dependencies
-      };
-    }
+      })
+    };
 
-    return { hasDependencies: false };
+    // Guardar en caché
+    dependencyCache.set('animal', animalId, result);
+    
+    console.log(`[checkAnimalDependencies] Verificación completada para animal ID: ${animalId}`, {
+      hasDependencies: result.hasDependencies,
+      totalDependencies: totalDeps,
+      cached: true
+    });
+
+    return result;
+
   } catch (error) {
-    console.error('[checkAnimalDependencies] Error:', error);
+    console.error('[checkAnimalDependencies] ❌ Error en verificación optimizada:', error);
+    // En caso de error, permitir eliminación (fail-open) para no bloquear al usuario
     return { hasDependencies: false };
   }
 }

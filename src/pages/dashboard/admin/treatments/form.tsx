@@ -1,8 +1,8 @@
-
 import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { treatmentsService } from '@/services/treatmentsService';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 export type TreatmentFormFields = {
   animal_id: number;
@@ -65,6 +65,8 @@ export default function TreatmentForm() {
     return null;
   };
 
+  const today = getTodayColombia();
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div>
@@ -79,7 +81,19 @@ export default function TreatmentForm() {
       </div>
       <div>
         <label>Fecha de tratamiento</label>
-        <input type="date" {...register('treatment_date', { required: 'La fecha es obligatoria' })} />
+        <input 
+          type="date" 
+          max={today}
+          {...register('treatment_date', { 
+            required: 'La fecha es obligatoria',
+            validate: value => {
+              const treatmentDate = new Date(value);
+              const todayDate = new Date();
+              todayDate.setHours(0, 0, 0, 0);
+              return treatmentDate <= todayDate || 'La fecha de tratamiento no puede ser futura';
+            }
+          })} 
+        />
         {renderError(errors.treatment_date)}
       </div>
       <div>
@@ -105,7 +119,23 @@ export default function TreatmentForm() {
       </div>
       <div>
         <label>Fecha de seguimiento</label>
-        <input type="date" {...register('follow_up_date')} />
+        <input 
+          type="date" 
+          {...register('follow_up_date', {
+            validate: value => {
+              if (!value) return true; // Es opcional
+              const followUpDate = new Date(value);
+              const treatmentDateValue = (document.querySelector('input[name="treatment_date"]') as HTMLInputElement)?.value;
+              if (treatmentDateValue) {
+                const treatmentDate = new Date(treatmentDateValue);
+                return followUpDate >= treatmentDate || 'La fecha de seguimiento no puede ser anterior a la fecha de tratamiento';
+              }
+              const todayDate = new Date();
+              todayDate.setHours(0, 0, 0, 0);
+              return followUpDate >= todayDate || 'La fecha de seguimiento no puede ser anterior a hoy';
+            }
+          })} 
+        />
         {renderError(errors.follow_up_date)}
       </div>
       <div>

@@ -111,6 +111,10 @@ export function useResource<T extends { id?: number | string }, P extends Record
   const limitQP = Number(searchParams.get('limit') || '') || undefined;
   const searchQP = searchParams.get('search') || undefined;
   const fieldsQP = searchParams.get('fields') || undefined;
+  // Nuevo: sincronizar orden con la URL
+  const orderingQP = searchParams.get('ordering') || undefined;
+  const sortByQP = searchParams.get('sort_by') || undefined;
+  const sortOrderQP = (searchParams.get('sort_order') as 'asc' | 'desc' | undefined) || undefined;
 
   const setPage = useCallback((page: number) => {
     const sp = new URLSearchParams(searchParams);
@@ -165,8 +169,14 @@ export function useResource<T extends { id?: number | string }, P extends Record
     if (limitQP !== undefined) fromURL.limit = limitQP;
     if (searchQP !== undefined) fromURL.search = searchQP;
     if (fieldsQP !== undefined) fromURL.fields = fieldsQP;
+    // Orden: preferir sort_by/sort_order; si no existen, usar ordering
+    if (sortByQP !== undefined) fromURL.sort_by = sortByQP;
+    if (sortOrderQP !== undefined) fromURL.sort_order = sortOrderQP;
+    if (orderingQP !== undefined && fromURL.sort_by === undefined) {
+      fromURL.ordering = orderingQP;
+    }
     return { ...base, ...last, ...fromURL };
-  }, [fieldsQP, initialParams, limitQP, pageQP, searchQP]);
+  }, [fieldsQP, initialParams, limitQP, pageQP, searchQP, orderingQP, sortByQP, sortOrderQP]);
 
   const refetch = useCallback(async (params?: P): Promise<T[]> => {
     lastParams.current = params || lastParams.current;
@@ -221,39 +231,79 @@ export function useResource<T extends { id?: number | string }, P extends Record
                   const items: T[] = (resp?.data ?? resp) as T[];
                   const finalList = map ? map(items) : items;
 
-                  // Usar directamente la respuesta del servidor
-                  setData(finalList);
+                  // MERGE INTELIGENTE también en refresco en background
+                  const serverIds = new Set(finalList.map(item => String((item as any)?.id)));
+                  const missingRecentItems: T[] = [];
+                  for (const recentId of Array.from(recentlyCreatedIds.current)) {
+                    if (!serverIds.has(recentId)) {
+                      let localItem = recentlyCreatedItems.current.get(recentId);
+                      if (!localItem) {
+                        localItem = data.find(item => String((item as any)?.id) === recentId);
+                      }
+                      if (localItem) missingRecentItems.push(localItem);
+                    }
+                  }
+                  let mergedList = missingRecentItems.length > 0
+                    ? [...missingRecentItems, ...finalList]
+                    : finalList;
+                  const effectiveLimit = Number(resp?.limit ?? effectiveWithToken?.limit);
+                  if (missingRecentItems.length > 0 && effectiveLimit && mergedList.length > effectiveLimit) {
+                    mergedList = mergedList.slice(0, effectiveLimit);
+                  }
+                  // Filtrar eliminados recientes
+                  const deletedIds = recentlyDeletedIds.current;
+                  if (deletedIds.size > 0) {
+                    mergedList = mergedList.filter(item => !deletedIds.has(String((item as any)?.id)));
+                  }
+
+                  setData(mergedList);
                   setMeta({
                     page: Number(resp?.page ?? effectiveWithToken?.page ?? 1),
-                    limit: Number(resp?.limit ?? effectiveWithToken?.limit ?? finalList.length ?? 10),
-                    total: Number(resp?.total ?? finalList.length ?? 0),
+                    limit: Number(resp?.limit ?? effectiveWithToken?.limit ?? mergedList.length ?? 10),
+                    total: Number(resp?.total ?? mergedList.length ?? 0),
                     totalPages: resp?.totalPages,
                     hasNextPage: resp?.hasNextPage,
                     hasPreviousPage: resp?.hasPreviousPage,
                     rawMeta: resp?.rawMeta,
                   });
                   setCache(cacheKey, {
-                    items: finalList,
+                    items: mergedList,
                     meta: {
                       page: Number(resp?.page ?? effectiveWithToken?.page ?? 1),
-                      limit: Number(resp?.limit ?? effectiveWithToken?.limit ?? finalList.length ?? 10),
-                      total: Number(resp?.total ?? finalList.length ?? 0),
+                      limit: Number(resp?.limit ?? effectiveWithToken?.limit ?? mergedList.length ?? 10),
+                      total: Number(resp?.total ?? mergedList.length ?? 0),
                       totalPages: resp?.totalPages,
                       hasNextPage: resp?.hasNextPage,
                       hasPreviousPage: resp?.hasPreviousPage,
                       rawMeta: resp?.rawMeta,
                     },
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    includesLocalRecent: missingRecentItems.length > 0,
+                    recentIds: Array.from(recentlyCreatedIds.current)
                   }, cacheTTL);
                 } else {
                   const list = await service.getAll(effectiveWithToken);
                   const finalList = map ? map(list) : list;
 
-                  // Usar directamente la respuesta del servidor
-                  setData(finalList);
+                  // MERGE también en background para no perder ítems recientes
+                  const serverIds = new Set(finalList.map(item => String((item as any)?.id)));
+                  const missingRecentItems: T[] = [];
+                  for (const recentId of Array.from(recentlyCreatedIds.current)) {
+                    if (!serverIds.has(recentId)) {
+                      let localItem = recentlyCreatedItems.current.get(recentId);
+                      if (!localItem) {
+                        localItem = data.find(item => String((item as any)?.id) === recentId);
+                      }
+                      if (localItem) missingRecentItems.push(localItem);
+                    }
+                  }
+                  const mergedList = missingRecentItems.length > 0
+                    ? [...missingRecentItems, ...finalList]
+                    : finalList;
 
+                  setData(mergedList);
                   setMeta(null);
-                  setCache(cacheKey, { data: finalList, timestamp: Date.now() }, cacheTTL);
+                  setCache(cacheKey, { data: mergedList, timestamp: Date.now(), includesLocalRecent: missingRecentItems.length > 0, recentIds: Array.from(recentlyCreatedIds.current) }, cacheTTL);
                 }
               });
               __resourceInflight.set(cacheKey, bgPromise as Promise<any>);
@@ -320,6 +370,12 @@ export function useResource<T extends { id?: number | string }, P extends Record
           let mergedList = missingRecentItems.length > 0
             ? [...missingRecentItems, ...finalList]
             : finalList;
+
+          // Si el merge excede el límite, recortar priorizando los recién creados
+          const effectiveLimit = Number(resp?.limit ?? effectiveWithToken?.limit);
+          if (missingRecentItems.length > 0 && effectiveLimit && mergedList.length > effectiveLimit) {
+            mergedList = mergedList.slice(0, effectiveLimit);
+          }
 
           // FILTRAR items eliminados recientemente que el backend aún devuelve
           const deletedIds = recentlyDeletedIds.current;
@@ -481,10 +537,11 @@ export function useResource<T extends { id?: number | string }, P extends Record
           recentlyCreatedTimestamps.current.set(createdId, Date.now());
           recentlyCreatedItems.current.set(createdId, created); // Guardar item completo
 
-          // Auto-limpiar después de 30 segundos (sin setTimeout - se limpia en próximo create)
+          // Auto-limpiar después de 2 minutos (120 segundos) para dar tiempo al usuario a ver el item
+          // Este tiempo más largo evita que items recién creados desaparezcan en refrescos automáticos
           const now = Date.now();
           for (const [id, timestamp] of Array.from(recentlyCreatedTimestamps.current.entries())) {
-            if (now - timestamp > 30000) {
+            if (now - timestamp > 120000) {
               recentlyCreatedIds.current.delete(id);
               recentlyCreatedTimestamps.current.delete(id);
               recentlyCreatedItems.current.delete(id);
@@ -497,8 +554,9 @@ export function useResource<T extends { id?: number | string }, P extends Record
         if (typeof (service as any).clearCache === 'function') {
           (service as any).clearCache();
         }
-        // Forzar bypass de caché por 10 segundos (tiempo para múltiples refetches)
-        skipCacheUntil.current = Date.now() + 10000;
+        // Forzar bypass de caché por 30 segundos para asegurar que múltiples refetches obtengan datos frescos
+        // Esto evita que el caché obsoleto oculte el item recién creado
+        skipCacheUntil.current = Date.now() + 30000;
 
         // Actualización optimista del estado local COMPLETA
         setData(prev => {
@@ -553,8 +611,8 @@ export function useResource<T extends { id?: number | string }, P extends Record
         if (typeof (service as any).clearCache === 'function') {
           (service as any).clearCache();
         }
-        // Forzar bypass de caché por 10 segundos
-        skipCacheUntil.current = Date.now() + 10000;
+        // Forzar bypass de caché por 30 segundos para asegurar datos frescos
+        skipCacheUntil.current = Date.now() + 30000;
 
         // Actualización optimista del estado local
         setData(prev => prev.map(i => (i.id === id ? { ...i, ...updated } : i)));

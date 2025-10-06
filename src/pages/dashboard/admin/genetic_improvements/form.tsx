@@ -1,8 +1,8 @@
-
 import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { geneticImprovementsService } from '@/services/geneticImprovementsService';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 export type GeneticImprovementFormFields = {
   animal_id: number;
@@ -11,8 +11,6 @@ export type GeneticImprovementFormFields = {
   description?: string;
   expected_result?: string;
 };
-
-
 
 export default function GeneticImprovementForm() {
   const { id } = useParams<{ id?: string }>();
@@ -52,6 +50,8 @@ export default function GeneticImprovementForm() {
     return null;
   };
 
+  const today = getTodayColombia();
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div>
@@ -66,7 +66,19 @@ export default function GeneticImprovementForm() {
       </div>
       <div>
         <label>Fecha</label>
-        <input type="date" {...register('date', { required: 'La fecha es obligatoria' })} />
+        <input 
+          type="date" 
+          max={today}
+          {...register('date', { 
+            required: 'La fecha es obligatoria',
+            validate: value => {
+              const improvementDate = new Date(value);
+              const todayDate = new Date();
+              todayDate.setHours(0, 0, 0, 0);
+              return improvementDate <= todayDate || 'La fecha no puede ser futura';
+            }
+          })} 
+        />
         {renderError(errors.date)}
       </div>
       <div>

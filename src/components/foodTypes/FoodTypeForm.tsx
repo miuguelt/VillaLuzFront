@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { FoodTypes } from '../../types/foodTypes';
+import { Plus, Edit, Save } from 'lucide-react';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 interface FoodTypeFormProps {
   initialData?: Partial<FoodTypes>;
@@ -20,10 +22,16 @@ const defaultState: FoodTypes = {
 
 const FoodTypeForm: React.FC<FoodTypeFormProps> = ({ initialData, onSubmit, loading }) => {
   const [form, setForm] = useState<FoodTypes>({ ...defaultState, ...initialData });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    
+    // Limpiar errores al cambiar el valor
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,6 +41,36 @@ const FoodTypeForm: React.FC<FoodTypeFormProps> = ({ initialData, onSubmit, load
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validaciones
+    const newErrors: Record<string, string> = {};
+    const today = getTodayColombia();
+    
+    // Validar fecha de siembra
+    if (form.sowing_date) {
+      if (form.sowing_date > today) {
+        newErrors.sowing_date = 'La fecha de siembra no puede ser futura';
+      }
+    }
+    
+    // Validar fecha de cosecha
+    if (form.harvest_date) {
+      if (form.harvest_date > today) {
+        newErrors.harvest_date = 'La fecha de cosecha no puede ser futura';
+      }
+      
+      // Validar que la fecha de cosecha no sea anterior a la de siembra
+      if (form.sowing_date && form.harvest_date < form.sowing_date) {
+        newErrors.harvest_date = 'La fecha de cosecha no puede ser anterior a la fecha de siembra';
+      }
+    }
+    
+    // Si hay errores, mostrarlos y no enviar el formulario
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    
     onSubmit({ ...form, area: form.area === undefined ? undefined : Number(form.area) });
   };
 
@@ -66,8 +104,10 @@ const FoodTypeForm: React.FC<FoodTypeFormProps> = ({ initialData, onSubmit, load
           name="sowing_date"
           value={form.sowing_date || ''}
           onChange={handleChange}
-          className="input input-bordered w-full"
+          max={getTodayColombia()}
+          className={`input input-bordered w-full ${errors.sowing_date ? 'border-red-500' : ''}`}
         />
+        {errors.sowing_date && <p className="text-red-500 text-xs mt-1">{errors.sowing_date}</p>}
       </label>
       <label>
         Fecha de cosecha (harvest_date):
@@ -76,8 +116,11 @@ const FoodTypeForm: React.FC<FoodTypeFormProps> = ({ initialData, onSubmit, load
           name="harvest_date"
           value={form.harvest_date || ''}
           onChange={handleChange}
-          className="input input-bordered w-full"
+          min={form.sowing_date || undefined}
+          max={getTodayColombia()}
+          className={`input input-bordered w-full ${errors.harvest_date ? 'border-red-500' : ''}`}
         />
+        {errors.harvest_date && <p className="text-red-500 text-xs mt-1">{errors.harvest_date}</p>}
       </label>
       <label>
         Área (m²):
@@ -123,8 +166,19 @@ const FoodTypeForm: React.FC<FoodTypeFormProps> = ({ initialData, onSubmit, load
         type="submit"
         className="btn btn-primary mt-2"
         disabled={loading}
+        aria-label={loading ? 'Guardando tipo de alimento' : 'Guardar tipo de alimento'}
       >
-        {loading ? 'Guardando...' : 'Guardar'}
+        {loading ? (
+          <>
+            <Save className="h-4 w-4 animate-spin" />
+            Guardando...
+          </>
+        ) : (
+          <>
+            <Save className="h-4 w-4" />
+            Guardar
+          </>
+        )}
       </button>
     </form>
   );

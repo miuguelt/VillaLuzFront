@@ -4,6 +4,7 @@ import { useAnimals } from '@/hooks/animal/useAnimals';
 import { downloadAsJSON, downloadAsCSV } from '@/utils/dataUtils';
 import { ChartDataItem } from '@/types/commonTypes';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 /**
  * Componente de demostración del sistema optimizado JSON
@@ -16,11 +17,11 @@ export const JsonOptimizationDemo: React.FC = () => {
   const [activeDemo, setActiveDemo] = useState<'users' | 'animals'>('users');
 
   const handleExportJSON = (data: ChartDataItem[], filename: string) => {
-    downloadAsJSON(data, `${filename}-${new Date().toISOString().split('T')[0]}`);
+    downloadAsJSON(data, `${filename}-${getTodayColombia()}`);
   };
 
   const handleExportCSV = (data: ChartDataItem[], filename: string) => {
-    downloadAsCSV(data, `${filename}-${new Date().toISOString().split('T')[0]}`, {
+    downloadAsCSV(data, `${filename}-${getTodayColombia()}`, {
       status: 'Estado',
       count: 'Cantidad',
       percentage: 'Porcentaje (%)',

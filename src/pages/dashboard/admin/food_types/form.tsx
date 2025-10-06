@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { foodTypesService } from '@/services/foodTypesService';
+import { Plus, Edit } from 'lucide-react';
 
 export type FoodTypeFormFields = {
   food_type: string;
@@ -48,7 +49,9 @@ export default function FoodTypeForm() {
         <input {...register('food_type', { required: 'El nombre es obligatorio' })} />
         {renderError(errors.food_type)}
       </div>
-      <button type="submit" disabled={isSubmitting}>{id ? 'Actualizar' : 'Crear'} tipo de alimento</button>
+      <button type="submit" disabled={isSubmitting} className="flex items-center gap-2" aria-label={id ? 'Actualizar tipo de alimento' : 'Crear tipo de alimento'}>
+        {id ? <><Edit className="h-4 w-4" /> Actualizar tipo de alimento</> : <><Plus className="h-4 w-4" /> Crear tipo de alimento</>}
+      </button>
     </form>
   );
 }

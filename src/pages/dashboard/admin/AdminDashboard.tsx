@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -11,17 +11,81 @@ import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { Loader2, Users, Building2, ClipboardList, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
-import StatisticsCard from '../../../components/dashboard/StatisticsCard';
-// Correcting the import and usage of permissions
+// OPTIMIZACIÓN: Lazy loading de componentes pesados
 import { usePermissions } from '@/hooks/useJWT';
 import api, { unwrapApi } from '@/services/api';
 import { useT } from '@/i18n';
 import axios from 'axios';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SkeletonCard, SkeletonTable } from '@/components/ui/skeleton';
+// OPTIMIZACIÓN: Hooks PWA optimizados para backend
+import { useOptimizedList } from '@/hooks/useOptimizedData';
+import { DataSyncIndicator } from '@/components/common/DataSyncIndicator';
 
 // Lazy load de componentes pesados para mejorar tiempo de carga inicial
-const StatisticsCardLazy = lazy(() => import('../../../components/dashboard/StatisticsCard'));
+const StatisticsCard = lazy(() => import('../../../components/dashboard/StatisticsCard'));
+
+// OPTIMIZACIÓN: Componente de alerta memoizado para evitar re-renders innecesarios
+const AlertItem = memo(({ alert, onMarkRead, onNavigate, colorToClasses, renderIcon }: {
+  alert: SystemAlert;
+  onMarkRead: (id: string) => void;
+  onNavigate: (path: string) => void;
+  colorToClasses: (color?: string) => string;
+  renderIcon: (alert: SystemAlert) => React.ReactNode;
+}) => (
+  <Alert
+    className={`${colorToClasses(alert.color)} ${alert.isRead ? 'opacity-60' : ''}`}
+  >
+    <div className="flex items-start justify-between">
+      <div className="flex items-start space-x-3">
+        {renderIcon(alert)}
+        <div>
+          <h4 className="font-medium">{alert.title}</h4>
+          <AlertDescription className="mt-1">
+            {alert.message}
+          </AlertDescription>
+          {alert.action_required && (
+            <div className="mt-1 text-xs">
+              Acción requerida: {alert.action_required}
+            </div>
+          )}
+          <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            {alert.priority && (
+              <Badge variant="outline">Prioridad: {alert.priority}</Badge>
+            )}
+            {alert.type && (
+              <Badge variant="secondary">Tipo: {alert.type}</Badge>
+            )}
+            {alert.animal_record && (
+              <Badge variant="outline">Animal: {alert.animal_record}</Badge>
+            )}
+            <span>{new Date(alert.created_at).toLocaleString()}</span>
+            {(alert.animal_record || alert.animal_id) && (
+              <Button
+                variant="link"
+                size="sm"
+                onClick={() => onNavigate(`/admin/animals?q=${encodeURIComponent(alert.animal_record || String(alert.animal_id))}`)}
+              >
+                Ver animal
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+      {!alert.isRead && (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onMarkRead(alert.id)}
+          className="h-8 w-8 p-0"
+        >
+          <CheckCircle className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
+  </Alert>
+));
+AlertItem.displayName = 'AlertItem';
 
 // Definición de tipos
 interface User {
@@ -151,14 +215,18 @@ const AdminDashboard: React.FC = () => {
     isFetchingUsersRef.current = true
     setLoading(true)
     try {
-      const res = await api.get('/users')
+      // Optimización: traer solo usuarios recientes y datos mínimos para el panel
+      const res = await api.get('/users', {
+        params: {
+          limit: 20,
+          sort: 'createdAt',
+          dir: 'desc',
+        }
+      })
       const data: User[] = unwrapApi<User[]>(res)
       setUsers(data)
-      setSystemStats(prev => ({
-        ...prev,
-        totalUsers: data.length,
-        activeUsers: data.filter((u: User) => u.isActive).length,
-      }))
+      // Nota: los conteos globales de usuarios provienen de useDashboardCounts.
+      // Aquí solo mantenemos la lista reciente para la sección "Usuarios recientes".
     } catch (error) {
       console.error('Error fetching users:', error)
       showToast(t('dashboard.errors.fetchUsers'), 'error')
@@ -201,7 +269,11 @@ const AdminDashboard: React.FC = () => {
     if (isFetchingAlertsRef.current) return
     isFetchingAlertsRef.current = true
     try {
-      const res = await api.get('/analytics/alerts', { params: { limit: 50 } })
+      // OPTIMIZACIÓN: Timeout extendido solo para este endpoint (puede ser lento)
+      const res = await api.get('/analytics/alerts', {
+        params: { limit: 50 },
+        timeout: 30000 // 30 segundos (vs 10s default)
+      })
       const payload = unwrapApi<any>(res)
       const rawAlerts: any[] = Array.isArray(payload) ? payload : (payload?.alerts ?? [])
       const normalized: SystemAlert[] = rawAlerts.map((a: any) => ({
@@ -237,7 +309,7 @@ const AdminDashboard: React.FC = () => {
     }
   }, [canReadSystem, t, showToast])
 
-  // Cargar datos iniciales de forma escalonada (solo una vez por cambio de sesión/permisos relevantes)
+  // Cargar datos iniciales de forma paralela (optimizado para velocidad)
   useEffect(() => {
     if (user && canReadDashboard && !initialFetchDoneRef.current) {
       initialFetchDoneRef.current = true
@@ -247,17 +319,27 @@ const AdminDashboard: React.FC = () => {
         clearTimeout(usersRetryTimeoutRef.current)
         usersRetryTimeoutRef.current = null
       }
-      // Cargar datos críticos primero
-      setTimeout(() => {
-        fetchUsers()
-      }, 0)
-      // Cargar alertas después con delay para no bloquear el render inicial
-      setTimeout(() => {
-        fetchAlerts()
+
+      // OPTIMIZACIÓN: iniciar carga de usuarios inmediata y diferir alertas para no bloquear primer render
+      fetchUsers().finally(() => {
+        // Desbloquear render inicial en cuanto tengamos algo de contenido
         setIsInitialLoad(false)
-      }, 500)
+      })
+      // Cargar alertas con un ligero defer para reducir competencia de red
+      setTimeout(() => {
+        fetchAlerts().catch((error) => {
+          console.error('[Dashboard] Error cargando alertas (deferred):', error)
+        })
+      }, 300)
     }
   }, [user, canReadDashboard, fetchUsers, fetchAlerts])
+
+  // OPTIMIZACIÓN: si stats o counts ya están listos, no mantener el skeleton por alertas
+  useEffect(() => {
+    if (!countsLoading || !statsLoading) {
+      setIsInitialLoad(false)
+    }
+  }, [countsLoading, statsLoading])
 
   // Cleanup de timeouts programados
   useEffect(() => {
@@ -646,58 +728,14 @@ const AdminDashboard: React.FC = () => {
             ) : (
               <div className="space-y-3">
                 {filteredAlerts.map((alert) => (
-                  <Alert
+                  <AlertItem
                     key={alert.id}
-                    className={`${colorToClasses(alert.color)} ${alert.isRead ? 'opacity-60' : ''}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3">
-                        {renderAlertIcon(alert)}
-                        <div>
-                          <h4 className="font-medium">{alert.title}</h4>
-                          <AlertDescription className="mt-1">
-                            {alert.message}
-                          </AlertDescription>
-                          {alert.action_required && (
-                            <div className="mt-1 text-xs">
-                              Acción requerida: {alert.action_required}
-                            </div>
-                          )}
-                          <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            {alert.priority && (
-                              <Badge variant="outline">Prioridad: {alert.priority}</Badge>
-                            )}
-                            {alert.type && (
-                              <Badge variant="secondary">Tipo: {alert.type}</Badge>
-                            )}
-                            {alert.animal_record && (
-                              <Badge variant="outline">Animal: {alert.animal_record}</Badge>
-                            )}
-                            <span>{new Date(alert.created_at).toLocaleString()}</span>
-                            {(alert.animal_record || alert.animal_id) && (
-                              <Button
-                                variant="link"
-                                size="sm"
-                                onClick={() => navigate(`/admin/animals?q=${encodeURIComponent(alert.animal_record || String(alert.animal_id))}`)}
-                              >
-                                Ver animal
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      {!alert.isRead && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => markAlertAsRead(alert.id)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </Alert>
+                    alert={alert}
+                    onMarkRead={markAlertAsRead}
+                    onNavigate={navigate}
+                    colorToClasses={colorToClasses}
+                    renderIcon={renderAlertIcon}
+                  />
                 ))}
               </div>
             )}

@@ -5,6 +5,7 @@ import { animalsService } from '@/services/animalService';
 import { vaccinesService } from '@/services/vaccinesService';
 import { usersService } from '@/services/userService';
 import type { VaccinationResponse, VaccinationInput } from '@/types/swaggerTypes';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 function AdminVaccinationsPage() {
   const [animalOptions, setAnimalOptions] = React.useState<Array<{ value: number; label: string }>>([]);
@@ -169,6 +170,10 @@ function AdminVaccinationsPage() {
       initialFormData={initialFormData}
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
+      realtime={true}
+      pollIntervalMs={8000}
+      refetchOnFocus={true}
+      refetchOnReconnect={true}
       enhancedHover={true}
     />
   );
@@ -197,7 +202,7 @@ const validateForm = (formData: VaccinationInput & { [k: string]: any }): string
 const initialFormData: VaccinationInput & { [k: string]: any } = {
   animal_id: 0,
   vaccine_id: 0,
-  vaccination_date: new Date().toISOString().split('T')[0],
+  vaccination_date: getTodayColombia(),
   apprentice_id: undefined,
   instructor_id: undefined,
 };

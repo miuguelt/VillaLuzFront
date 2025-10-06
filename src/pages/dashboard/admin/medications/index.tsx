@@ -232,6 +232,10 @@ function AdminMedicationsPage() {
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
       customDetailContent={renderDetail}
+      realtime={true}
+      pollIntervalMs={8000}
+      refetchOnFocus={true}
+      refetchOnReconnect={true}
       enhancedHover={true}
     />
   );

@@ -6,6 +6,7 @@ import { diseaseService } from '@/services/diseaseService';
 import { usersService } from '@/services/userService';
 import { ANIMAL_DISEASE_STATUSES } from '@/constants/enums';
 import type { AnimalDiseaseResponse, AnimalDiseaseInput } from '@/types/swaggerTypes';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 function AdminAnimalDiseasesPage() {
   const [animalOptions, setAnimalOptions] = React.useState<Array<{ value: number; label: string }>>([]);
@@ -157,6 +158,10 @@ function AdminAnimalDiseasesPage() {
       initialFormData={initialFormData}
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
+      realtime={true}
+      pollIntervalMs={8000}
+      refetchOnFocus={true}
+      refetchOnReconnect={true}
       enhancedHover={true}
     />
   );
@@ -203,7 +208,7 @@ const initialFormData: AnimalDiseaseInput & { [k: string]: any } = {
   animal_id: undefined as any, // Forzar que el usuario seleccione
   disease_id: undefined as any, // Forzar que el usuario seleccione
   instructor_id: undefined as any, // Forzar que el usuario seleccione
-  diagnosis_date: new Date().toISOString().split('T')[0],
+  diagnosis_date: getTodayColombia(),
   status: undefined,
   notes: '',
 };

@@ -8,6 +8,7 @@ import type {
   GeneType,
   EnhancementLevel,
 } from '@/types/adminGeneticImprovementsTypes';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 // Opciones para selects
 const geneTypeOptions = [
@@ -176,7 +177,7 @@ const customDetailContent = (item: AdminGeneticImprovementResponse) => (
 // Datos iniciales del formulario
 const initialFormData: AdminGeneticImprovementInput = {
   animal_id: undefined as any, // Forzar que el usuario seleccione
-  date: new Date().toISOString().split('T')[0],
+  date: getTodayColombia(),
   details: '',
   results: '',
   genetic_event_technique: '',
@@ -281,6 +282,10 @@ const AdminGeneticImprovementsPage = () => {
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
       customDetailContent={customDetailContent}
+      realtime={true}
+      pollIntervalMs={8000}
+      refetchOnFocus={true}
+      refetchOnReconnect={true}
       enhancedHover={true}
     />
   );

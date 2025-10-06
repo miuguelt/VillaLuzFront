@@ -70,7 +70,7 @@ export class BaseService<T> {
   // private persistCache() { ... }
   // private static cacheStorageKey(endpoint: string) { ... }
 
-  private getCacheKey(params?: Record<string, any>): string {
+  protected getCacheKey(params?: Record<string, any>): string {
     const sortedParams = params ? JSON.stringify(Object.fromEntries(Object.entries(params).sort())) : '';
     return `${this.endpoint}:${sortedParams}`;
   }
@@ -432,6 +432,124 @@ export class BaseService<T> {
   public logCacheHit(key?: string): void {
     if (__DEV__) {
       console.log(`[Cache] hit for ${this.endpoint}${key ? ' key=' + key : ''}`);
+    }
+  }
+
+  // ============================================================
+  // PWA Optimization Methods
+  // ============================================================
+
+  /**
+   * Obtiene metadata del recurso (endpoint /metadata)
+   * Devuelve información ligera sin descargar datos completos
+   */
+  async getMetadata(): Promise<{ resource: string; total_count: number; last_modified: string; etag: string } | null> {
+    try {
+      const response = await api.get(`${this.endpoint}/metadata`);
+      return response.data?.data || response.data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.warn(`[BaseService] Metadata no disponible para ${this.endpoint}:`, error?.message);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Sincronización incremental - obtiene solo registros modificados desde una fecha
+   * Usa el parámetro ?since=timestamp del backend
+   *
+   * @param since - Timestamp ISO 8601 desde el cual obtener cambios
+   * @returns Registros modificados desde la fecha especificada
+   */
+  async getSince(since: string): Promise<T[]> {
+    try {
+      const response = await api.get(this.endpoint, {
+        params: { since },
+      });
+
+      const data = extractListFromResponse(response, this.options.preferredListKeys);
+
+      if (__DEV__) {
+        console.log(`[BaseService] Sync incremental ${this.endpoint}: ${data.length} cambios desde ${since}`);
+      }
+
+      return data;
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error(`[BaseService] Error en getSince para ${this.endpoint}:`, error?.message);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Realiza una petición GET con validación condicional usando ETags
+   * Si el servidor responde 304 Not Modified, retorna datos cacheados
+   *
+   * @param params - Parámetros de query
+   * @param etag - ETag almacenado para validación condicional
+   * @param lastModified - Last-Modified almacenado para validación condicional
+   * @returns Datos del servidor o caché si no hay cambios (304)
+   */
+  async getWithConditionalHeaders(
+    params?: Record<string, any>,
+    etag?: string,
+    lastModified?: string
+  ): Promise<{ data: T[]; etag?: string; lastModified?: string; status: number }> {
+    const headers: Record<string, string> = {};
+
+    if (etag) {
+      headers['If-None-Match'] = etag;
+    }
+    if (lastModified) {
+      headers['If-Modified-Since'] = lastModified;
+    }
+
+    try {
+      const response = await api.get(this.endpoint, {
+        params,
+        headers,
+        validateStatus: (status) => status === 200 || status === 304,
+      });
+
+      // 304 Not Modified - datos no han cambiado
+      if (response.status === 304) {
+        if (__DEV__) {
+          console.log(`[BaseService] 304 Not Modified para ${this.endpoint} - usando caché`);
+        }
+
+        const cacheKey = this.getCacheKey(params);
+        const cached = await this.getFromCache(cacheKey);
+
+        return {
+          data: (cached as T[]) || [],
+          etag,
+          lastModified,
+          status: 304,
+        };
+      }
+
+      // 200 OK - datos nuevos disponibles
+      const data = extractListFromResponse(response, this.options.preferredListKeys);
+      const newETag = response.headers['etag'] || response.headers['ETag'];
+      const newLastModified = response.headers['last-modified'] || response.headers['Last-Modified'];
+
+      // Cachear datos nuevos
+      const cacheKey = this.getCacheKey(params);
+      this.setCache(cacheKey, data);
+
+      return {
+        data,
+        etag: newETag,
+        lastModified: newLastModified,
+        status: 200,
+      };
+    } catch (error: any) {
+      if (__DEV__) {
+        console.error(`[BaseService] Error en getWithConditionalHeaders para ${this.endpoint}:`, error?.message);
+      }
+      throw error;
     }
   }
 }

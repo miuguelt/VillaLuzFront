@@ -57,7 +57,7 @@
  */
 import { EmptyState } from '@/components/feedback/EmptyState';
 import React, { useEffect, useState, useRef, useMemo, memo } from 'react';
-import { Search, ChevronLeft, ChevronRight, Loader2, Eye, Edit, Trash2 } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Loader2, Eye, Edit, Trash2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useResource } from '@/hooks/useResource';
@@ -78,6 +78,7 @@ import { animalsService } from '@/services/animalService';
 import { Combobox } from '@/components/ui/combobox';
 import { addTombstone, getTombstoneIds, clearExpired } from '@/utils/tombstones';
 import { globalSearch, createSearchCache } from '@/utils/globalSearch';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 // Interfaces para configuración del componente
 export interface CRUDColumn<T> {
@@ -544,9 +545,17 @@ const {
     if (nextDir === 'none') {
       sp.delete('sort');
       sp.delete('dir');
+      sp.delete('ordering');
+      sp.delete('sort_by');
+      sp.delete('sort_order');
     } else {
       sp.set('sort', String(key));
       sp.set('dir', nextDir);
+      // Sincronizar también con params que consume el backend
+      sp.set('sort_by', String(key));
+      sp.set('sort_order', nextDir);
+      // Mantener compatibilidad con backends que usan 'ordering' tipo '-field'
+      sp.set('ordering', nextDir === 'desc' ? `-${String(key)}` : String(key));
     }
     setSearchParams(sp, { replace: true });
   };
@@ -579,10 +588,29 @@ const {
       lastSyncedSearchRef.current = search;
       setSearchQuery(search);
     }
+    // Leer orden desde múltiples fuentes de la URL
     const s = searchParams.get('sort');
     const d = searchParams.get('dir') as 'asc' | 'desc' | null;
-    setSortKey(s ? (s as keyof T) : null);
-    setSortDir(d === 'asc' || d === 'desc' ? d : 'none');
+    const ordering = searchParams.get('ordering');
+    const sortBy = searchParams.get('sort_by');
+    const sortOrder = searchParams.get('sort_order') as 'asc' | 'desc' | null;
+
+    let keyFromURL: string | null = s || sortBy || null;
+    let dirFromURL: 'asc' | 'desc' | 'none' = d === 'asc' || d === 'desc' ? d : (sortOrder === 'asc' || sortOrder === 'desc' ? sortOrder : 'none');
+
+    // Compatibilidad con 'ordering' tipo '-field'
+    if (!keyFromURL && ordering) {
+      if (ordering.startsWith('-')) {
+        keyFromURL = ordering.slice(1);
+        dirFromURL = 'desc';
+      } else {
+        keyFromURL = ordering;
+        dirFromURL = 'asc';
+      }
+    }
+
+    setSortKey(keyFromURL ? (keyFromURL as keyof T) : null);
+    setSortDir(dirFromURL);
   }, [searchParams]);
 
   // Auto-open create modal via ?create=1
@@ -720,20 +748,26 @@ const {
         showToast(`✅ ${config.entityName} creado correctamente`, 'success');
 
         // Volver a la página 1 después de crear para ver el nuevo registro
+        // IMPORTANTE: Hacer esto ANTES de cerrar el modal para que se refleje en el refetch
         if (setPage && meta?.page && meta.page > 1) {
           setPage(1);
         }
       }
 
       // Asegurar visibilidad del nuevo registro: ir a página 1 si no estamos allí
+      // Usar await para dar tiempo a que los query params se actualicen
       if (typeof setPage === 'function' && currentPage && currentPage !== 1) {
-        try { setPage(1); } catch { /* noop */ }
+        try {
+          setPage(1);
+          // Pequeña espera para que el cambio de página se refleje en la URL
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch { /* noop */ }
       }
 
       // CERRAR MODAL INMEDIATAMENTE para apreciar las animaciones
       handleModalClose();
 
-      // Refrescar datos DESPUÉS de cerrar modal - delay mínimo para que el modal se cierre
+      // Refrescar datos DESPUÉS de cerrar modal y cambiar página - delay mayor para asegurar sincronización
       setTimeout(async () => {
         try {
           const freshData = await refetch();
@@ -774,7 +808,7 @@ const {
             });
           }
         }
-      }, 150); // 150ms para que el modal se cierre suavemente
+      }, 500); // 500ms para dar tiempo a que página cambie y modal se cierre suavemente
     } catch (error: any) {
       // Extraer mensaje de error detallado del backend
       let errorMessage = `${t('crud.save_error', 'Error al guardar')} ${config.entityName.toLowerCase()}`;
@@ -862,7 +896,7 @@ const {
           </div>
           <Button
             size="sm"
-            className="h-7"
+            className="h-7 w-7 p-0"
             onClick={() => {
               const sp = new URLSearchParams(searchParams);
               if (searchQuery) sp.set('search', searchQuery); else sp.delete('search');
@@ -873,11 +907,11 @@ const {
             }}
             aria-label={t('common.search', 'Buscar')}
           >
-            {t('common.search', 'Buscar')}
+            <Search className="h-4 w-4" />
           </Button>
           {config.enableCreateModal !== false && (
-            <Button size="sm" className="h-7" onClick={openCreate} aria-label={`${t('common.create', 'Crear')} ${config.entityName.toLowerCase()}`}>
-              {t('common.create', 'Crear')} {config.entityName.toLowerCase()}
+            <Button size="sm" className="h-7 w-7 p-0" onClick={openCreate} aria-label={`${t('common.create', 'Crear')} ${config.entityName.toLowerCase()}`}>
+              <Plus className="h-4 w-4" />
             </Button>
           )}
           {config.customToolbar}
@@ -982,7 +1016,7 @@ const {
         showToast(`🗑️ ${config.entityName} eliminado correctamente`, 'success');
 
         // Esperar para que se vea claramente la animación de eliminación (borde rojo)
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Registrar tombstone extendido para ocultar temporalmente si el backend aún lo devuelve
         // 120 segundos (2 minutos) para dar tiempo a que el backend propague la eliminación
@@ -1011,7 +1045,7 @@ const {
         }
 
         // Dar tiempo adicional a la animación y al backend para sincronizar
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Refrescar después del delay
         try {
@@ -1105,7 +1139,7 @@ const {
         shouldRefetch = true;
 
         // Esperar para mostrar el efecto de eliminación antes de ocultar con tombstone
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        await new Promise(resolve => setTimeout(resolve, 100));
         addTombstone(entityKey, String(idToDelete), 120000);
         setTombstoneVersion((v) => v + 1);
 
@@ -1246,7 +1280,7 @@ const {
           title={config.emptyStateMessage || `${t('state.empty.title', 'Sin datos')}: ${config.entityName}`}
           description={config.emptyStateDescription || t('state.empty.description', 'Crea el primer registro para comenzar.')}
           action={config.enableCreateModal !== false && (
-            <Button onClick={openCreate} aria-label={`${t('common.create', 'Crear')} ${config.entityName.toLowerCase()}`}><strong>{t('common.create', 'Crear')} {config.entityName.toLowerCase()}</strong></Button>
+            <Button onClick={openCreate} aria-label={`${t('common.create', 'Crear')} ${config.entityName.toLowerCase()}`}><strong><Plus className="h-4 w-4 mr-2" />{t('common.create', 'Crear')} {config.entityName.toLowerCase()}</strong></Button>
           )}
         />
       ) : (
@@ -1843,11 +1877,17 @@ const {
                           {field.type === 'date' && (() => {
                             const currentValue = (formData as any)[field.name];
                             const showWarning = field.required && (!currentValue || currentValue === '');
+                            const today = getTodayColombia();
+                            // Validación especial para birth_date para evitar fechas futuras
+                            const isBirthDate = String(field.name) === 'birth_date';
+                            const maxDate = isBirthDate ? today : undefined;
+                            
                             return (
                               <div className="space-y-1">
                                 <Input
                                   id={String(field.name)}
                                   type="date"
+                                  max={maxDate}
                                   value={(formData as any)[field.name] || ''}
                                   onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
                                   disabled={saving}
@@ -1863,6 +1903,9 @@ const {
                                 />
                                 {showWarning && (
                                   <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                                )}
+                                {isBirthDate && currentValue && currentValue > today && (
+                                  <p className="text-xs text-red-500">La fecha de nacimiento no puede ser futura.</p>
                                 )}
                               </div>
                             );

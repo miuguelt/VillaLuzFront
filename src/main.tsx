@@ -208,7 +208,7 @@ function GlobalNetworkHandlers() {
     if (!isAuthenticated) return; // Gate por auth: sin sesión no se precargan endpoints protegidos
     preloadStartedRef.current = true;
 
-    // Aumentar delay para evitar competir con llamadas críticas del dashboard
+    // OPTIMIZACIÓN: Reducir delay para precarga más rápida (1s vs 5s)
     const timer = setTimeout(() => {
       try {
         preloadCriticalRoutes();
@@ -216,7 +216,7 @@ function GlobalNetworkHandlers() {
       } catch (error) {
         console.warn('[Cache] Error en precarga inteligente:', error);
       }
-    }, 5000); // 5s tras estar autenticado (optimizado para no interferir)
+    }, 1000); // 1s tras estar autenticado (optimizado para velocidad)
 
     return () => clearTimeout(timer);
   }, [preloadCriticalRoutes, isAuthenticated]);

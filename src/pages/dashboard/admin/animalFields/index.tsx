@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle } from 'lucide-react';
 import { FIELD_STATES } from '@/constants/enums';
 import type { AnimalFieldResponse, AnimalFieldInput, FieldInput } from '@/types/swaggerTypes';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 function AdminAnimalFieldsPage() {
   const [animalOptions, setAnimalOptions] = React.useState<Array<{ value: number; label: string }>>([]);
@@ -254,6 +255,10 @@ function AdminAnimalFieldsPage() {
         initialFormData={initialFormData}
         mapResponseToForm={mapResponseToForm}
         validateForm={validateForm}
+        realtime={true}
+        pollIntervalMs={8000}
+        refetchOnFocus={true}
+        refetchOnReconnect={true}
         enhancedHover={true}
       />
 
@@ -403,7 +408,7 @@ const validateForm = (formData: AnimalFieldInput & { [k: string]: any }): string
 const initialFormData: AnimalFieldInput & { [k: string]: any } = {
   animal_id: undefined as any, // Forzar que el usuario seleccione
   field_id: undefined as any, // Forzar que el usuario seleccione
-  assignment_date: new Date().toISOString().split('T')[0],
+  assignment_date: getTodayColombia(),
   removal_date: undefined,
   notes: '',
 };

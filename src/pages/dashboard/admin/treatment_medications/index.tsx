@@ -125,6 +125,10 @@ function AdminTreatmentMedicationsPage() {
       initialFormData={initialFormData}
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
+      realtime={true}
+      pollIntervalMs={8000}
+      refetchOnFocus={true}
+      refetchOnReconnect={true}
       enhancedHover={true}
     />
   );

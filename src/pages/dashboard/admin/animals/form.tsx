@@ -8,6 +8,8 @@ import { useSpecies } from '@/hooks/species/useSpecies';
 import { useBreeds } from '@/hooks/breed/useBreeds';
 import { useForeignKeySelect } from '@/hooks/useForeignKeySelect';
 import { Combobox } from '@/components/ui/combobox';
+import { Plus, Edit } from 'lucide-react';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 type AnimalStatus = 'Sano' | 'Enfermo' | 'En tratamiento' | 'En observación' | 'Cuarentena' | 'Vendido' | 'Fallecido';
 type AnimalGender = 'Macho' | 'Hembra' | 'Castrado';
@@ -168,7 +170,20 @@ export default function AnimalForm() {
       </div>
       <div>
         <label>Fecha de nacimiento</label>
-        <input type="date" {...register('birth_date', { required: 'La fecha de nacimiento es obligatoria' })} />
+        <input
+          type="date"
+          max={getTodayColombia()}
+          {...register('birth_date', {
+            required: 'La fecha de nacimiento es obligatoria',
+            validate: value => {
+              if (!value) return true;
+              const selectedDate = new Date(value);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0); // Resetear hora para comparación justa
+              return selectedDate <= today || 'La fecha de nacimiento no puede ser futura';
+            }
+          })}
+        />
         {renderError(errors.birth_date)}
       </div>
       <div>
@@ -200,7 +215,9 @@ export default function AnimalForm() {
         <textarea {...register('notes')} placeholder="Observaciones o notas adicionales" />
         {renderError(errors.notes)}
       </div>
-      <button type="submit" disabled={isSubmitting}>{id ? 'Actualizar' : 'Crear'} animal</button>
+      <button type="submit" disabled={isSubmitting} className="flex items-center gap-2" aria-label={id ? 'Actualizar animal' : 'Crear animal'}>
+        {id ? <><Edit className="h-4 w-4" /> Actualizar animal</> : <><Plus className="h-4 w-4" /> Crear animal</>}
+      </button>
     </form>
   );
 }

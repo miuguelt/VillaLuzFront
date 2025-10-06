@@ -10,8 +10,10 @@ import {
   CardHeader,
   CardTitle,
   CardContent
-
 } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Eye, Edit, Activity, TrendingUp } from 'lucide-react';
+import { getTodayColombia } from '@/utils/dateUtils';
 
 // Tipo de formulario simplificado alineado al JSON solicitado
 type ControlForm = {
@@ -65,10 +67,63 @@ const formSectionsLocal = (
   },
 ];
 
+// Función para renderizar tarjetas de controles
+const renderControlCard = (animalOptions: { value: number; label: string }[]) => (item: ControlResponse & { [k: string]: any }) => {
+  const animalLabel = animalOptions.find(opt => opt.value === item.animal_id)?.label || `Animal ${item.animal_id}`;
+  const checkupDate = (item as any)?.checkup_date ?? (item as any)?.control_date;
+  const formattedDate = checkupDate ? new Date(checkupDate as string).toLocaleDateString('es-ES') : '-';
+  const healthStatus = (item as any)?.health_status ?? (item as any)?.healt_status ?? '-';
+  const description = (item as any)?.description ?? (item as any)?.observations ?? '-';
+
+  return (
+    <div className="space-y-3">
+      {/* Información básica */}
+      <div className="grid grid-cols-1 gap-2 text-xs">
+        <div className="flex justify-between items-center">
+          <span className="text-muted-foreground">Animal:</span>
+          <span className="font-medium text-foreground truncate max-w-[60%]" title={animalLabel}>
+            {animalLabel}
+          </span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-muted-foreground">Fecha:</span>
+          <span className="font-medium text-foreground">{formattedDate}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-muted-foreground">Estado:</span>
+          <span className="font-medium text-foreground">{healthStatus}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-muted-foreground">Peso:</span>
+          <span className="font-medium text-foreground">{item.weight ?? '-'} kg</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-muted-foreground">Altura:</span>
+          <span className="font-medium text-foreground">{item.height ?? '-'} m</span>
+        </div>
+      </div>
+
+      {/* Descripción */}
+      {description && description !== '-' && (
+        <div className="border-t pt-2">
+          <div className="text-xs">
+            <span className="text-muted-foreground">Descripción:</span>
+            <p className="mt-1 text-foreground line-clamp-2" title={description}>
+              {description}
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Configuración completa del CRUD usando secciones dinámicas
 const crudConfigLocal = (
   animalOptions: { value: number; label: string }[],
-  columns: CRUDColumn<ControlResponse & { [k: string]: any }>[]
+  columns: CRUDColumn<ControlResponse & { [k: string]: any }>[],
+  viewMode: 'table' | 'cards',
+  setViewMode: (mode: 'table' | 'cards') => void
 ): CRUDConfig<ControlResponse & { [k: string]: any }, ControlForm> => ({
   title: 'Controles',
   entityName: 'Control',
@@ -81,6 +136,58 @@ const crudConfigLocal = (
   enableCreateModal: true,
   enableEditModal: true,
   enableDelete: true,
+  viewMode,
+  renderCard: renderControlCard(animalOptions),
+  customToolbar: (
+    <div className="flex items-center gap-1">
+      <Button
+        variant={viewMode === 'table' ? 'primary' : 'outline'}
+        size="sm"
+        className="h-7"
+        onClick={() => setViewMode('table')}
+        aria-label="Vista en tabla"
+      >
+        Tabla
+      </Button>
+      <Button
+        variant={viewMode === 'cards' ? 'primary' : 'outline'}
+        size="sm"
+        className="h-7"
+        onClick={() => setViewMode('cards')}
+        aria-label="Vista en tarjetas"
+      >
+        Tarjetas
+      </Button>
+    </div>
+  ),
+  customActions: (record) => (
+    <>
+      <button
+        className="icon-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          // Aquí podrías abrir un modal de análisis detallado
+          console.log('Análisis detallado del control:', record);
+        }}
+        title="Ver análisis detallado del control"
+        aria-label="Ver análisis"
+      >
+        <Activity />
+      </button>
+      <button
+        className="icon-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          // Aquí podrías abrir un modal de tendencias
+          console.log('Ver tendencias del animal:', record);
+        }}
+        title="Ver tendencias y evolución"
+        aria-label="Ver tendencias"
+      >
+        <TrendingUp />
+      </button>
+    </>
+  ),
 });
 
 // Función para mapear respuesta de API a datos del formulario
@@ -202,6 +309,7 @@ serviceAdapter.update = async (id: number | string, payload: ControlForm) => {
 const AdminControlPage: React.FC = () => {
   const [animalOptions, setAnimalOptions] = useState<{ value: number; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
   useEffect(() => {
     let mounted = true;
@@ -279,7 +387,7 @@ const AdminControlPage: React.FC = () => {
 
   const initialFormData: ControlForm = {
     animal_id: undefined as any, // Forzar que el usuario seleccione
-    checkup_date: new Date().toISOString().split('T')[0],
+    checkup_date: getTodayColombia(),
     weight: undefined,
     height: undefined,
     health_status: '',
@@ -300,12 +408,16 @@ const AdminControlPage: React.FC = () => {
 
   return (
     <AdminCRUDPage
-      config={crudConfigLocal(animalOptions, columns)}
+      config={crudConfigLocal(animalOptions, columns, viewMode, setViewMode)}
       service={serviceAdapter}
       initialFormData={initialFormData}
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
       customDetailContent={makeCustomDetailContent(animalOptions)}
+      realtime={true}
+      pollIntervalMs={8000}
+      refetchOnFocus={true}
+      refetchOnReconnect={true}
       enhancedHover={true}
     />
   );

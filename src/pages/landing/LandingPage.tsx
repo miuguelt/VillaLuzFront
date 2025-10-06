@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { UserPlus, LogIn, Play } from 'lucide-react';
 
 const LandingPage = () => {
   return (
@@ -29,9 +30,10 @@ const LandingPage = () => {
               </Link>
               <Link 
                 to="/signUp" 
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                aria-label="Registrarse"
               >
-                Sign Up
+                <UserPlus className="h-4 w-4" />
               </Link>
             </div>
           </div>
@@ -52,12 +54,13 @@ const LandingPage = () => {
           <div className="mt-10 flex justify-center space-x-6">
             <Link 
               to="/login" 
-              className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-colors shadow-lg"
+              className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-colors shadow-lg flex items-center gap-2"
+              aria-label="Comenzar"
             >
-              Get Started
+              <LogIn className="h-5 w-5" />
             </Link>
-            <button className="bg-white hover:bg-gray-50 text-gray-900 px-8 py-4 rounded-lg text-lg font-medium transition-colors shadow-lg border border-gray-300">
-              View Demo
+            <button className="bg-white hover:bg-gray-50 text-gray-900 px-8 py-4 rounded-lg text-lg font-medium transition-colors shadow-lg border border-gray-300 flex items-center gap-2" aria-label="Ver demostración">
+              <Play className="h-5 w-5" />
             </button>
           </div>
         </div>

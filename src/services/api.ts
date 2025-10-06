@@ -288,9 +288,28 @@ async function performRefresh(options?: { retryOnCsrfError?: boolean }): Promise
   return refreshPromise;
 }
 
-// Interceptor de respuesta: manejar refresh y reintentos con mutex
+// Interceptor de respuesta: manejar refresh, ETags y reintentos con mutex
 api.interceptors.response.use(
   (response: AxiosResponse) => {
+    // Leer y exponer headers PWA relevantes
+    if (DEBUG_LOG && response.headers) {
+      const pwHeaders = {
+        etag: response.headers['etag'] || response.headers['ETag'],
+        lastModified: response.headers['last-modified'] || response.headers['Last-Modified'],
+        cacheControl: response.headers['cache-control'] || response.headers['Cache-Control'],
+        cacheStrategy: response.headers['x-cache-strategy'] || response.headers['X-Cache-Strategy'],
+        totalCount: response.headers['x-total-count'] || response.headers['X-Total-Count'],
+        hasMore: response.headers['x-has-more'] || response.headers['X-Has-More'],
+      };
+
+      // Log solo si hay headers PWA presentes
+      const hasPWAHeaders = Object.values(pwHeaders).some(v => v !== undefined);
+      if (hasPWAHeaders) {
+        const path = normalizePath(response.config?.url as any);
+        console.debug(`[api][PWA] ${path} headers:`, pwHeaders);
+      }
+    }
+
     // Confiar en cookies HttpOnly; devolver respuesta
     return response;
   },

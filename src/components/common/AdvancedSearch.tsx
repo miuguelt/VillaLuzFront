@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
+import { formatDateColombia } from '@/utils/dateUtils';
 
 
 export interface FilterOption {
@@ -161,7 +162,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
               <Calendar
                 mode="single"
                 selected={value ? new Date(value) : undefined}
-                onSelect={(date) => handleFilterChange(option.key, date?.toISOString().split('T')[0])}
+                onSelect={(date) => handleFilterChange(option.key, date ? formatDateColombia(date) : '')}
                 initialFocus
               />
             </PopoverContent>

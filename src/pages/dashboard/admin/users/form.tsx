@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { usersService } from '@/services/userService';
+import { Plus, Edit } from 'lucide-react';
 
 type UserRole = 'Administrador' | 'Instructor' | 'Aprendiz';
 type UserFormFields = {
@@ -97,7 +98,9 @@ export default function UserForm() {
           {renderError(errors.password)}
         </div>
       )}
-      <button type="submit" disabled={isSubmitting}>{id ? 'Actualizar' : 'Crear'} usuario</button>
+      <button type="submit" disabled={isSubmitting} className="flex items-center gap-2" aria-label={id ? 'Actualizar usuario' : 'Crear usuario'}>
+        {id ? <><Edit className="h-4 w-4" /> Actualizar usuario</> : <><Plus className="h-4 w-4" /> Crear usuario</>}
+      </button>
     </form>
   );
 }

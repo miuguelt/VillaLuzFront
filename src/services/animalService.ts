@@ -2,6 +2,7 @@ import { BaseService } from './baseService';
 import { AnimalResponse, AnimalInput, AnimalStatistics, PaginatedResponse } from '@/types/swaggerTypes';
 import { BulkResponse } from '@/types/commonTypes';
 import analyticsService from './analyticsService';
+import { checkAnimalDependencies, clearAnimalDependencyCache } from './dependencyCheckService';
 
 interface AnimalStatusStats {
   by_status: Record<string, number>;
@@ -36,8 +37,8 @@ class AnimalsService extends BaseService<AnimalResponse> {
     // Año (YYYY)
     if (/^\d{4}$/.test(s)) return true;
     // Formatos comunes de fecha: YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY, YYYY/MM/DD, YYYY-MM-DD
-    if (/^\d{4}[\/-]\d{1,2}[\/-]\d{1,2}$/.test(s)) return true;
-    if(/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}$/.test(s)) return true;
+    if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(s)) return true;
+    if(/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(s)) return true;
     return false;
   }
 
@@ -204,7 +205,17 @@ class AnimalsService extends BaseService<AnimalResponse> {
   }
 
   async getAnimalsPaginated(params?: Record<string, any>): Promise<PaginatedResponse<AnimalResponse>> {
-    const pag = await this.getPaginated(this.enrichParamsForDateSearch(params || {}));
+    // Enriquecer parámetros con ordenamiento por defecto si no se especifica
+    const enrichedParams = this.enrichParamsForDateSearch(params || {});
+
+    // Si no hay ordenamiento explícito, ordenar por fecha de creación descendente (más recientes primero)
+    // Esto asegura que los registros recién creados aparezcan al inicio de la lista en página 1
+    if (!enrichedParams.sort && !enrichedParams.order && !enrichedParams.orderBy) {
+      enrichedParams.sort = 'created_at';
+      enrichedParams.order = 'desc';
+    }
+
+    const pag = await this.getPaginated(enrichedParams);
     return { ...pag, data: (pag.data || []).map((it: any) => this.normalizeAnimal(it)) } as PaginatedResponse<AnimalResponse>;
   }
 
@@ -251,7 +262,59 @@ class AnimalsService extends BaseService<AnimalResponse> {
   }
 
   async deleteAnimal(id: number): Promise<boolean> {
-    return this.delete(id);
+    console.log(`[AnimalsService.deleteAnimal] Iniciando eliminación para animal ID: ${id}`);
+    
+    try {
+      // Verificar dependencias usando el servicio optimizado
+      const dependencyCheck = await checkAnimalDependencies(id);
+      
+      if (dependencyCheck.hasDependencies) {
+        console.log(`[AnimalsService.deleteAnimal] ❌ Eliminación bloqueada por dependencias`, {
+          animalId: id,
+          dependencies: dependencyCheck.dependencies
+        });
+        
+        // Lanzar error con mensaje detallado para que la UI lo muestre
+        const error = new Error(dependencyCheck.message || 'No se puede eliminar el animal por dependencias');
+        (error as any).detailedMessage = dependencyCheck.detailedMessage;
+        (error as any).dependencies = dependencyCheck.dependencies;
+        (error as any).isDependencyError = true;
+        throw error;
+      }
+      
+      console.log(`[AnimalsService.deleteAnimal] ✅ Sin dependencias, procediendo con eliminación`);
+      
+      // Proceder con la eliminación evitando recursión: usar método del BaseService
+      const success = await super.delete(id);
+      
+      if (success) {
+        console.log(`[AnimalsService.deleteAnimal] ✅ Animal eliminado exitosamente`, { animalId: id });
+        // Limpiar caché de dependencias para este animal
+        clearAnimalDependencyCache(id);
+      }
+      
+      return success;
+    } catch (error: any) {
+      console.error(`[AnimalsService.deleteAnimal] ❌ Error en eliminación`, {
+        animalId: id,
+        error: error.message,
+        isDependencyError: error.isDependencyError
+      });
+      
+      // Re-lanzar el error para que la UI lo maneje
+      throw error;
+    }
+  }
+
+  // Sobrescribir el método delete base para asegurar consistencia
+  async delete(id: number | string): Promise<boolean> {
+    // Para animales, siempre usar deleteAnimal que incluye verificación de dependencias
+    if (typeof id === 'number') {
+      return this.deleteAnimal(id);
+    }
+    
+    // Para otros casos, delegar al método base
+    return super.delete(id);
   }
 
   async createBulk(data: AnimalInput[]): Promise<BulkResponse<AnimalResponse>> {

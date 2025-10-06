@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "@/context/AuthenticationContext";
 import { Button } from "@/components/ui/button";
+import { LogIn, LogOut } from 'lucide-react';
 
 interface MenuItem {
   id: string;
@@ -91,15 +92,17 @@ export default function NavBar() {
             <Button
               className="bg-green-600 text-white font-semibold"
               onClick={() => navigate("/login")}
+              aria-label="Iniciar sesión"
             >
-              Ingresar
+              <LogIn className="h-4 w-4" />
             </Button>
           ) : (
             <Button
               className="bg-gray-700 text-white font-semibold"
               onClick={auth?.logout}
+              aria-label="Cerrar sesión"
             >
-              Salir
+              <LogOut className="h-4 w-4" />
             </Button>
           )}
         </div>

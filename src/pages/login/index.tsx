@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect, useRef } from "react";
 import { loginUser, normalizeRole } from '@/services/authService';
 import { FaUser, FaLock, FaCheckCircle } from "react-icons/fa";
+import { LogIn } from 'lucide-react';
 import { Link, useLocation } from "react-router-dom";
 import { ClimbingBoxLoader } from "react-spinners";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -339,8 +340,19 @@ const LoginForm = () => {
             type="submit"
             disabled={loading}
             className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 focus:ring-green-500 focus:ring-offset-green-200 text-white transition ease-in duration-200 text-center text-base font-semibold shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+            aria-label={loading ? 'Iniciando sesión' : 'Iniciar sesión'}
           >
-            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+            {loading ? (
+              <>
+                <LogIn className="h-4 w-4 animate-spin" />
+                Iniciando sesión...
+              </>
+            ) : (
+              <>
+                <LogIn className="h-4 w-4" />
+                Iniciar sesión
+              </>
+            )}
           </Button>
         </form>
         {errors.general && (
