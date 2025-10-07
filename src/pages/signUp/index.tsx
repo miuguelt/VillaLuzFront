@@ -157,22 +157,43 @@ const SignUpForm: React.FC = () => {
       } else {
         // Extraer mensaje detallado del backend si está disponible
         const data = error?.response?.data;
-        let detailed = data?.message || data?.detail || data?.error;
-        // Si hay estructura de errores por campo, concatenar sus mensajes
-        const fieldErrors = data?.errors || data?.error_details || data?.validation_errors;
+        let detailed: any = data?.message || data?.detail || data?.error || data?.title;
+
+        // 422: Normalizar estructura de validación si viene en data.details o data.errors
+        const fieldErrors = data?.errors || data?.error_details || data?.validation_errors || data?.details;
         if (!detailed && fieldErrors) {
           try {
             if (Array.isArray(fieldErrors)) {
-              detailed = fieldErrors.map((e: any) => e?.message || e).filter(Boolean).join(' • ');
+              detailed = fieldErrors
+                .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
+                .filter(Boolean)
+                .join(' • ');
             } else if (typeof fieldErrors === 'object') {
-              detailed = Object.values(fieldErrors).flat().map((e: any) => (typeof e === 'string' ? e : e?.message)).filter(Boolean).join(' • ');
+              const values = Object.values(fieldErrors as Record<string, any>);
+              const flat = ([] as any[]).concat(...values);
+              detailed = flat
+                .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
+                .filter(Boolean)
+                .join(' • ');
             }
           } catch {}
         }
-        if (!detailed && error?.message) detailed = error.message;
 
-        setErrors({ 
-          general: detailed || 'Error al crear la cuenta. Por favor, inténtalo de nuevo.' 
+        // Asegurar que el mensaje sea un string renderizable
+        if (!detailed && error?.message) detailed = error.message;
+        if (detailed && typeof detailed !== 'string') {
+          try {
+            const candidates = [detailed.message, detailed.detail, detailed.error, detailed.title].filter(
+              (v) => typeof v === 'string' && v.trim()
+            );
+            detailed = candidates[0] || JSON.stringify(detailed);
+          } catch {
+            detailed = 'Se produjo un error al procesar la respuesta del servidor.';
+          }
+        }
+
+        setErrors({
+          general: detailed || 'Error al crear la cuenta. Por favor, inténtalo de nuevo.'
         });
       }
     } finally {
@@ -236,6 +257,7 @@ const SignUpForm: React.FC = () => {
                   onChange={handleInputChange}
                   className={`pl-10 ${errors.name ? 'border-red-500 focus:border-red-500' : ''}`}
                   disabled={loading}
+                  autoComplete="name"
                 />
               </div>
               {errors.name && (
@@ -257,6 +279,7 @@ const SignUpForm: React.FC = () => {
                   onChange={handleInputChange}
                   className={`pl-10 ${errors.email ? 'border-red-500 focus:border-red-500' : ''}`}
                   disabled={loading}
+                  autoComplete="email"
                 />
               </div>
               {errors.email && (
@@ -278,6 +301,7 @@ const SignUpForm: React.FC = () => {
                   onChange={handleInputChange}
                   className={`pl-10 ${errors.identification_number ? 'border-red-500 focus:border-red-500' : ''}`}
                   disabled={loading}
+                  autoComplete="off"
                 />
               </div>
               {errors.identification_number && (
@@ -316,6 +340,7 @@ const SignUpForm: React.FC = () => {
                   onChange={handleInputChange}
                   className={`pl-10 pr-10 ${errors.password ? 'border-red-500 focus:border-red-500' : ''}`}
                   disabled={loading}
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -345,6 +370,7 @@ const SignUpForm: React.FC = () => {
                   onChange={handleInputChange}
                   className={`pl-10 pr-10 ${errors.confirmPassword ? 'border-red-500 focus:border-red-500' : ''}`}
                   disabled={loading}
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
