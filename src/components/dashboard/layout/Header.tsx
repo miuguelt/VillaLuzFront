@@ -28,19 +28,11 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar }) => {
     }
   };
 
-  // Determina qué iconos de acceso a dashboards mostrar según el rol del usuario
-  const visibleRoleIcons: Role[] = (() => {
-    switch (user?.role) {
-      case Role.Administrador:
-        return [Role.Administrador, Role.Instructor, Role.Aprendiz];
-      case Role.Instructor:
-        return [Role.Instructor, Role.Aprendiz];
-      case Role.Aprendiz:
-        return [Role.Aprendiz];
-      default:
-        return [];
-    }
-  })();
+  // Determina visibilidad de iconos según el rol del usuario (reglas explícitas)
+  const roleValue = user?.role as Role | undefined;
+  const showAdminIcon = roleValue === Role.Administrador;
+  const showInstructorIcon = roleValue === Role.Instructor || roleValue === Role.Administrador;
+  const showApprenticeIcon = roleValue === Role.Aprendiz || roleValue === Role.Instructor || roleValue === Role.Administrador;
 
   return (
     <header className="flex items-center justify-between py-1 px-4 bg-white border-b" role="banner">
@@ -70,7 +62,7 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar }) => {
         
         {/* Navegación por roles con iconos */}
         <div className="flex items-center space-x-2">
-          {visibleRoleIcons.includes(Role.Administrador) && (
+          {showAdminIcon && (
             <button
               onClick={() => handleRoleNavigation(Role.Administrador)}
               className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors"
@@ -80,7 +72,7 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar }) => {
               <Shield className="h-4 w-4 text-blue-600" />
             </button>
           )}
-          {visibleRoleIcons.includes(Role.Instructor) && (
+          {showInstructorIcon && (
             <button
               onClick={() => handleRoleNavigation(Role.Instructor)}
               className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors"
@@ -90,7 +82,7 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar }) => {
               <GraduationCap className="h-4 w-4 text-green-600" />
             </button>
           )}
-          {visibleRoleIcons.includes(Role.Aprendiz) && (
+          {showApprenticeIcon && (
             <button
               onClick={() => handleRoleNavigation(Role.Aprendiz)}
               className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors"
