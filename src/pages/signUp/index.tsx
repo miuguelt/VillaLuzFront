@@ -5,12 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Eye, EyeOff, User, Mail, Lock, UserPlus } from 'lucide-react';
+import { Eye, EyeOff, User, Mail, Lock, UserPlus, Phone } from 'lucide-react';
 import { usersService } from '@/services/userService';
 
 interface SignUpFormData {
   name: string;
   email: string;
+  phone: string;
   password: string;
   confirmPassword: string;
   identification_number: string;
@@ -20,6 +21,7 @@ interface SignUpFormData {
 interface FormErrors {
   name?: string;
   email?: string;
+  phone?: string;
   password?: string;
   confirmPassword?: string;
   identification_number?: string;
@@ -31,6 +33,7 @@ const SignUpForm: React.FC = () => {
   const [formData, setFormData] = useState<SignUpFormData>({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
     identification_number: '',
@@ -59,6 +62,15 @@ const SignUpForm: React.FC = () => {
       newErrors.email = 'El correo es obligatorio';
     } else if (!emailRegex.test(formData.email)) {
       newErrors.email = 'Ingrese un correo electrónico válido';
+    }
+
+    // Validate phone
+    const phoneVal = formData.phone.trim();
+    const phoneRegex = /^[+]?[0-9\s-]{7,15}$/;
+    if (!phoneVal) {
+      newErrors.phone = 'El teléfono es obligatorio';
+    } else if (!phoneRegex.test(phoneVal)) {
+      newErrors.phone = 'Ingrese un teléfono válido (7-15 dígitos)';
     }
 
     // Validate identification number
@@ -117,6 +129,7 @@ const SignUpForm: React.FC = () => {
       const userData = {
         fullname: formData.name.trim(),
         email: formData.email.trim().toLowerCase(),
+        phone: formData.phone.trim(),
         password: formData.password,
         identification: formData.identification_number.trim(),
         role: formData.role as "Administrador" | "Instructor" | "Aprendiz",
@@ -144,11 +157,11 @@ const SignUpForm: React.FC = () => {
       // Handle specific backend errors
       if (error.response?.status === 403) {
         setErrors({ 
-          general: 'Public registration is not available. Users already exist in the system. Contact the administrator to create your account.' 
+          general: 'El registro público no está disponible: ya existen usuarios. Intenta nuevamente o contacta al administrador.' 
         });
       } else if (error.response?.status === 401) {
         setErrors({ 
-          general: 'Administrator authentication is required to create users. Contact the administrator.' 
+          general: 'Se requiere autenticación de administrador para crear usuarios. Contacta al administrador.' 
         });
       } else if (error.response?.status === 409) {
         setErrors({ 
@@ -161,17 +174,42 @@ const SignUpForm: React.FC = () => {
 
         // 422: Normalizar estructura de validación si viene en data.details o data.errors
         const fieldErrors = data?.errors || data?.error_details || data?.validation_errors || data?.details;
-        if (!detailed && fieldErrors) {
+        const newFieldErrors: FormErrors = {};
+        if (fieldErrors) {
           try {
-            if (Array.isArray(fieldErrors)) {
-              detailed = fieldErrors
+            if (typeof fieldErrors === 'object' && !Array.isArray(fieldErrors)) {
+              const map: Record<string, keyof FormErrors> = {
+                fullname: 'name',
+                name: 'name',
+                email: 'email',
+                phone: 'phone',
+                identification: 'identification_number',
+                identification_number: 'identification_number',
+                password: 'password',
+                confirmPassword: 'confirmPassword',
+              };
+              Object.entries(fieldErrors as Record<string, any>).forEach(([key, val]) => {
+                const uiKey = map[key] || undefined;
+                const messages = Array.isArray(val) ? val : [val];
+                const msg = messages
+                  .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
+                  .filter(Boolean)
+                  .join(' • ');
+                if (uiKey && msg) {
+                  newFieldErrors[uiKey] = msg;
+                }
+              });
+              // Construir mensaje general si quedaron errores no mapeados
+              const unknowns = Object.entries(fieldErrors as Record<string, any>)
+                .filter(([k]) => !map[k])
+                .map(([, v]) => (Array.isArray(v) ? v : [v]))
+                .flat()
                 .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
                 .filter(Boolean)
                 .join(' • ');
-            } else if (typeof fieldErrors === 'object') {
-              const values = Object.values(fieldErrors as Record<string, any>);
-              const flat = ([] as any[]).concat(...values);
-              detailed = flat
+              if (!detailed && unknowns) detailed = unknowns;
+            } else if (Array.isArray(fieldErrors)) {
+              detailed = fieldErrors
                 .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
                 .filter(Boolean)
                 .join(' • ');
@@ -193,6 +231,7 @@ const SignUpForm: React.FC = () => {
         }
 
         setErrors({
+          ...newFieldErrors,
           general: detailed || 'Error al crear la cuenta. Por favor, inténtalo de nuevo.'
         });
       }
@@ -265,27 +304,49 @@ const SignUpForm: React.FC = () => {
               )}
             </div>
 
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="email">Correo electrónico</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="tu@email.com"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className={`pl-10 ${errors.email ? 'border-red-500 focus:border-red-500' : ''}`}
-                  disabled={loading}
-                  autoComplete="email"
-                />
-              </div>
-              {errors.email && (
-                <p className="text-sm text-red-600">{errors.email}</p>
-              )}
+          {/* Email */}
+          <div className="space-y-2">
+            <Label htmlFor="email">Correo electrónico</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                placeholder="tu@email.com"
+                value={formData.email}
+                onChange={handleInputChange}
+                className={`pl-10 ${errors.email ? 'border-red-500 focus:border-red-500' : ''}`}
+                disabled={loading}
+                autoComplete="email"
+              />
             </div>
+            {errors.email && (
+              <p className="text-sm text-red-600">{errors.email}</p>
+            )}
+          </div>
+
+          {/* Teléfono */}
+          <div className="space-y-2">
+            <Label htmlFor="phone">Teléfono</Label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                placeholder="Tu número de teléfono"
+                value={formData.phone}
+                onChange={handleInputChange}
+                className={`pl-10 ${errors.phone ? 'border-red-500 focus:border-red-500' : ''}`}
+                disabled={loading}
+                autoComplete="tel"
+              />
+            </div>
+            {errors.phone && (
+              <p className="text-sm text-red-600">{errors.phone}</p>
+            )}
+          </div>
 
             {/* Número de Identificación */}
             <div className="space-y-2">

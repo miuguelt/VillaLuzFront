@@ -8,6 +8,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { cn } from '@/components/ui/cn.ts';
+import { X } from 'lucide-react';
 
 // Interfaces y tipos
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full';
@@ -182,6 +183,16 @@ export const GenericModal: React.FC<GenericModalProps> = ({
           )}
           onMouseDown={handleMouseDown}
         >
+          {/* Botón de cierre siempre visible en móvil */}
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            aria-label="Cerrar"
+            className="absolute right-3 top-2 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground opacity-100 sm:opacity-70 hover:opacity-100 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <X className="h-4 w-4" />
+          </button>
+
           {/* Decoración superior futurista */}
           <div className="absolute -top-2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
