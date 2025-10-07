@@ -54,164 +54,165 @@ export default defineConfig(({ command, mode }) => {
     plugins: [
       tailwindcss(),
       react(),
-      VitePWA({
-        registerType: 'autoUpdate',
-        manifest: {
-          name: 'Finca Villa Luz',
-          short_name: 'Finca',
-          description: 'Gestión de finca - offline first',
-          theme_color: '#166534',
-          background_color: '#ffffff',
-          display: 'standalone',
-          start_url: '/',
-          icons: [
-            { src: '/favicon.ico', sizes: '64x64 32x32 24x24 16x16', type: 'image/x-icon' }
-          ],
-        },
-        workbox: {
-          navigateFallback: '/index.html',
-          globPatterns: ['**/*.{js,css,html,svg,ico,png,jpg,jpeg}'],
-          runtimeCaching: [
-            // Auth endpoints - siempre NetworkOnly
-            {
-              urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/auth'),
-              handler: 'NetworkOnly',
-              options: { cacheName: 'auth-api-bypass' }
-            },
-
-            // Datos maestros (diseases, breeds, species, etc.) - CacheFirst
-            {
-              urlPattern: ({ url }) => {
-                const masterResources = ['diseases', 'breeds', 'species', 'medications', 'vaccines', 'fields', 'food_types', 'route_administrations'];
-                return url.pathname.startsWith('/api/v1/') &&
-                       masterResources.some(r => url.pathname.includes(`/api/v1/${r}`)) &&
-                       !url.pathname.startsWith('/api/v1/auth');
-              },
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'api-master-data',
-                matchOptions: { ignoreVary: true },
-                expiration: {
-                  maxEntries: 100,
-                  maxAgeSeconds: 30 * 60, // 30 minutos
-                },
-                plugins: [
-                  {
-                    cacheWillUpdate: async ({ response }) => {
-                      // Solo cachear respuestas 200 OK
-                      if (!response || response.status !== 200) return null;
-
-                      // Respetar header X-Cache-Strategy si viene
-                      const strategy = response.headers.get('X-Cache-Strategy');
-                      if (strategy && strategy !== 'cache-first') return null;
-
-                      return response;
-                    }
-                  }
-                ]
-              }
-            },
-
-            // Datos transaccionales (vaccinations, treatments, etc.) - StaleWhileRevalidate
-            {
-              urlPattern: ({ url }) => {
-                const transactionalResources = ['vaccinations', 'treatments', 'animal_diseases', 'treatment_medications', 'treatment_vaccines', 'controls', 'animals', 'animal_fields'];
-                return url.pathname.startsWith('/api/v1/') &&
-                       transactionalResources.some(r => url.pathname.includes(`/api/v1/${r}`)) &&
-                       !url.pathname.startsWith('/api/v1/auth');
-              },
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'api-transactional-data',
-                matchOptions: { ignoreVary: true },
-                expiration: {
-                  maxEntries: 200,
-                  maxAgeSeconds: 2 * 60, // 2 minutos
-                },
-                plugins: [
-                  {
-                    cacheWillUpdate: async ({ response }) => {
-                      if (!response || response.status !== 200) return null;
-                      return response;
-                    }
-                  }
-                ]
-              }
-            },
-
-            // Datos de usuario - NetworkFirst (críticos, siempre intentar red)
-            {
-              urlPattern: ({ url }) => {
-                const userResources = ['users'];
-                return url.pathname.startsWith('/api/v1/') &&
-                       userResources.some(r => url.pathname.includes(`/api/v1/${r}`)) &&
-                       !url.pathname.startsWith('/api/v1/auth');
-              },
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'api-user-data',
-                networkTimeoutSeconds: 3,
-                matchOptions: { ignoreVary: true },
-                expiration: {
-                  maxEntries: 50,
-                  maxAgeSeconds: 60, // 1 minuto
-                },
-                plugins: [
-                  {
-                    cacheWillUpdate: async ({ response }) => {
-                      if (!response || response.status !== 200) return null;
-                      return response;
-                    }
-                  }
-                ]
-              }
-            },
-
-            // Fallback para otros endpoints API - NetworkFirst
-            {
-              urlPattern: ({ url }) => url.pathname.startsWith('/api/v1') && !url.pathname.startsWith('/api/v1/auth'),
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'api-cache-fallback',
-                networkTimeoutSeconds: 3,
-                matchOptions: { ignoreVary: true },
-                plugins: [
-                  {
-                    cacheWillUpdate: async ({ response }) => {
-                      if (!response || response.status !== 200) return null;
-                      return response;
-                    }
-                  }
-                ]
-              }
-            },
-
-            // Imágenes - StaleWhileRevalidate
-            {
-              urlPattern: ({ request }) => request.destination === 'image',
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'images-cache',
-                expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
-              }
-            },
-
-            // Assets estáticos - StaleWhileRevalidate
-            {
-              urlPattern: ({ request }) => ['style', 'script', 'worker'].includes(request.destination),
-              handler: 'StaleWhileRevalidate',
-              options: { cacheName: 'assets-cache' }
-            },
-          ],
-          skipWaiting: true,
-          clientsClaim: true,
-        },
-        devOptions: {
-          // Habilita el SW de desarrollo solo si está explícitamente activado por variable
-          enabled: (env.VITE_ENABLE_PWA === 'true') && mode === 'development',
-          navigateFallback: 'index.html',
-        }
-      }),
+      // Temporarily disable PWA for Docker build debugging
+      // VitePWA({
+      //   registerType: 'autoUpdate',
+      //   manifest: {
+      //     name: 'Finca Villa Luz',
+      //     short_name: 'Finca',
+      //     description: 'Gestión de finca - offline first',
+      //     theme_color: '#166534',
+      //     background_color: '#ffffff',
+      //     display: 'standalone',
+      //     start_url: '/',
+      //     icons: [
+      //       { src: '/favicon.ico', sizes: '64x64 32x32 24x24 16x16', type: 'image/x-icon' }
+      //     ],
+      //   },
+      //   workbox: {
+      //     navigateFallback: '/index.html',
+      //     globPatterns: ['**/*.{js,css,html,svg,ico,png,jpg,jpeg}'],
+      //     runtimeCaching: [
+      //       // Auth endpoints - siempre NetworkOnly
+      //       {
+      //         urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/auth'),
+      //         handler: 'NetworkOnly',
+      //         options: { cacheName: 'auth-api-bypass' }
+      //       },
+      // 
+      //       // Datos maestros (diseases, breeds, species, etc.) - CacheFirst
+      //       {
+      //         urlPattern: ({ url }) => {
+      //           const masterResources = ['diseases', 'breeds', 'species', 'medications', 'vaccines', 'fields', 'food_types', 'route_administrations'];
+      //           return url.pathname.startsWith('/api/v1/') &&
+      //                  masterResources.some(r => url.pathname.includes(`/api/v1/${r}`)) &&
+      //                  !url.pathname.startsWith('/api/v1/auth');
+      //         },
+      //         handler: 'CacheFirst',
+      //         options: {
+      //           cacheName: 'api-master-data',
+      //           matchOptions: { ignoreVary: true },
+      //           expiration: {
+      //             maxEntries: 100,
+      //             maxAgeSeconds: 30 * 60, // 30 minutos
+      //           },
+      //           plugins: [
+      //             {
+      //               cacheWillUpdate: async ({ response }) => {
+      //                 // Solo cachear respuestas 200 OK
+      //                 if (!response || response.status !== 200) return null;
+      // 
+      //                 // Respetar header X-Cache-Strategy si viene
+      //                 const strategy = response.headers.get('X-Cache-Strategy');
+      //                 if (strategy && strategy !== 'cache-first') return null;
+      // 
+      //                 return response;
+      //               }
+      //             }
+      //           ]
+      //         }
+      //       },
+      // 
+      //       // Datos transaccionales (vaccinations, treatments, etc.) - StaleWhileRevalidate
+      //       {
+      //         urlPattern: ({ url }) => {
+      //           const transactionalResources = ['vaccinations', 'treatments', 'animal_diseases', 'treatment_medications', 'treatment_vaccines', 'controls', 'animals', 'animal_fields'];
+      //           return url.pathname.startsWith('/api/v1/') &&
+      //                  transactionalResources.some(r => url.pathname.includes(`/api/v1/${r}`)) &&
+      //                  !url.pathname.startsWith('/api/v1/auth');
+      //         },
+      //         handler: 'StaleWhileRevalidate',
+      //         options: {
+      //           cacheName: 'api-transactional-data',
+      //           matchOptions: { ignoreVary: true },
+      //           expiration: {
+      //             maxEntries: 200,
+      //             maxAgeSeconds: 2 * 60, // 2 minutos
+      //           },
+      //           plugins: [
+      //             {
+      //               cacheWillUpdate: async ({ response }) => {
+      //                 if (!response || response.status !== 200) return null;
+      //                 return response;
+      //               }
+      //             }
+      //           ]
+      //         }
+      //       },
+      // 
+      //       // Datos de usuario - NetworkFirst (críticos, siempre intentar red)
+      //       {
+      //         urlPattern: ({ url }) => {
+      //           const userResources = ['users'];
+      //           return url.pathname.startsWith('/api/v1/') &&
+      //                  userResources.some(r => url.pathname.includes(`/api/v1/${r}`)) &&
+      //                  !url.pathname.startsWith('/api/v1/auth');
+      //         },
+      //         handler: 'NetworkFirst',
+      //         options: {
+      //           cacheName: 'api-user-data',
+      //           networkTimeoutSeconds: 3,
+      //           matchOptions: { ignoreVary: true },
+      //           expiration: {
+      //             maxEntries: 50,
+      //             maxAgeSeconds: 60, // 1 minuto
+      //           },
+      //           plugins: [
+      //             {
+      //               cacheWillUpdate: async ({ response }) => {
+      //                 if (!response || response.status !== 200) return null;
+      //                 return response;
+      //               }
+      //             }
+      //           ]
+      //         }
+      //       },
+      // 
+      //       // Fallback para otros endpoints API - NetworkFirst
+      //       {
+      //         urlPattern: ({ url }) => url.pathname.startsWith('/api/v1') && !url.pathname.startsWith('/api/v1/auth'),
+      //         handler: 'NetworkFirst',
+      //         options: {
+      //           cacheName: 'api-cache-fallback',
+      //           networkTimeoutSeconds: 3,
+      //           matchOptions: { ignoreVary: true },
+      //           plugins: [
+      //             {
+      //               cacheWillUpdate: async ({ response }) => {
+      //                 if (!response || response.status !== 200) return null;
+      //                 return response;
+      //               }
+      //             }
+      //           ]
+      //         }
+      //       },
+      // 
+      //       // Imágenes - StaleWhileRevalidate
+      //       {
+      //         urlPattern: ({ request }) => request.destination === 'image',
+      //         handler: 'StaleWhileRevalidate',
+      //         options: {
+      //           cacheName: 'images-cache',
+      //           expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
+      //         }
+      //       },
+      // 
+      //       // Assets estáticos - StaleWhileRevalidate
+      //       {
+      //         urlPattern: ({ request }) => ['style', 'script', 'worker'].includes(request.destination),
+      //         handler: 'StaleWhileRevalidate',
+      //         options: { cacheName: 'assets-cache' }
+      //       },
+      //     ],
+      //     skipWaiting: true,
+      //     clientsClaim: true,
+      //   },
+      //   devOptions: {
+      //     // Habilita el SW de desarrollo solo si está explícitamente activado por variable
+      //     enabled: (env.VITE_ENABLE_PWA === 'true') && mode === 'development',
+      //     navigateFallback: 'index.html',
+      //   }
+      // }),
     ],
     resolve: {
         alias: {

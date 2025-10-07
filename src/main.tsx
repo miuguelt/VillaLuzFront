@@ -47,89 +47,90 @@ import { PWAUpdateHandler } from './components/common/PWAUpdateHandler'
   } catch { /* noop */ }
 })();
 
-// Registrar Service Worker (PWA) con optimización de carga
-const ENABLE_PWA = (import.meta as any)?.env?.VITE_ENABLE_PWA === 'true';
-
-if (ENABLE_PWA && 'serviceWorker' in navigator) {
-  // Registrar SW inmediatamente para mejor rendimiento
-  const registerServiceWorker = async () => {
-    try {
-      const { registerSW } = await import('virtual:pwa-register');
-      const unregisterSW = registerSW({
-        immediate: true,
-        onRegistered(swReg) {
-          console.log('[PWA] Service Worker registrado', swReg);
-          // Estrategia de precarga inteligente
-          if (swReg?.active) {
-            // Precargar rutas críticas después de que la app esté lista
-            setTimeout(() => {
-              // Prefetch SPA shell bajo el base proxied; evitar prefetch de endpoints API para no generar aborts en dev
-              const ENABLE_PWA_PREFETCH = (import.meta as any)?.env?.VITE_ENABLE_PWA_PREFETCH === 'true';
-              if (ENABLE_PWA_PREFETCH) {
-                const criticalRoutes = ['/dashboard'];
-                criticalRoutes.forEach(route => {
-                  fetch(route, {
-                    // Use GET for broader compatibility (some backends don't implement HEAD)
-                    method: 'GET',
-                    cache: 'force-cache',
-                    credentials: 'include'
-                  }).catch(() => {
-                    // Silenciosamente fallar precarga
-                  });
-                });
-              }
-            }, 2000);
-          }
-        },
-        onRegisterError(error) {
-          console.error('[PWA] Error registrando Service Worker', error);
-        },
-      });
-      
-      // Obtener la instancia real del Service Worker registration para manejar actualizaciones
-      navigator.serviceWorker.ready.then((registration) => {
-        registration.addEventListener('updatefound', () => {
-          const installingWorker = registration.installing;
-          installingWorker?.addEventListener('statechange', () => {
-            if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // Notificar al usuario sobre actualización disponible
-              const event = new CustomEvent('pwa-update-available');
-              window.dispatchEvent(event);
-            }
-          });
-        });
-      }).catch(() => {
-        // Silenciosamente fallar manejo de actualizaciones
-      });
-      
-    } catch (err) {
-      console.warn('[PWA] Registro SW no disponible en este entorno', err);
-    }
-  };
-  
-  // Registrar SW en load pero también intentar inmediatamente para mejor PWA
-  if (document.readyState === 'complete') {
-    registerServiceWorker();
-  } else {
-    window.addEventListener('load', registerServiceWorker);
-  }
-} else {
-  // En preview/desarrollo sin PWA: asegurarse de no tener SW/caches antiguas que sirvan bundles obsoletos
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations?.().then((registrations) => {
-      for (const registration of registrations) {
-        registration.unregister().catch(() => {});
-      }
-    }).catch(() => {});
-  }
-  if (window.caches?.keys) {
-    window.caches.keys().then((keys) => {
-      keys.forEach((key) => {
-        window.caches.delete(key).catch(() => {});
-      });
-    }).catch(() => {});
-  }
-}
+// PWA temporarily disabled for Docker build debugging
+// // Registrar Service Worker (PWA) con optimización de carga
+// const ENABLE_PWA = (import.meta as any)?.env?.VITE_ENABLE_PWA === 'true';
+// 
+// if (ENABLE_PWA && 'serviceWorker' in navigator) {
+//   // Registrar SW inmediatamente para mejor rendimiento
+//   const registerServiceWorker = async () => {
+//     try {
+//       const { registerSW } = await import('virtual:pwa-register');
+//       const unregisterSW = registerSW({
+//         immediate: true,
+//         onRegistered(swReg) {
+//           console.log('[PWA] Service Worker registrado', swReg);
+//           // Estrategia de precarga inteligente
+//           if (swReg?.active) {
+//             // Precargar rutas críticas después de que la app esté lista
+//             setTimeout(() => {
+//               // Prefetch SPA shell bajo el base proxied; evitar prefetch de endpoints API para no generar aborts en dev
+//               const ENABLE_PWA_PREFETCH = (import.meta as any)?.env?.VITE_ENABLE_PWA_PREFETCH === 'true';
+//               if (ENABLE_PWA_PREFETCH) {
+//                 const criticalRoutes = ['/dashboard'];
+//                 criticalRoutes.forEach(route => {
+//                   fetch(route, {
+//                     // Use GET for broader compatibility (some backends don't implement HEAD)
+//                     method: 'GET',
+//                     cache: 'force-cache',
+//                     credentials: 'include'
+//                   }).catch(() => {
+//                     // Silenciosamente fallar precarga
+//                   });
+//                 });
+//               }
+//             }, 2000);
+//           }
+//         },
+//         onRegisterError(error) {
+//           console.error('[PWA] Error registrando Service Worker', error);
+//         },
+//       });
+//       
+//       // Obtener la instancia real del Service Worker registration para manejar actualizaciones
+//       navigator.serviceWorker.ready.then((registration) => {
+//         registration.addEventListener('updatefound', () => {
+//           const installingWorker = registration.installing;
+//           installingWorker?.addEventListener('statechange', () => {
+//             if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+//               // Notificar al usuario sobre actualización disponible
+//               const event = new CustomEvent('pwa-update-available');
+//               window.dispatchEvent(event);
+//             }
+//           });
+//         });
+//       }).catch(() => {
+//         // Silenciosamente fallar manejo de actualizaciones
+//       });
+//       
+//     } catch (err) {
+//       console.warn('[PWA] Registro SW no disponible en este entorno', err);
+//     }
+//   };
+//   
+//   // Registrar SW en load pero también intentar inmediatamente para mejor PWA
+//   if (document.readyState === 'complete') {
+//     registerServiceWorker();
+//   } else {
+//     window.addEventListener('load', registerServiceWorker);
+//   }
+// } else {
+//   // En preview/desarrollo sin PWA: asegurarse de no tener SW/caches antiguas que sirvan bundles obsoletos
+//   if ('serviceWorker' in navigator) {
+//     navigator.serviceWorker.getRegistrations?.().then((registrations) => {
+//       for (const registration of registrations) {
+//         registration.unregister().catch(() => {});
+//       }
+//     }).catch(() => {});
+//   }
+//   if (window.caches?.keys) {
+//     window.caches.keys().then((keys) => {
+//       keys.forEach((key) => {
+//         window.caches.delete(key).catch(() => {});
+//       });
+//     }).catch(() => {});
+//   }
+// }
 
 // Puente React para notificaciones y sincronización al cambiar estado de red
 function GlobalNetworkHandlers() {
@@ -278,7 +279,7 @@ createRoot(document.getElementById('root')!).render(
                   {/* Bridge para toasts y refetch al recuperar red y precargas post-auth */}
                   <GlobalNetworkHandlers />
                   <AppRoutes />
-                  <PWAUpdateHandler />
+                  {/* <PWAUpdateHandler /> */}
                 </AuthProvider>
               </ToastProvider>
             </I18nProvider>
