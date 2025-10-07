@@ -7,45 +7,48 @@ import fs from 'fs';
 import { X509Certificate } from 'crypto';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const backendUrl = env.VITE_API_BASE_URL || (mode === 'development' ? 'https://127.0.0.1:8081' : 'https://finca.isladigital.xyz');
   const backendUrlHttps = backendUrl.replace(/^http:\/\//, 'https://');
   const proxyTarget = backendUrlHttps.replace(/\/$/, '').replace(/\/api\/v1$/, '');
 
-  const keyPath = path.resolve(__dirname, 'certificates', 'cert.key');
-  const certPath = path.resolve(__dirname, 'certificates', 'cert.crt');
-  const caPath = path.resolve(__dirname, 'certificates', 'ca.crt');
+  // Configuración HTTPS sólo para dev server;
+  // evita que la build de producción falle si faltan certificados.
+  let httpsConfig: any = undefined;
+  if (command === 'serve') {
+    const keyPath = path.resolve(__dirname, 'certificates', 'cert.key');
+    const certPath = path.resolve(__dirname, 'certificates', 'cert.crt');
+    const caPath = path.resolve(__dirname, 'certificates', 'ca.crt');
 
-  if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
-    throw new Error('[HTTPS] Certificados no encontrados en ./certificates (cert.key, cert.crt). Ejecuta scripts/generate_certs.ps1 o scripts/bin/mkcert.exe para crearlos.');
-  }
-
-  const keyBuf = fs.readFileSync(keyPath);
-  const certBuf = fs.readFileSync(certPath);
-
-  try {
-    const x509 = new X509Certificate(certBuf);
-    const validTo = new Date(x509.validTo);
-    if (!isNaN(validTo.getTime())) {
-      const daysRemaining = Math.floor((validTo.getTime() - Date.now()) / 86_400_000);
-      if (daysRemaining < 0) {
-        throw new Error(`[HTTPS] El certificado local ha expirado (${validTo.toISOString()}). Renueva ejecutando scripts/generate_certs.ps1.`);
-      } else if (daysRemaining <= 14) {
-        console.warn(`[HTTPS] Advertencia: el certificado local expira en ${daysRemaining} días (${validTo.toISOString()}). Considera renovarlo con scripts/generate_certs.ps1.`);
-      }
+    if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
+      console.warn('[HTTPS] Certificados no encontrados en ./certificates (cert.key, cert.crt). Dev server iniciará sin HTTPS.');
     } else {
-      console.warn('[HTTPS] No se pudo determinar la fecha de expiración del certificado local.');
-    }
-  } catch (err) {
-    console.warn('[HTTPS] No fue posible inspeccionar el certificado local para validar su expiración:', err);
-  }
+      const certBuf = fs.readFileSync(certPath);
+      try {
+        const x509 = new X509Certificate(certBuf);
+        const validTo = new Date(x509.validTo);
+        if (!isNaN(validTo.getTime())) {
+          const daysRemaining = Math.floor((validTo.getTime() - Date.now()) / 86_400_000);
+          if (daysRemaining < 0) {
+            console.warn(`[HTTPS] El certificado local ha expirado (${validTo.toISOString()}). Dev server continuará sin HTTPS.`);
+          } else if (daysRemaining <= 14) {
+            console.warn(`[HTTPS] Advertencia: el certificado local expira en ${daysRemaining} días (${validTo.toISOString()}).`);
+          }
+        } else {
+          console.warn('[HTTPS] No se pudo determinar la fecha de expiración del certificado local.');
+        }
+      } catch (err) {
+        console.warn('[HTTPS] No fue posible inspeccionar el certificado local para validar su expiración:', err);
+      }
 
-  const httpsConfig = {
-    key: keyBuf,
-    cert: certBuf,
-    ...(fs.existsSync(caPath) ? { ca: fs.readFileSync(caPath) } : {})
-  };
+      httpsConfig = {
+        key: fs.readFileSync(keyPath),
+        cert: certBuf,
+        ...(fs.existsSync(caPath) ? { ca: fs.readFileSync(caPath) } : {})
+      };
+    }
+  }
 
   return {
     plugins: [

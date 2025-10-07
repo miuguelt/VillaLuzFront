@@ -1,11 +1,7 @@
 services:
   web:
     build:
-      context: 'https://github.com/miuguelt/fincaFront-main.git'          
+      context: . #'https://github.com/miuguelt/fincaFront-main.git'          
       dockerfile: Dockerfile
-    image: nginx:alpine 
-    ports:
-      - "80:80"            
+    image: node:22-alpine          
     restart: always
-    depends_on:
-      - backend
