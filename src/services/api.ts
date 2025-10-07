@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { getCookie } from '@/utils/cookieUtils'
+import { getApiBaseURL } from '@/utils/envConfig';
 import { unwrapApi } from '@/utils/apiUnwrap';
 import { extractJWT } from '@/utils/tokenUtils';
 import { getIndexedDBCache, setIndexedDBCache, startIndexedDBCacheCleanup } from '@/utils/indexedDBCache';
@@ -10,14 +11,15 @@ const env: Record<string, any> = ((globalThis as any)?.['import']?.['meta']?.['e
   ?? {};
 const API_TIMEOUT = Number(env.VITE_API_TIMEOUT ?? 10000);
 const REFRESH_TIMEOUT = Number(env.VITE_REFRESH_TIMEOUT ?? 8000);
+// Mantener compatibilidad con VITE_FORCE_ABSOLUTE_BASE_URL pero preferir getApiBaseURL()
 const FORCE_ABSOLUTE = String(env.VITE_FORCE_ABSOLUTE_BASE_URL ?? '').toLowerCase() === 'true';
 const DEBUG_LOG = String(env.VITE_DEBUG_MODE ?? '').toLowerCase() === 'true';
 const AUTH_STORAGE_KEY = env.VITE_AUTH_STORAGE_KEY || 'finca_access_token';
 const HTTP_CACHE_TTL = Number(env.VITE_HTTP_CACHE_TTL ?? 20000); // TTL por defecto 20s
 
-// Bases de URL
-const baseURL = FORCE_ABSOLUTE ? (env.VITE_API_BASE_URL || '/api/v1/') : '/api/v1/';
-const refreshBaseURL = FORCE_ABSOLUTE ? (env.VITE_API_BASE_URL || '/api/v1/') : '/api/v1/';
+// Bases de URL: usar helper que decide según entorno y variables
+const baseURL = getApiBaseURL();
+const refreshBaseURL = getApiBaseURL();
 
 // Cliente principal con credenciales habilitadas (cookies)
 const api: AxiosInstance = axios.create({
