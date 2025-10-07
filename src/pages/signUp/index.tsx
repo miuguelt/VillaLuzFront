@@ -71,8 +71,8 @@ const SignUpForm: React.FC = () => {
     // Validate password
     if (!formData.password) {
       newErrors.password = 'La contraseña es obligatoria';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
+    } else if (formData.password.length < 4) {
+      newErrors.password = 'La contraseña debe tener al menos 4 caracteres';
     }
 
     // Validate password confirmation
@@ -115,14 +115,12 @@ const SignUpForm: React.FC = () => {
     try {
       // Prepare data for backend
       const userData = {
-        name: formData.name.trim(),
-        fullname: formData.name.trim(), // Agregar fullname
+        fullname: formData.name.trim(),
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
-        identification: formData.identification_number.trim(), // Cambiar a identification
-        identification_number: formData.identification_number.trim(),
+        identification: formData.identification_number.trim(),
         role: formData.role as "Administrador" | "Instructor" | "Aprendiz",
-        is_active: true
+        status: true,
       };
 
       // Create user using service
@@ -156,13 +154,25 @@ const SignUpForm: React.FC = () => {
         setErrors({ 
           general: 'A user with this email or identification number already exists' 
         });
-      } else if (error.response?.data?.message) {
-        setErrors({ 
-          general: error.response.data.message 
-        });
       } else {
+        // Extraer mensaje detallado del backend si está disponible
+        const data = error?.response?.data;
+        let detailed = data?.message || data?.detail || data?.error;
+        // Si hay estructura de errores por campo, concatenar sus mensajes
+        const fieldErrors = data?.errors || data?.error_details || data?.validation_errors;
+        if (!detailed && fieldErrors) {
+          try {
+            if (Array.isArray(fieldErrors)) {
+              detailed = fieldErrors.map((e: any) => e?.message || e).filter(Boolean).join(' • ');
+            } else if (typeof fieldErrors === 'object') {
+              detailed = Object.values(fieldErrors).flat().map((e: any) => (typeof e === 'string' ? e : e?.message)).filter(Boolean).join(' • ');
+            }
+          } catch {}
+        }
+        if (!detailed && error?.message) detailed = error.message;
+
         setErrors({ 
-          general: 'Error al crear la cuenta. Por favor, inténtalo de nuevo.' 
+          general: detailed || 'Error al crear la cuenta. Por favor, inténtalo de nuevo.' 
         });
       }
     } finally {
