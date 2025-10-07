@@ -212,3 +212,5 @@ service_optimization_report.json
 SISTEMA_ADVERTENCIAS_INTEGRIDAD_REFERENCIAL.md
 SOLUCION_SINCRONIZACION_CRUD.md
 *.md
+.env.development
+.env.production

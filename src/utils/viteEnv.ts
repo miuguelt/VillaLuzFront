@@ -1,13 +1,16 @@
-// Unified access to Vite (import.meta.env) and Jest/Node (process.env / mocked global) environments
-// Works in browser, Vite build, and Jest tests where we polyfill globalThis.import.meta in setupTests.
+// Unified access to Vite (import.meta.env) and Jest/Node (process.env) environments
+// Works in browser/Vite build, and Jest tests where we polyfill import.meta in setupTests.
 
 export const VITE_ENV: Record<string, any> = (() => {
-  // Use Jest polyfill path (we defined globalThis.import.meta.env in setupTests)
+  // Prefer direct import.meta.env so Vite statically injects values at build time
+  try {
+    const viteEnv = (import.meta as any)?.env;
+    if (viteEnv) return viteEnv;
+  } catch {}
+  // Jest polyfill support (setupTests assigns globalThis.import.meta.env)
   const poly = (globalThis as any)?.import?.meta?.env;
   if (poly) return poly;
   // Fallback to process.env when available (Node scripts)
-  // Guard access with typeof to avoid TS errors when node types are missing
-  // and to work in browser-only environments.
   if (typeof (globalThis as any).process !== 'undefined') return ((globalThis as any).process as any).env || {};
   return {};
 })();
