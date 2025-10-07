@@ -968,7 +968,7 @@ const AdminDashboard: React.FC = () => {
   return (
     <div className="space-y-6 p-4">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
+        <TabsList className="overflow-x-auto flex-wrap sm:flex-nowrap max-w-full">
           <TabsTrigger value="overview">{t('dashboard.tabs.overview', 'Resumen')}</TabsTrigger>
           <TabsTrigger value="system">{t('dashboard.tabs.system', 'Sistema')}</TabsTrigger>
           <TabsTrigger value="settings">{t('dashboard.tabs.settings', 'Ajustes')}</TabsTrigger>

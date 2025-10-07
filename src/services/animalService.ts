@@ -3,6 +3,7 @@ import { AnimalResponse, AnimalInput, AnimalStatistics, PaginatedResponse } from
 import { BulkResponse } from '@/types/commonTypes';
 import analyticsService from './analyticsService';
 import { checkAnimalDependencies, clearAnimalDependencyCache } from './dependencyCheckService';
+import type { AnimalTreeGraph, TreeQueryParams } from '@/types/animalTreeTypes';
 
 interface AnimalStatusStats {
   by_status: Record<string, number>;
@@ -334,6 +335,23 @@ class AnimalsService extends BaseService<AnimalResponse> {
   
   async getAnimalStatusStats(): Promise<AnimalStatusStats> {
     return this.customRequest<AnimalStatusStats>('status', 'GET');
+  }
+
+  // --- Árboles genealógicos (grafo plano desde backend) ---
+  async getAncestorTree(params: TreeQueryParams): Promise<AnimalTreeGraph> {
+    const { animal_id, max_depth, fields } = params;
+    const graph = await this.customRequest<AnimalTreeGraph>('tree/ancestors', 'GET', undefined, {
+      params: { animal_id, max_depth, fields }
+    });
+    return { ...graph, type: 'ancestors' };
+  }
+
+  async getDescendantTree(params: TreeQueryParams): Promise<AnimalTreeGraph> {
+    const { animal_id, max_depth, fields } = params;
+    const graph = await this.customRequest<AnimalTreeGraph>('tree/descendants', 'GET', undefined, {
+      params: { animal_id, max_depth, fields }
+    });
+    return { ...graph, type: 'descendants' };
   }
 }
 

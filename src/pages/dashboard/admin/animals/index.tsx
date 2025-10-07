@@ -8,9 +8,8 @@ import { getTodayColombia } from '@/utils/dateUtils';
 
 import { AnimalHistoryModal } from '@/components/dashboard/AnimalHistoryModal';
 import GeneticTreeModal from '@/components/dashboard/GeneticTreeModal';
-import { useGeneticTree } from '@/hooks/animal/useGeneticTree';
+import { useAnimalTreeApi, graphToAncestorLevels, graphToDescendantLevels } from '@/hooks/animal/useAnimalTreeApi';
 import DescendantsTreeModal from '@/components/dashboard/DescendantsTreeModal';
-import { useDescendantsTree } from '@/hooks/animal/useDescendantsTree';
 import { useForeignKeySelect } from '@/hooks/useForeignKeySelect';
 import { ANIMAL_GENDERS, ANIMAL_STATES } from '@/constants/enums';
 import { History, GitBranch, Baby } from 'lucide-react';
@@ -175,12 +174,20 @@ function AdminAnimalsPage() {
   const [isTreeOpen, setIsTreeOpen] = React.useState<boolean>(false);
   const [treeAnimal, setTreeAnimal] = React.useState<any | null>(null);
   const [treeLevels, setTreeLevels] = React.useState<any[][]>([]);
-  const { buildGeneticTree } = useGeneticTree();
+  const ancestorsApi = useAnimalTreeApi();
+  const [ancestorCounts, setAncestorCounts] = useState<{ nodes: number; edges: number } | undefined>(undefined);
+  const [ancestorSummary, setAncestorSummary] = useState<any | undefined>(undefined);
+  const [ancestorEdgeExamples, setAncestorEdgeExamples] = useState<any | undefined>(undefined);
+  const [treeRootId, setTreeRootId] = useState<number | null>(null);
   
   const [isDescOpen, setIsDescOpen] = React.useState<boolean>(false);
   const [descAnimal, setDescAnimal] = React.useState<any | null>(null);
   const [descLevels, setDescLevels] = React.useState<any[][]>([]);
-  const { buildDescendantsTree } = useDescendantsTree();
+  const descendantsApi = useAnimalTreeApi();
+  const [descCounts, setDescCounts] = useState<{ nodes: number; edges: number } | undefined>(undefined);
+  const [descSummary, setDescSummary] = useState<any | undefined>(undefined);
+  const [descEdgeExamples, setDescEdgeExamples] = useState<any | undefined>(undefined);
+  const [descRootId, setDescRootId] = useState<number | null>(null);
 
   // Estados para modales de FK
   const [isBreedDetailOpen, setIsBreedDetailOpen] = useState(false);
@@ -349,18 +356,28 @@ function AdminAnimalsPage() {
   const openGeneticTreeModal = async (record: AnimalResponse & { [k: string]: any }) => {
     const id = Number(record.id ?? 0);
     if (!id) return;
-    const { animal, levels } = await buildGeneticTree(id, 10);
-    setTreeAnimal(animal);
-    setTreeLevels(levels);
+    const resp = await ancestorsApi.fetchAncestors(id, 3, 'record,sex,breeds_id,idFather,idMother');
+    if (!resp) return;
+    setTreeRootId(resp.rootId);
+    setTreeAnimal(resp.nodes[resp.rootId]);
+    setTreeLevels(graphToAncestorLevels(resp));
+    setAncestorCounts(resp.counts);
+    setAncestorSummary(resp.summary);
+    setAncestorEdgeExamples(resp.edge_examples);
     setIsTreeOpen(true);
   };
 
   const openDescendantsTreeModal = async (record: AnimalResponse & { [k: string]: any }) => {
     const id = Number(record.id ?? 0);
     if (!id) return;
-    const { animal, levels } = await buildDescendantsTree(id, 10);
-    setDescAnimal(animal);
-    setDescLevels(levels);
+    const resp = await descendantsApi.fetchDescendants(id, 3, 'record,sex,breeds_id,idFather,idMother');
+    if (!resp) return;
+    setDescRootId(resp.rootId);
+    setDescAnimal(resp.nodes[resp.rootId]);
+    setDescLevels(graphToDescendantLevels(resp));
+    setDescCounts(resp.counts);
+    setDescSummary(resp.summary);
+    setDescEdgeExamples(resp.edge_examples);
     setIsDescOpen(true);
   };
 
@@ -712,6 +729,22 @@ function AdminAnimalsPage() {
         }}
         animal={treeAnimal}
         levels={treeLevels}
+        counts={ancestorCounts}
+        summary={ancestorSummary}
+        edgeExamples={ancestorEdgeExamples}
+        loadingMore={ancestorsApi.loading}
+        onLoadMore={async () => {
+          if (!treeRootId || !ancestorsApi.graph) return;
+          const merged = await ancestorsApi.loadMore('ancestors', treeRootId, ancestorsApi.graph, {
+            increment: 2,
+            fields: 'record,sex,breeds_id,idFather,idMother'
+          });
+          setTreeAnimal(merged.nodes[merged.rootId]);
+          setTreeLevels(graphToAncestorLevels(merged));
+          setAncestorCounts(merged.counts);
+          setAncestorSummary(merged.summary);
+          setAncestorEdgeExamples(merged.edge_examples);
+        }}
       />
 
       <DescendantsTreeModal
@@ -723,6 +756,22 @@ function AdminAnimalsPage() {
         }}
         animal={descAnimal}
         levels={descLevels}
+        counts={descCounts}
+        summary={descSummary}
+        edgeExamples={descEdgeExamples}
+        loadingMore={descendantsApi.loading}
+        onLoadMore={async () => {
+          if (!descRootId || !descendantsApi.graph) return;
+          const merged = await descendantsApi.loadMore('descendants', descRootId, descendantsApi.graph, {
+            increment: 2,
+            fields: 'record,sex,breeds_id,idFather,idMother'
+          });
+          setDescAnimal(merged.nodes[merged.rootId]);
+          setDescLevels(graphToDescendantLevels(merged));
+          setDescCounts(merged.counts);
+          setDescSummary(merged.summary);
+          setDescEdgeExamples(merged.edge_examples);
+        }}
       />
     </>
   );

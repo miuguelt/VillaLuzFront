@@ -3,6 +3,8 @@ import { getAnimalLabel } from '@/utils/animalHelpers';
 import React from 'react';
 import { cn } from '@/components/ui/cn.ts';
 import { Users, Baby } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import type { AnimalTreeSummary, AnimalTreeEdgeExamples } from '@/types/animalTreeTypes';
 
 interface AnimalNode {
   idAnimal?: number;
@@ -20,12 +22,24 @@ interface DescendantsTreeModalProps {
   onClose: () => void;
   animal: AnimalNode | null;
   levels: AnimalNode[][];
+  counts?: { nodes: number; edges: number };
+  onLoadMore?: () => void | Promise<void>;
+  loadingMore?: boolean;
+  summary?: AnimalTreeSummary;
+  edgeExamples?: AnimalTreeEdgeExamples;
 }
 
-const DescendantsTreeModal = ({ isOpen, onClose, animal, levels }: DescendantsTreeModalProps) => {
+const DescendantsTreeModal = ({ isOpen, onClose, animal, levels, counts, onLoadMore, loadingMore, summary, edgeExamples }: DescendantsTreeModalProps) => {
   if (!animal) return null;
 
   const [depthShown, setDepthShown] = React.useState<number>(Math.max(1, (levels?.length ?? 1)));
+
+  // Estado para colapsables y paginación de ejemplos
+  const [expandedSex, setExpandedSex] = React.useState<Record<'Macho' | 'Hembra' | 'Unknown', boolean>>({ Macho: true, Hembra: true, Unknown: false });
+  const [pageSex, setPageSex] = React.useState<Record<'Macho' | 'Hembra' | 'Unknown', number>>({ Macho: 0, Hembra: 0, Unknown: 0 });
+  const [expandedSpecies, setExpandedSpecies] = React.useState<Record<string, boolean>>({});
+  const [pageSpecies, setPageSpecies] = React.useState<Record<string, number>>({});
+  const pageSize = 5;
 
   const displayLevels = React.useMemo(() => {
     return Array.isArray(levels) ? levels.slice(0, Math.max(1, depthShown)) : [];
@@ -52,6 +66,30 @@ const DescendantsTreeModal = ({ isOpen, onClose, animal, levels }: DescendantsTr
   const getId = (n: any): number | undefined => {
     const id = n?.idAnimal ?? n?.id;
     return id && Number.isInteger(Number(id)) && Number(id) > 0 ? Number(id) : undefined;
+  };
+
+  const getSpeciesIcon = (name?: string) => {
+    const n = (name || '').toLowerCase();
+    if (n.includes('bov')) return '🐄';
+    if (n.includes('vac') || n.includes('res')) return '🐄';
+    if (n.includes('porc')) return '🐖';
+    if (n.includes('equ')) return '🐴';
+    if (n.includes('ov')) return '🐑';
+    if (n.includes('capr')) return '🐐';
+    if (n.includes('avic') || n.includes('gall') || n.includes('pollo')) return '🐓';
+    return '🦊';
+  };
+
+  const scrollToNode = (id?: number) => {
+    if (!id) return;
+    const el = document.getElementById(`node-${id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('ring-2', 'ring-purple-600', 'ring-offset-2');
+      setTimeout(() => {
+        el.classList.remove('ring-2', 'ring-purple-600', 'ring-offset-2');
+      }, 1500);
+    }
   };
 
   return (
@@ -98,7 +136,61 @@ const DescendantsTreeModal = ({ isOpen, onClose, animal, levels }: DescendantsTr
                   <span className="text-sm font-bold text-purple-700 min-w-[2ch] px-2 py-1 bg-purple-100/50 rounded-md">{depthShown}</span>
                 </div>
               </div>
+
+              <div className="flex items-center gap-4">
+                {counts && (
+                  <div className="flex items-center gap-3 text-xs">
+                    <div className="flex items-center gap-1">
+                      <Users className="h-4 w-4 text-purple-700" />
+                      <span className="font-medium">{counts.nodes} nodos</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="inline-block w-2 h-2 rounded-full bg-purple-600" />
+                      <span className="font-medium">{counts.edges} relaciones</span>
+                    </div>
+                  </div>
+                )}
+                {onLoadMore && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onLoadMore()}
+                    disabled={!!loadingMore}
+                    className="h-7"
+                  >
+                    {loadingMore ? 'Cargando…' : 'Cargar más'}
+                  </Button>
+                )}
+              </div>
             </div>
+
+            {/* Resumen del backend (texto y métricas) */}
+            {summary && (
+              <div className="mt-2 p-3 rounded-lg border bg-muted/30 border-border/50">
+                {summary.text && (
+                  <p className="text-sm text-foreground/80 whitespace-pre-line">{summary.text}</p>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  {summary.sex && (
+                    <span className="px-2 py-1 rounded-md bg-background/60 border border-border/50">
+                      ♂ Macho: <strong>{summary.sex.Macho}</strong> · ♀ Hembra: <strong>{summary.sex.Hembra}</strong> · ?: <strong>{summary.sex.Unknown}</strong>
+                    </span>
+                  )}
+                  {summary.relations && (
+                    <span className="px-2 py-1 rounded-md bg-background/60 border border-border/50">
+                      Relación padre: <strong>{summary.relations.father}</strong> · madre: <strong>{summary.relations.mother}</strong>
+                    </span>
+                  )}
+                  {summary.species && (
+                    <span className="px-2 py-1 rounded-md bg-background/60 border border-border/50">
+                      Especies: {Object.entries(summary.species).map(([name, count]) => (
+                        <span key={name} className="ml-1">{name}: <strong>{count}</strong></span>
+                      ))}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Árbol de descendientes */}
             <div className="flex flex-col items-center space-y-6 max-h-[60vh] overflow-y-auto px-2 py-4">
@@ -130,6 +222,7 @@ const DescendantsTreeModal = ({ isOpen, onClose, animal, levels }: DescendantsTr
                       return (
                         <div
                           key={getId(descendant)}
+                          id={`node-${getId(descendant)}`}
                           className="relative flex flex-col items-center"
                         >
                           {/* Conexión vertical individual */}
@@ -228,6 +321,112 @@ const DescendantsTreeModal = ({ isOpen, onClose, animal, levels }: DescendantsTr
                 <span className="text-xs font-medium text-foreground/80">Hembra ♀</span>
               </div>
             </div>
+
+            {/* Ejemplos de aristas del backend */}
+            {edgeExamples && (
+              <div className="mt-3 p-3 rounded-lg border bg-background/40 border-border/50">
+                <div className="text-sm font-semibold text-foreground/80 mb-2">Ejemplos de relaciones</div>
+                {edgeExamples.bySex && (
+                  <div className="flex flex-col gap-2 text-xs">
+                    {(['Macho','Hembra','Unknown'] as const).map((sexKey) => (
+                      edgeExamples.bySex?.[sexKey] && edgeExamples.bySex[sexKey].length > 0 ? (
+                        <div key={sexKey} className="flex flex-col">
+                          <button
+                            className="flex items-center gap-2 font-medium text-foreground/80 hover:text-foreground"
+                            onClick={() => setExpandedSex(s => ({ ...s, [sexKey]: !s[sexKey] }))}
+                          >
+                            <span>{sexKey}</span>
+                            <span className="text-muted-foreground">({edgeExamples.bySex[sexKey].length})</span>
+                            <span>{expandedSex[sexKey] ? '▾' : '▸'}</span>
+                          </button>
+                          {expandedSex[sexKey] && (
+                            <ul className="mt-1 list-disc list-inside text-muted-foreground">
+                              {edgeExamples.bySex[sexKey]
+                                .slice(pageSex[sexKey] * pageSize, pageSex[sexKey] * pageSize + pageSize)
+                                .map((ex, idx) => (
+                              <li
+                                    key={`${sexKey}-${idx}-${ex.from}-${ex.to}`}
+                                    className="cursor-pointer hover:text-foreground"
+                                    onClick={() => scrollToNode(ex.to)}
+                                  >
+                                    {ex.from} → {ex.to} ({ex.relation})
+                                  </li>
+                                ))}
+                            </ul>
+                          )}
+                          {expandedSex[sexKey] && edgeExamples.bySex[sexKey].length > pageSize && (
+                            <div className="mt-1 flex items-center gap-2">
+                              <button
+                                className="px-2 py-1 text-xs rounded-md border bg-background hover:bg-muted"
+                                onClick={() => setPageSex(p => ({ ...p, [sexKey]: Math.max(0, p[sexKey] - 1) }))}
+                                disabled={pageSex[sexKey] === 0}
+                              >Anterior</button>
+                              <button
+                                className="px-2 py-1 text-xs rounded-md border bg-background hover:bg-muted"
+                                onClick={() => setPageSex(p => ({ ...p, [sexKey]: (p[sexKey] + 1) < Math.ceil(edgeExamples.bySex![sexKey].length / pageSize) ? p[sexKey] + 1 : p[sexKey] }))}
+                                disabled={(pageSex[sexKey] + 1) >= Math.ceil(edgeExamples.bySex[sexKey].length / pageSize)}
+                              >Siguiente</button>
+                              <span className="text-[10px] text-muted-foreground">Página {pageSex[sexKey] + 1} / {Math.ceil(edgeExamples.bySex[sexKey].length / pageSize)}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : null
+                    ))}
+                  </div>
+                )}
+                {edgeExamples.bySpecies && (
+                  <div className="mt-3 flex flex-col gap-2 text-xs">
+                    {Object.entries(edgeExamples.bySpecies).map(([speciesName, examples]) => (
+                      <div key={speciesName} className="flex flex-col">
+                        <button
+                          className="flex items-center gap-2 font-medium text-foreground/80 hover:text-foreground"
+                          onClick={() => setExpandedSpecies(s => ({ ...s, [speciesName]: !s[speciesName] }))}
+                        >
+                          <span>{getSpeciesIcon(speciesName)}</span>
+                          <span>{speciesName}</span>
+                          <span className="text-muted-foreground">({examples.length})</span>
+                          <span>{expandedSpecies[speciesName] ? '▾' : '▸'}</span>
+                        </button>
+                        {expandedSpecies[speciesName] && (
+                          <ul className="mt-1 list-disc list-inside text-muted-foreground">
+                            {examples
+                              .slice((pageSpecies[speciesName] ?? 0) * pageSize, (pageSpecies[speciesName] ?? 0) * pageSize + pageSize)
+                              .map((ex, idx) => (
+                                <li
+                                  key={`${speciesName}-${idx}-${ex.from}-${ex.to}`}
+                                  className="cursor-pointer hover:text-foreground"
+                                  onClick={() => scrollToNode(ex.to)}
+                                >
+                                  {ex.from} → {ex.to} ({ex.relation})
+                                </li>
+                              ))}
+                          </ul>
+                        )}
+                        {expandedSpecies[speciesName] && examples.length > pageSize && (
+                          <div className="mt-1 flex items-center gap-2">
+                            <button
+                              className="px-2 py-1 text-xs rounded-md border bg-background hover:bg-muted"
+                              onClick={() => setPageSpecies(p => ({ ...p, [speciesName]: Math.max(0, (p[speciesName] ?? 0) - 1) }))}
+                              disabled={(pageSpecies[speciesName] ?? 0) === 0}
+                            >Anterior</button>
+                            <button
+                              className="px-2 py-1 text-xs rounded-md border bg-background hover:bg-muted"
+                              onClick={() => setPageSpecies(p => {
+                                const current = p[speciesName] ?? 0;
+                                const maxPage = Math.ceil(examples.length / pageSize);
+                                return { ...p, [speciesName]: (current + 1) < maxPage ? current + 1 : current };
+                              })}
+                              disabled={((pageSpecies[speciesName] ?? 0) + 1) >= Math.ceil(examples.length / pageSize)}
+                            >Siguiente</button>
+                            <span className="text-[10px] text-muted-foreground">Página {(pageSpecies[speciesName] ?? 0) + 1} / {Math.ceil(examples.length / pageSize)}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

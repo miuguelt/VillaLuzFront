@@ -1,5 +1,5 @@
 import { useAuth } from '@/hooks/useAuth';
-import { Menu, Shield, GraduationCap, User } from 'lucide-react';
+import { Menu, Shield, GraduationCap, User, LogOut } from 'lucide-react';
 import { Role } from '../../../types/userTypes';
 import { useNavigate } from 'react-router-dom';
 
@@ -35,8 +35,8 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar }) => {
   const showApprenticeIcon = roleValue === Role.Aprendiz || roleValue === Role.Instructor || roleValue === Role.Administrador;
 
   return (
-    <header className="flex items-center justify-between py-1 px-4 bg-white border-b" role="banner">
-      <div className="flex items-center space-x-3">
+    <header className="flex items-center justify-between py-1 px-2 sm:px-4 bg-white border-b" role="banner">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           type="button"
           onClick={onToggleSidebar}
@@ -48,20 +48,30 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar }) => {
         >
           <Menu className="h-5 w-5 text-gray-700" />
         </button>
-        <h1 className="text-xl font-bold" tabIndex={0} aria-label="Título de la sección">Dashboard</h1>
+        <h1 className="text-base sm:text-xl font-bold" tabIndex={0} aria-label="Título de la sección">Dashboard</h1>
         {impersonateRole && (
-          <div className="hidden md:flex items-center space-x-2 ml-4">
+          <div className="hidden md:flex items-center space-x-2 ml-2 sm:ml-4">
             <span className="text-sm text-gray-500">Change role (DEV):</span>
             <button onClick={() => impersonateRole(Role.Administrador)} className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">Admin</button>
             <button onClick={() => impersonateRole(Role.Aprendiz)} className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300">Apprentice</button>
           </div>
         )}
       </div>
-      <div className="flex items-center space-x-4">
-        <span tabIndex={0} aria-label={`Usuario actual: ${user?.fullname}, rol: ${user?.role}`}>{user?.fullname} ({user?.role})</span>
+      <div className="flex items-center gap-2 sm:gap-4 flex-wrap ml-auto min-w-0">
+        <span
+          className="hidden sm:inline max-w-[40vw] truncate"
+          tabIndex={0}
+          aria-label={`Usuario actual: ${user?.fullname}, rol: ${user?.role}`}
+        >
+          {user?.fullname} ({user?.role})
+        </span>
+        {/* Indicador compacto en móvil */}
+        <span className="inline sm:hidden text-sm text-gray-700" aria-hidden="true">
+          {user?.role}
+        </span>
         
         {/* Navegación por roles con iconos */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           {showAdminIcon && (
             <button
               onClick={() => handleRoleNavigation(Role.Administrador)}
@@ -93,10 +103,19 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar }) => {
             </button>
           )}
         </div>
-
+        {/* Botón de cerrar icon-only en móvil */}
         <button
           onClick={logout}
-          className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400"
+          className="inline-flex sm:hidden items-center justify-center p-2 rounded-md bg-red-500 text-white hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400"
+          aria-label="Cerrar sesión"
+          title="Cerrar sesión"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
+        {/* Botón de cerrar amplio en pantallas medianas+ */}
+        <button
+          onClick={logout}
+          className="hidden sm:inline-flex px-3 sm:px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400"
           aria-label="Cerrar sesión"
         >
           Cerrar

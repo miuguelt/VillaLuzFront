@@ -3,7 +3,8 @@ import { useState } from "react";
 import { lazy, Suspense } from 'react';
 const GeneticTreeModal = lazy(() => import('./GeneticTreeModal'));
 import { useAnimals } from "@/hooks/animal/useAnimals";
-import { useGeneticTree } from "@/hooks/animal/useGeneticTree";
+import { useAnimalTreeApi, graphToAncestorLevels } from "@/hooks/animal/useAnimalTreeApi";
+import type { AnimalTreeSummary, AnimalTreeEdgeExamples } from "@/types/animalTreeTypes";
 
 interface StatisticsCardProps {
     title: string
@@ -16,9 +17,10 @@ interface StatisticsCardProps {
 const StatisticsCard = ({title, value, description, color, showGeneticTree = false}: StatisticsCardProps) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { animals } = useAnimals();
-    const { buildGeneticTree } = useGeneticTree();
+    const { fetchAncestors, loadMore, graph, loading } = useAnimalTreeApi();
     const [selectedAnimalId, setSelectedAnimalId] = useState<number | null>(null);
-    const [treeData, setTreeData] = useState<{ animal: any | null; levels: any[] } | null>(null);
+    const [treeData, setTreeData] = useState<{ animal: any | null; levels: any[]; counts?: { nodes: number; edges: number }; summary?: AnimalTreeSummary; edgeExamples?: AnimalTreeEdgeExamples } | null>(null);
+    const [loadingMore, setLoadingMore] = useState(false);
 
     // ...existing code...
 
@@ -43,10 +45,17 @@ const StatisticsCard = ({title, value, description, color, showGeneticTree = fal
                                                     console.debug('[geneticTree][card] initial animal object (raw):', raw);
                                                 }
                                                 setTreeLoading(true);
-                        const tree = await buildGeneticTree(id);
+                        const resp = await fetchAncestors(id, 3, 'id,record,sex');
                         setTreeLoading(false);
+                        if (!resp) return;
                         setSelectedAnimalId(id);
-                        setTreeData(tree);
+                        setTreeData({
+                            animal: resp.nodes?.[resp.rootId] ?? null,
+                            levels: graphToAncestorLevels(resp),
+                            counts: resp.counts,
+                            summary: resp.summary,
+                            edgeExamples: resp.edge_examples,
+                        });
                         setIsModalOpen(true);
                     }
                 }}
@@ -77,6 +86,25 @@ const StatisticsCard = ({title, value, description, color, showGeneticTree = fal
                         }}
                         animal={treeData.animal}
                         levels={treeData.levels}
+                        counts={treeData.counts}
+                        summary={treeData.summary}
+                        edgeExamples={treeData.edgeExamples}
+                        loadingMore={loading || loadingMore}
+                        onLoadMore={async () => {
+                            if (!graph || !selectedAnimalId || !treeData?.levels) return;
+                            setLoadingMore(true);
+                            const next = await loadMore('ancestors', selectedAnimalId, graph, { increment: 2, fields: 'id,record,sex' });
+                            setLoadingMore(false);
+                            if (next) {
+                                setTreeData({
+                                    animal: next.nodes?.[next.rootId] ?? treeData.animal,
+                                    levels: graphToAncestorLevels(next),
+                                    counts: next.counts,
+                                    summary: next.summary,
+                                    edgeExamples: next.edge_examples,
+                                });
+                            }
+                        }}
                     />
                 </Suspense>
             )}

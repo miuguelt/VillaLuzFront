@@ -14,7 +14,7 @@ const InstructorDashboard: React.FC = () => {
           </div>
           <div className="overflow-x-auto">
             <Tabs defaultValue="overview" className="w-full">
-              <TabsList className="whitespace-nowrap">
+              <TabsList className="whitespace-nowrap overflow-x-auto">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="classes">Classes</TabsTrigger>
                 <TabsTrigger value="reports">Reports</TabsTrigger>
