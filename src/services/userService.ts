@@ -37,13 +37,21 @@ class UsersService extends BaseService<UserResponse> {
 
   async createPublicUser(userData: UserInput): Promise<UserResponse> {
     try {
+      // Preparar payload con created_at para evitar fallos en BD sin default
+      const createdAt = (await import('@/utils/dateUtils')).getNowColombiaISO?.() || new Date().toISOString();
+      // Normalizar a formato 'YYYY-MM-DD HH:mm:ss' si viene con 'T'
+      const normalizedCreatedAt = String(createdAt).replace('T', ' ').split('.')[0];
+      const payload = { ...(userData as any), created_at: normalizedCreatedAt } as any;
       // Intentar registro público primero
-      return await this.customRequest('public', 'POST', userData);
+      return await this.customRequest('public', 'POST', payload);
     } catch (error: any) {
       // Si falla el registro público (403), intentar con el endpoint normal
       if (error.response?.status === 403) {
         console.warn('Registro público no disponible, intentando registro normal...');
-        return await this.create(userData);
+        const createdAt = (await import('@/utils/dateUtils')).getNowColombiaISO?.() || new Date().toISOString();
+        const normalizedCreatedAt = String(createdAt).replace('T', ' ').split('.')[0];
+        const payload = { ...(userData as any), created_at: normalizedCreatedAt } as any;
+        return await this.create(payload);
       }
       throw error;
     }
