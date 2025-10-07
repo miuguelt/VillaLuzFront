@@ -1,7 +1,0 @@
-services:
-  web:
-    build:
-      context: . #'https://github.com/miuguelt/fincaFront-main.git'          
-      dockerfile: Dockerfile
-    image: node:22-alpine          
-    restart: always
