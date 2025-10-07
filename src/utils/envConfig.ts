@@ -7,28 +7,16 @@
 export type Environment = 'development' | 'production';
 
 // Unificar acceso a variables de entorno usando el helper que funciona en Vite/Browser/Jest/Node
-import { VITE_ENV } from './viteEnv';
+import { VITE_ENV, getRuntimeEnv } from './viteEnv';
 
 // Safe ENV accessor: usa VITE_ENV (inyectado por Vite o polyfilled en tests)
 const ENV: Record<string, any> = VITE_ENV;
 
 // Detectar el entorno actual
 export const getEnvironment = (): Environment => {
-  // Prioridad: flags de Vite/Node y MODE dominan sobre VITE_NODE_ENV
-  const viteEnv = ENV.VITE_NODE_ENV as string | undefined;
-  const nodeEnv = ENV.NODE_ENV as string | undefined;
-  const mode = ENV.MODE as string | undefined;
-  const devFlag = !!ENV.DEV;
-  const prodFlag = !!ENV.PROD;
-
-  // Si es claramente producción por flags de Vite/Node, devolver producción
-  if (prodFlag || mode === 'production' || nodeEnv === 'production') return 'production';
-
-  // Desarrollo si flags o VITE_NODE_ENV lo indican
-  if (devFlag || mode === 'development' || nodeEnv === 'development') return 'development';
-
-  // Fallback seguro: producción
-  return 'production';
+  // Usar VITE_RUNTIME_ENV si está disponible; fallback a MODE/NODE_ENV
+  const runtime = getRuntimeEnv();
+  return runtime === 'production' ? 'production' : 'development';
 };
 
 // Verificar si estamos en modo desarrollo
@@ -57,7 +45,7 @@ export const getBackendBaseURL = (): string => {
     const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
     const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
     if (isLocalHost && isProduction()) {
-      return 'https://127.0.0.1:8081';
+      return 'http://127.0.0.1:8081';
     }
   } catch {
     // Ignorar errores de acceso a window en entornos SSR/tests
@@ -69,7 +57,7 @@ export const getBackendBaseURL = (): string => {
       return 'https://finca.isladigital.xyz';
     case 'development':
     default:
-      return 'https://127.0.0.1:8081';
+      return 'http://127.0.0.1:8081';
   }
 };
 
@@ -174,6 +162,7 @@ export const getEnvironmentInfo = () => {
       MODE: ENV.MODE,
       DEV: ENV.DEV,
       PROD: ENV.PROD,
+      VITE_RUNTIME_ENV: ENV.VITE_RUNTIME_ENV,
       VITE_API_BASE_URL: ENV.VITE_API_BASE_URL,
       VITE_FRONTEND_URL: ENV.VITE_FRONTEND_URL,
       VITE_BACKEND_DOCS_URL: ENV.VITE_BACKEND_DOCS_URL

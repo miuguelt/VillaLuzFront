@@ -23,3 +23,15 @@ export const isDevMode = (): boolean => {
   if (typeof VITE_ENV.NODE_ENV !== 'undefined') return VITE_ENV.NODE_ENV !== 'production';
   return false;
 };
+
+// Runtime env derivado principalmente de VITE_RUNTIME_ENV, con fallback a MODE/NODE_ENV
+export const getRuntimeEnv = (): 'development' | 'production' => {
+  const runtime = (VITE_ENV as any)?.VITE_RUNTIME_ENV as string | undefined;
+  const mode = (VITE_ENV as any)?.MODE as string | undefined;
+  const nodeEnv = (VITE_ENV as any)?.NODE_ENV as string | undefined;
+  const val = (runtime || mode || (nodeEnv === 'production' ? 'production' : 'development'))?.toLowerCase();
+  return val === 'production' ? 'production' : 'development';
+};
+
+export const isProductionEnv = (): boolean => getRuntimeEnv() === 'production';
+export const isDevelopmentEnv = (): boolean => getRuntimeEnv() === 'development';

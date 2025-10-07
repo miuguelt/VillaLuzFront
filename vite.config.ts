@@ -1,7 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 import fs from 'fs';
 import { X509Certificate } from 'crypto';
@@ -9,9 +8,13 @@ import { X509Certificate } from 'crypto';
 // https://vitejs.dev/config/
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const backendUrl = env.VITE_API_BASE_URL || (mode === 'development' ? 'https://127.0.0.1:8081' : 'https://finca.isladigital.xyz');
-  const backendUrlHttps = backendUrl.replace(/^http:\/\//, 'https://');
-  const proxyTarget = backendUrlHttps.replace(/\/$/, '').replace(/\/api\/v1$/, '');
+  // Control explícito del entorno vía VITE_RUNTIME_ENV (sobrescribe mode)
+  const runtimeEnv = (env.VITE_RUNTIME_ENV || mode);
+  const isProd = runtimeEnv === 'production';
+  // Backend por defecto según entorno
+  const backendUrl = env.VITE_API_BASE_URL || (isProd ? 'https://finca.isladigital.xyz' : 'http://127.0.0.1:8081');
+  // Preservar el esquema (http/https) definido en backendUrl; eliminar sufijo /api/v1 si viene.
+  const proxyTarget = backendUrl.replace(/\/$/, '').replace(/\/api\/v1$/, '');
 
   // Configuración HTTPS sólo para dev server;
   // evita que la build de producción falle si faltan certificados.
@@ -22,7 +25,9 @@ export default defineConfig(({ command, mode }) => {
     const caPath = path.resolve(__dirname, 'certificates', 'ca.crt');
 
     if (!fs.existsSync(keyPath) || !fs.existsSync(certPath)) {
-      console.warn('[HTTPS] Certificados no encontrados en ./certificates (cert.key, cert.crt). Dev server iniciará sin HTTPS.');
+      console.warn('[HTTPS] Certificados no encontrados en ./certificates (cert.key, cert.crt). Se forzará HTTPS usando certificado autogenerado de Vite.');
+      // Permite a Vite levantar HTTPS con certificado autogenerado (devcert)
+      httpsConfig = true;
     } else {
       const certBuf = fs.readFileSync(certPath);
       try {
@@ -31,7 +36,8 @@ export default defineConfig(({ command, mode }) => {
         if (!isNaN(validTo.getTime())) {
           const daysRemaining = Math.floor((validTo.getTime() - Date.now()) / 86_400_000);
           if (daysRemaining < 0) {
-            console.warn(`[HTTPS] El certificado local ha expirado (${validTo.toISOString()}). Dev server continuará sin HTTPS.`);
+            console.warn(`[HTTPS] El certificado local ha expirado (${validTo.toISOString()}). Se usará HTTPS autogenerado de Vite.`);
+            httpsConfig = true;
           } else if (daysRemaining <= 14) {
             console.warn(`[HTTPS] Advertencia: el certificado local expira en ${daysRemaining} días (${validTo.toISOString()}).`);
           }
@@ -42,11 +48,13 @@ export default defineConfig(({ command, mode }) => {
         console.warn('[HTTPS] No fue posible inspeccionar el certificado local para validar su expiración:', err);
       }
 
-      httpsConfig = {
-        key: fs.readFileSync(keyPath),
-        cert: certBuf,
-        ...(fs.existsSync(caPath) ? { ca: fs.readFileSync(caPath) } : {})
-      };
+      if (httpsConfig !== true) {
+        httpsConfig = {
+          key: fs.readFileSync(keyPath),
+          cert: certBuf,
+          ...(fs.existsSync(caPath) ? { ca: fs.readFileSync(caPath) } : {})
+        };
+      }
     }
   }
 

@@ -254,8 +254,10 @@ function isTokenExpired(err: any): boolean {
 function isCsrfError(err: any): boolean {
   const status = err?.response?.status ?? err?.status;
   const data = err?.response?.data ?? err?.data;
-  const code = (data?.code || data?.error || data?.detail || data?.message || '').toString().toUpperCase();
-  return status === 401 && code.includes('CSRF');
+  const text = (data?.code || data?.error || data?.detail || data?.message || '').toString();
+  const upper = text.toUpperCase();
+  // Algunos backends reportan 400/403 para CSRF faltante; contemplar 401/400/403 y mensajes con "CSRF"
+  return (status === 401 || status === 400 || status === 403) && upper.includes('CSRF');
 }
 
 async function performRefresh(options?: { retryOnCsrfError?: boolean }): Promise<void> {

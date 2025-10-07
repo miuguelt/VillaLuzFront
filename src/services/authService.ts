@@ -1,5 +1,5 @@
 import api, { refreshClient } from "./api";
-// import { getCookie } from '@/utils/cookieUtils';
+import { getCookie } from '@/utils/cookieUtils';
 import { 
   decodeToken,
   isValidTokenFormat,
@@ -120,7 +120,14 @@ class AuthService {
    */
   async refreshToken(): Promise<void> {
     try {
-      const response = await refreshClient.post(`/auth/refresh`);
+      // En producción con JWT_COOKIE_CSRF_PROTECT, incluir explícitamente el header CSRF
+      const csrfRefresh = getCookie('csrf_refresh_token');
+      const headers: Record<string, string> = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
+      if (csrfRefresh) {
+        headers['X-CSRF-Token'] = csrfRefresh;
+        headers['X-CSRF-TOKEN'] = csrfRefresh; // compat nombres
+      }
+      const response = await refreshClient.post(`/auth/refresh`, null, { headers });
       const _r = response?.data ?? response;
       const rawTokenCandidate = (_r && (_r.access_token || _r.data?.access_token || _r.data?.data?.access_token)) || undefined;
       const normalizedToken = extractJWT(rawTokenCandidate);
@@ -379,7 +386,14 @@ export const refreshToken = async (): Promise<void> => {
     if (IS_DEV && ENV.VITE_DEBUG_MODE === 'true') {
       console.log('🔁 refreshToken util: calling refreshClient.post');
     }
-    await refreshClient.post('/auth/refresh');
+    // Enviar explícitamente CSRF para el flujo de refresh
+    const csrfRefresh = getCookie('csrf_refresh_token');
+    const headers: Record<string, string> = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
+    if (csrfRefresh) {
+      headers['X-CSRF-Token'] = csrfRefresh;
+      headers['X-CSRF-TOKEN'] = csrfRefresh;
+    }
+    await refreshClient.post('/auth/refresh', null, { headers });
     if (IS_DEV && ENV.VITE_DEBUG_MODE === 'true') {
       console.log('🔁 refreshToken util: refresh completed (cookies managed by server)');
     }
