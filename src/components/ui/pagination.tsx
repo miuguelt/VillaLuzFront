@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils.ts";
 
 export type PageSize = 5 | 10 | 25 | 50;
 

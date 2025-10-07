@@ -215,9 +215,11 @@ export default defineConfig(({ command, mode }) => {
       // }),
     ],
     resolve: {
-        alias: {
-          '@': path.resolve(__dirname, './src'),
-        },
+        alias: [
+          { find: '@', replacement: path.resolve(__dirname, './src') },
+          // Ensure extension resolution for cn helper across environments
+          { find: '@/lib/utils', replacement: path.resolve(__dirname, './src/lib/utils.ts') },
+        ],
         conditions: ['module'],
         extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
       },

@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Search } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils.ts"
 
 // Componente raíz: simple contenedor flexible
 type CommandProps = React.HTMLAttributes<HTMLDivElement> & {

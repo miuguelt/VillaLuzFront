@@ -2,7 +2,7 @@ import React from "react";
 import { GenericModal } from "@/components/common/GenericModal";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils.ts";
 
 /**
  * ConfirmDialog: diálogo de confirmación accesible basado en GenericModal.
