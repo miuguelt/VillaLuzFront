@@ -1,7 +1,7 @@
 import { GenericModal } from "@/components/common/GenericModal";
 import { getAnimalLabel } from '@/utils/animalHelpers';
 import React from 'react';
-import { cn } from '@/lib/utils.ts';
+import { cn } from '@/components/ui/cn.ts';
 import { Users, Baby } from 'lucide-react';
 
 interface AnimalNode {

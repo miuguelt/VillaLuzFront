@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils.ts";
+import { cn } from "@/components/ui/cn.ts";
 
 import { Loader2 } from "lucide-react";
 

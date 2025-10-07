@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { ToastProvider } from '@/context/ToastContext';
 import { ToastContainer } from '@/components/ui/ToastContainer';
 import { useSidebar } from '@/context/SidebarContext';
-import { cn } from '@/lib/utils.ts';
+import { cn } from '@/components/ui/cn.ts';
 import RoleBasedSideBar from "./RoleBasedSideBar";
 import Footer from '../landing/Footer';
 import LoadingScreen from '@/components/common/LoadingScreen';

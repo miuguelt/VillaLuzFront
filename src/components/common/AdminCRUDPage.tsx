@@ -58,7 +58,7 @@
 import { EmptyState } from '@/components/feedback/EmptyState';
 import React, { useEffect, useState, useRef, useMemo, memo } from 'react';
 import { Search, ChevronLeft, ChevronRight, Loader2, Eye, Edit, Trash2, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils.ts';
+import { cn } from '@/components/ui/cn.ts';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useResource } from '@/hooks/useResource';
 import { Input } from '@/components/ui/input';

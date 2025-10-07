@@ -7,7 +7,7 @@ import React, { memo } from 'react';
 import { RefreshCw, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils.ts';
+import { cn } from '@/components/ui/cn.ts';
 
 interface DataSyncIndicatorProps {
   /**

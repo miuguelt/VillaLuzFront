@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '@/lib/utils.ts';
+import { cn } from '@/components/ui/cn.ts';
 
 export interface PaginationBarProps {
   page: number;
