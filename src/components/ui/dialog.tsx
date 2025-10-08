@@ -1,5 +1,6 @@
 import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { X } from "lucide-react"
 
 import { cn } from "@/components/ui/cn.ts"
@@ -83,6 +84,8 @@ const DialogContent = React.forwardRef<
           "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg",
           "translate-x-[-50%] translate-y-[-50%]",
           "gap-4 border bg-background p-6 shadow-lg",
+          // Mejora de layout: limitar altura pero sin scroll aquí (se maneja en GenericModal)
+          "max-h-[90vh] sm:max-h-[88vh] overflow-hidden overscroll-contain",
           "duration-300 ease-out",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
@@ -97,14 +100,18 @@ const DialogContent = React.forwardRef<
       >
         {/* Fallback a11y title to satisfy Radix requirement when none is provided */}
         {!hasTitle && (
-          <DialogPrimitive.Title id={titleId} className="sr-only">Dialog</DialogPrimitive.Title>
+          <VisuallyHidden>
+            <DialogPrimitive.Title id={titleId}>Dialog</DialogPrimitive.Title>
+          </VisuallyHidden>
         )}
         
         {/* Fallback a11y description to satisfy Radix requirement when none is provided */}
         {!hasDescription && (
-          <DialogPrimitive.Description id={descriptionId} className="sr-only">
-            Dialog content
-          </DialogPrimitive.Description>
+          <VisuallyHidden>
+            <DialogPrimitive.Description id={descriptionId}>
+              Dialog content
+            </DialogPrimitive.Description>
+          </VisuallyHidden>
         )}
         
         {children}

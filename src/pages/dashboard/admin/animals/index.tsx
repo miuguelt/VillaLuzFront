@@ -356,8 +356,18 @@ function AdminAnimalsPage() {
   const openGeneticTreeModal = async (record: AnimalResponse & { [k: string]: any }) => {
     const id = Number(record.id ?? 0);
     if (!id) return;
-    const resp = await ancestorsApi.fetchAncestors(id, 3, 'record,sex,breeds_id,idFather,idMother');
-    if (!resp) return;
+    const resp = await ancestorsApi.fetchAncestors(id, 3, 'id,record,sex,breeds_id,idFather,idMother');
+    if (!resp) {
+      // Si hay error, abrimos el modal de todas formas para mostrar el mensaje
+      setTreeAnimal(record);
+      setTreeLevels([]);
+      setAncestorCounts(undefined);
+      setAncestorSummary(undefined);
+      setAncestorEdgeExamples(undefined);
+      setTreeRootId(id);
+      setIsTreeOpen(true);
+      return;
+    }
     setTreeRootId(resp.rootId);
     setTreeAnimal(resp.nodes[resp.rootId]);
     setTreeLevels(graphToAncestorLevels(resp));
@@ -370,8 +380,18 @@ function AdminAnimalsPage() {
   const openDescendantsTreeModal = async (record: AnimalResponse & { [k: string]: any }) => {
     const id = Number(record.id ?? 0);
     if (!id) return;
-    const resp = await descendantsApi.fetchDescendants(id, 3, 'record,sex,breeds_id,idFather,idMother');
-    if (!resp) return;
+    const resp = await descendantsApi.fetchDescendants(id, 3, 'id,record,sex,breeds_id,idFather,idMother');
+    if (!resp) {
+      // Si hay error, abrimos el modal de todas formas para mostrar el mensaje
+      setDescAnimal(record);
+      setDescLevels([]);
+      setDescCounts(undefined);
+      setDescSummary(undefined);
+      setDescEdgeExamples(undefined);
+      setDescRootId(id);
+      setIsDescOpen(true);
+      return;
+    }
     setDescRootId(resp.rootId);
     setDescAnimal(resp.nodes[resp.rootId]);
     setDescLevels(graphToDescendantLevels(resp));
@@ -726,18 +746,21 @@ function AdminAnimalsPage() {
           setIsTreeOpen(false);
           setTreeAnimal(null);
           setTreeLevels([]);
+          ancestorsApi.clearError();
         }}
         animal={treeAnimal}
         levels={treeLevels}
         counts={ancestorCounts}
         summary={ancestorSummary}
         edgeExamples={ancestorEdgeExamples}
+        dependencyInfo={ancestorsApi.dependencyInfo}
+        treeError={ancestorsApi.error}
         loadingMore={ancestorsApi.loading}
         onLoadMore={async () => {
           if (!treeRootId || !ancestorsApi.graph) return;
           const merged = await ancestorsApi.loadMore('ancestors', treeRootId, ancestorsApi.graph, {
             increment: 2,
-            fields: 'record,sex,breeds_id,idFather,idMother'
+            fields: 'id,record,sex,breeds_id,idFather,idMother'
           });
           setTreeAnimal(merged.nodes[merged.rootId]);
           setTreeLevels(graphToAncestorLevels(merged));
@@ -753,18 +776,21 @@ function AdminAnimalsPage() {
           setIsDescOpen(false);
           setDescAnimal(null);
           setDescLevels([]);
+          descendantsApi.clearError();
         }}
         animal={descAnimal}
         levels={descLevels}
         counts={descCounts}
         summary={descSummary}
         edgeExamples={descEdgeExamples}
+        dependencyInfo={descendantsApi.dependencyInfo}
+        treeError={descendantsApi.error}
         loadingMore={descendantsApi.loading}
         onLoadMore={async () => {
           if (!descRootId || !descendantsApi.graph) return;
           const merged = await descendantsApi.loadMore('descendants', descRootId, descendantsApi.graph, {
             increment: 2,
-            fields: 'record,sex,breeds_id,idFather,idMother'
+            fields: 'id,record,sex,breeds_id,idFather,idMother'
           });
           setDescAnimal(merged.nodes[merged.rootId]);
           setDescLevels(graphToDescendantLevels(merged));

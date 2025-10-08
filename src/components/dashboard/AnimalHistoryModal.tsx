@@ -699,7 +699,7 @@ export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps)
            </ModalHeader>
            <ModalContent>
              <ModalBody>
-               <div className="p-4 overflow-auto flex-1">
+               <div className="p-4 overflow-hidden flex-1">
                  {/* Manejo de loading y error */}
                  {historyLoading ? (
                    <div className="flex justify-center items-center py-8">

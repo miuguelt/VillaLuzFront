@@ -17,56 +17,24 @@ const ThemeToggle: React.FC = () => {
     }
   };
 
+  // Estilo coherente con los demás iconos del header
+  const baseBtn = 'p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors';
+  const iconClasses = 'h-4 w-4';
+
   return (
     <button
       type="button"
       onClick={toggleTheme}
       onKeyDown={handleKeyDown}
-      className="
-        relative inline-flex items-center justify-center
-        w-10 h-10 rounded-lg
-        bg-gray-800/50 hover:bg-gray-800
-        text-gray-300 hover:text-white
-        transition-all duration-300 ease-in-out
-        hover:shadow-lg hover:shadow-gray-900/30
-        hover:scale-105
-        focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-gray-900
-        group
-      "
+      className={baseBtn}
       aria-label={`Cambiar a modo ${theme === 'dark' ? 'claro' : 'oscuro'}`}
-      aria-pressed={theme === 'dark'}
-      role="switch"
+      title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
     >
-      <div className="relative overflow-hidden">
-        {/* Icono del Sol (Light mode) */}
-        <Sun
-          className={`
-            h-5 w-5 absolute inset-0 transition-all duration-300 ease-in-out
-            ${theme === 'dark' 
-              ? 'opacity-0 rotate-90 scale-75' 
-              : 'opacity-100 rotate-0 scale-100'
-            }
-            group-hover:text-yellow-400
-          `}
-        />
-        
-        {/* Icono de la Luna (Dark mode) */}
-        <Moon
-          className={`
-            h-5 w-5 absolute inset-0 transition-all duration-300 ease-in-out
-            ${theme === 'dark' 
-              ? 'opacity-100 rotate-0 scale-100' 
-              : 'opacity-0 -rotate-90 scale-75'
-            }
-            group-hover:text-blue-400
-          `}
-        />
-      </div>
-      
-      {/* Indicador visual del estado */}
-      <span className="sr-only">
-        Tema actual: {theme === 'dark' ? 'Oscuro' : 'Claro'}
-      </span>
+      {theme === 'dark' ? (
+        <Sun className={`${iconClasses} text-yellow-500`} />
+      ) : (
+        <Moon className={`${iconClasses} text-blue-700`} />
+      )}
     </button>
   );
 };

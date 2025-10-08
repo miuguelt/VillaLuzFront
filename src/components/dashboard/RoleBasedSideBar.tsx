@@ -173,7 +173,7 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
         id="dashboard-sidebar"
         className={`fixed inset-y-0 left-0 z-40 h-screen bg-gradient-to-b from-emerald-950 to-gray-900 text-gray-100 border-r border-gray-800 transform transition-all duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} w-72 ${dynamicWidth} shadow-2xl shadow-gray-900/50 flex flex-col overflow-hidden ${dynamicWidth}`} 
         style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${sidebarWidth}px` : 'auto' }}
-        aria-hidden={(!isSidebarOpen && typeof window !== 'undefined' && window.innerWidth < 1024)} 
+        aria-hidden={(!isSidebarOpen && typeof window !== 'undefined' && window.innerWidth < 1024) ? "true" : "false"}
         role="navigation" 
         aria-label="Menú de navegación principal"
       >
@@ -272,21 +272,8 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
           )}
         </nav>
 
-        {/* Pie de menú con decoración temática y acciones */}
-        <div className="mt-auto relative border-t border-gray-800 bg-gray-900 p-2 sm:p-4">
-          {/* Franja decorativa superior alineada al tema (praderas y cosechas) */}
-          <div className={`absolute -top-1 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500/70 via-lime-400/70 to-amber-500/70 ${stripeAnimClass}`}></div>
-          {/* Línea ondulada sutil */}
-          <div className={`w-full h-2 sm:h-3 md:h-4 mb-2 overflow-hidden ${waveAnimClass}`} aria-hidden="true">
-            <svg viewBox="0 0 120 10" preserveAspectRatio="none" className="w-full h-full fill-emerald-700/30">
-              <path d="M0,10 C20,0 40,0 60,10 C80,20 100,20 120,10 L120,10 L0,10 Z"></path>
-            </svg>
-          </div>
-          <div className="flex items-center justify-between text-emerald-300/80 text-xs mb-2">
-            <span className="inline-flex items-center gap-1"><Leaf className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> Pasturas</span>
-            <span className="inline-flex items-center gap-1"><Wheat className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> Alimentación</span>
-            <span className="inline-flex items-center gap-1"><Mountain className="h-2.5 w-2.5 sm:h-3 sm:w-3" /> Terrenos</span>
-          </div>
+        {/* Pie de menú con acciones (sin elementos decorativos) */}
+        <div className="mt-auto border-t border-gray-800 bg-gray-900 p-2 sm:p-4">
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <button

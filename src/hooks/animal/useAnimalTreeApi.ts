@@ -1,7 +1,20 @@
 import { useState, useCallback } from 'react';
 import { animalsService } from '@/services/animalService';
+import { animalDependenciesService } from '@/services/animalDependenciesService';
 import type { AnimalTreeGraph, TreeQueryParams, TreeLoadMoreOptions } from '@/types/animalTreeTypes';
 import { getIndexedDBCache, setIndexedDBCache } from '@/utils/indexedDBCache';
+
+// Tipo para las dependencias de animales
+interface AnimalDependencies {
+  father_id: number;
+  mother_id: number;
+  children_as_father: number;
+  children_as_mother: number;
+  total_children: number;
+  has_parents: boolean;
+  has_children: boolean;
+  has_any_relations: boolean;
+}
 
 const DEFAULT_TTL_MS = 8 * 60 * 1000; // 8 minutos (recomendado 5–10 min)
 
@@ -45,56 +58,121 @@ function mergeGraphs(a: AnimalTreeGraph, b: AnimalTreeGraph): AnimalTreeGraph {
 
 // Construye niveles ascendente (padres) desde grafo plano
 export function graphToAncestorLevels(graph: AnimalTreeGraph): any[][] {
+  if (!graph || !graph.nodes || !graph.rootId) return [];
+
   const levels: any[][] = [];
   const root = graph.nodes[graph.rootId];
   if (!root) return [];
+
   levels.push([root]);
   let current = [root];
+
+  // Pre-construir mapas de relaciones para mejor rendimiento
+  const parentsMap = new Map<number, any[]>();
   const getNode = (id?: number) => (id ? graph.nodes[id] : undefined);
-  for (let d = 1; d <= graph.depth; d++) {
+
+  // Detectar orientación de aristas: padre->hijo (esperada) vs hijo->padre (invertida)
+  const edges = graph.edges || [];
+  const towardRoot = edges.filter(e => e.to === graph.rootId).length;
+  const fromRoot = edges.filter(e => e.from === graph.rootId).length;
+  const inverted = fromRoot > towardRoot; // si hay más aristas desde la raíz que hacia la raíz, asumimos invertidas
+
+  // Construir mapa de padres para cada nodo según orientación
+  for (const edge of edges) {
+    // childId es el nodo para el cual buscaremos sus padres en el mapa
+    const childId = inverted ? edge.from : edge.to;
+    const parentId = inverted ? edge.to : edge.from;
+    if (!parentsMap.has(childId)) parentsMap.set(childId, []);
+    const parent = getNode(parentId);
+    if (parent && parent.id) {
+      parentsMap.get(childId)!.push(parent);
+    }
+  }
+
+  // Si el backend reporta depth=0, usamos un fallback razonable (10)
+  const maxDepth = graph.depth && graph.depth > 0 ? graph.depth : 10;
+  for (let d = 1; d <= maxDepth; d++) {
     const next: any[] = [];
+    const seen = new Set<number>();
+
     for (const node of current) {
       const nodeId = node?.id;
       if (!nodeId) continue;
-      const parentsEdges = (graph.edges || []).filter(e => e.to === nodeId);
-      for (const e of parentsEdges) {
-        const parent = getNode(e.from);
-        if (parent) next.push(parent);
+
+      const parents = parentsMap.get(nodeId) || [];
+      for (const parent of parents) {
+        if (parent.id && !seen.has(parent.id)) {
+          seen.add(parent.id);
+          next.push(parent);
+        }
       }
     }
-    // Uniq por id
-    const uniq = next.filter((n, i, arr) => n && n.id && arr.findIndex(x => x.id === n.id) === i);
-    if (uniq.length === 0) break;
-    levels.push(uniq);
-    current = uniq;
+
+    if (next.length === 0) break;
+    levels.push(next);
+    current = next;
   }
+
   return levels;
 }
 
 // Construye niveles descendente (hijos) desde grafo plano
 export function graphToDescendantLevels(graph: AnimalTreeGraph): any[][] {
+  if (!graph || !graph.nodes || !graph.rootId) return [];
+
   const levels: any[][] = [];
   const root = graph.nodes[graph.rootId];
   if (!root) return [];
+
   levels.push([root]);
   let current = [root];
+
+  // Pre-construir mapas de relaciones para mejor rendimiento
+  const childrenMap = new Map<number, any[]>();
   const getNode = (id?: number) => (id ? graph.nodes[id] : undefined);
-  for (let d = 1; d <= graph.depth; d++) {
+
+  // Detectar orientación de aristas
+  const edges = graph.edges || [];
+  const towardRoot = edges.filter(e => e.to === graph.rootId).length;
+  const fromRoot = edges.filter(e => e.from === graph.rootId).length;
+  const inverted = towardRoot > fromRoot; // si hay más aristas hacia la raíz (hijo->padre), asumimos invertidas
+
+  // Construir mapa de hijos según orientación
+  for (const edge of edges) {
+    // parentId es el nodo desde el que obtendremos sus hijos
+    const parentId = inverted ? edge.to : edge.from;
+    const childId = inverted ? edge.from : edge.to;
+    if (!childrenMap.has(parentId)) childrenMap.set(parentId, []);
+    const child = getNode(childId);
+    if (child && child.id) {
+      childrenMap.get(parentId)!.push(child);
+    }
+  }
+
+  // Si el backend reporta depth=0, usamos un fallback razonable (10)
+  const maxDepth = graph.depth && graph.depth > 0 ? graph.depth : 10;
+  for (let d = 1; d <= maxDepth; d++) {
     const next: any[] = [];
+    const seen = new Set<number>();
+
     for (const node of current) {
       const nodeId = node?.id;
       if (!nodeId) continue;
-      const childrenEdges = (graph.edges || []).filter(e => e.from === nodeId);
-      for (const e of childrenEdges) {
-        const child = getNode(e.to);
-        if (child) next.push(child);
+
+      const children = childrenMap.get(nodeId) || [];
+      for (const child of children) {
+        if (child.id && !seen.has(child.id)) {
+          seen.add(child.id);
+          next.push(child);
+        }
       }
     }
-    const uniq = next.filter((n, i, arr) => n && n.id && arr.findIndex(x => x.id === n.id) === i);
-    if (uniq.length === 0) break;
-    levels.push(uniq);
-    current = uniq;
+
+    if (next.length === 0) break;
+    levels.push(next);
+    current = next;
   }
+
   return levels;
 }
 
@@ -102,11 +180,23 @@ export function useAnimalTreeApi() {
   const [graph, setGraph] = useState<AnimalTreeGraph | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dependencyInfo, setDependencyInfo] = useState<any>(null);
 
   const fetchAncestors = useCallback(async (rootId: number, maxDepth: number = 3, fields: string = 'id,record,sex') => {
     setLoading(true); setError(null);
     const key = cacheKey('ancestors', rootId, maxDepth, fields);
+    
     try {
+      // Primero verificar dependencias para dar mejor retroalimentación
+      const dependencies = await animalDependenciesService.getAnimalDependencies(rootId);
+      setDependencyInfo(dependencies);
+      
+      // Si no hay padres, podemos anticipar que el árbol estará vacío
+      if (!dependencies.has_parents) {
+        console.warn(`[useAnimalTreeApi] Este animal no tiene padres registrados. El árbol de ancestros mostrará solo la raíz.`);
+        // No retornamos error, solo registramos la advertencia
+      }
+      
       const cached = await getIndexedDBCache<AnimalTreeGraph>(key);
       if (cached) {
         setGraph(cached);
@@ -122,11 +212,28 @@ export function useAnimalTreeApi() {
       }
 
       const resp = await animalsService.getAncestorTree({ animal_id: rootId, max_depth: maxDepth, fields });
+      
+      // Verificar si el árbol solo contiene la raíz
+      if (resp && resp.counts && resp.counts.edges === 0 && dependencies.has_parents) {
+        console.warn(`[useAnimalTreeApi] El backend indicó padres en BD pero el árbol no tiene aristas. Posible inconsistencia de datos o max_depth demasiado bajo.`);
+      }
+      
       setGraph(resp);
       await setIndexedDBCache(key, resp, DEFAULT_TTL_MS);
       return resp;
     } catch (e: any) {
-      setError(e?.message || 'Error cargando árbol de ancestros');
+      console.error(`[useAnimalTreeApi] Error cargando ancestros para animal ${rootId}:`, e);
+      
+      // Proporcionar mensajes de error más específicos
+      if (e?.message?.includes('401')) {
+        setError('No autorizado: inicie sesión nuevamente');
+      } else if (e?.message?.includes('404')) {
+        setError('Animal no encontrado o sin datos genealógicos disponibles');
+      } else if (e?.message?.includes('500')) {
+        setError('Error del servidor al cargar datos genealógicos');
+      } else {
+        setError(e?.message || 'Error cargando árbol de ancestros');
+      }
       return null;
     } finally {
       setLoading(false);
@@ -136,7 +243,18 @@ export function useAnimalTreeApi() {
   const fetchDescendants = useCallback(async (rootId: number, maxDepth: number = 3, fields: string = 'id,record,sex') => {
     setLoading(true); setError(null);
     const key = cacheKey('descendants', rootId, maxDepth, fields);
+    
     try {
+      // Primero verificar dependencias para dar mejor retroalimentación
+      const dependencies = await animalDependenciesService.getAnimalDependencies(rootId);
+      setDependencyInfo(dependencies);
+      
+      // Si no hay hijos, podemos anticipar que el árbol estará vacío
+      if (!dependencies.has_children) {
+        console.warn(`[useAnimalTreeApi] Este animal no tiene hijos registrados. El árbol de descendientes mostrará solo la raíz.`);
+        // No retornamos error, solo registramos la advertencia
+      }
+      
       const cached = await getIndexedDBCache<AnimalTreeGraph>(key);
       if (cached) {
         setGraph(cached);
@@ -151,11 +269,28 @@ export function useAnimalTreeApi() {
       }
 
       const resp = await animalsService.getDescendantTree({ animal_id: rootId, max_depth: maxDepth, fields });
+      
+      // Verificar si el árbol solo contiene la raíz
+      if (resp && resp.counts && resp.counts.edges === 0 && dependencies.has_children) {
+        console.warn(`[useAnimalTreeApi] El backend indicó hijos en BD pero el árbol no tiene aristas. Posible inconsistencia de datos o max_depth demasiado bajo.`);
+      }
+      
       setGraph(resp);
       await setIndexedDBCache(key, resp, DEFAULT_TTL_MS);
       return resp;
     } catch (e: any) {
-      setError(e?.message || 'Error cargando árbol de descendientes');
+      console.error(`[useAnimalTreeApi] Error cargando descendientes para animal ${rootId}:`, e);
+      
+      // Proporcionar mensajes de error más específicos
+      if (e?.message?.includes('401')) {
+        setError('No autorizado: inicie sesión nuevamente');
+      } else if (e?.message?.includes('404')) {
+        setError('Animal no encontrado o sin datos genealógicos disponibles');
+      } else if (e?.message?.includes('500')) {
+        setError('Error del servidor al cargar datos genealógicos');
+      } else {
+        setError(e?.message || 'Error cargando árbol de descendientes');
+      }
       return null;
     } finally {
       setLoading(false);
@@ -185,12 +320,18 @@ export function useAnimalTreeApi() {
     }
   }, []);
 
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
   return {
     graph,
     loading,
     error,
+    dependencyInfo,
     fetchAncestors,
     fetchDescendants,
     loadMore,
+    clearError,
   };
 }

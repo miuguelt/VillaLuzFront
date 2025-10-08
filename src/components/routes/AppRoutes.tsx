@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 const AdminDiseasesPage = lazy(() => import('@/pages/dashboard/admin/diseases/index.tsx'));
 const AdminMedicationsPage = lazy(() => import('@/pages/dashboard/admin/medications/index.tsx'));
@@ -93,6 +93,21 @@ const renderRoleRoutes = (prefix: string) => (
 const AppRoutes = () => {
   // Gate global: no renderizar rutas hasta resolver autenticación
   const { loading } = useAuth() as any;
+  const location = useLocation();
+
+  // Forzar scroll al inicio en cambios de ruta (especialmente en móvil)
+  useEffect(() => {
+    try {
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      if (isMobile) {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }
+    } catch (_) {
+      // noop
+    }
+  }, [location.pathname]);
   if (loading) {
     return <LoadingScreen message="Verificando autenticación..." />;
   }

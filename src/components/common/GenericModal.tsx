@@ -7,6 +7,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { cn } from '@/components/ui/cn.ts';
 import { X } from 'lucide-react';
 
@@ -156,8 +157,8 @@ export const GenericModal: React.FC<GenericModalProps> = ({
     sizeClasses[size],
     // Transiciones suaves
     !disableAnimations && 'transition-all duration-300 ease-out',
-    // Evitar overflow horizontal
-    'overflow-x-hidden',
+    // Evitar overflow horizontal y vertical (se maneja en el contenedor interno)
+    'overflow-hidden',
     // Texto optimizado
     'text-card-foreground',
     className
@@ -168,9 +169,9 @@ export const GenericModal: React.FC<GenericModalProps> = ({
       <DialogContent
         ref={dialogRef}
         className={cn(modalClasses)}
+        overlayClassName={overlayClasses}
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
-        overlayClassName={overlayClasses}
         style={draggable ? {
           transform: `translate(${position.x}px, ${position.y}px)`,
           cursor: isDragging ? 'grabbing' : 'default',
@@ -183,46 +184,55 @@ export const GenericModal: React.FC<GenericModalProps> = ({
           )}
           onMouseDown={handleMouseDown}
         >
-          {/* Botón de cierre siempre visible en móvil */}
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            aria-label="Cerrar"
-            className="absolute right-3 top-2 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground opacity-100 sm:opacity-70 hover:opacity-100 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          {/* Se elimina el botón de cierre adicional para evitar doble “X”.
+              Se mantiene el cierre provisto por DialogContent (esquina superior derecha). */}
 
           {/* Decoración superior futurista */}
           <div className="absolute -top-2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
 
-          <DialogTitle id={titleId} className={cn(
-            "text-base sm:text-lg md:text-xl font-semibold leading-tight text-left",
-            "text-foreground/90",
-            "pb-0",
-            !title && "sr-only"
-          )}>
-            {title || "Modal"}
-          </DialogTitle>
+          {title ? (
+            <DialogTitle
+              id={titleId}
+              className={cn(
+                "text-base sm:text-lg md:text-xl font-semibold leading-tight text-left",
+                "text-foreground/90",
+                "pb-0"
+              )}
+            >
+              {title}
+            </DialogTitle>
+          ) : (
+            <VisuallyHidden>
+              <DialogTitle id={titleId}>Modal</DialogTitle>
+            </VisuallyHidden>
+          )}
 
-          {description && (
-            <DialogDescription id={descriptionId} className={cn(
-              "text-xs sm:text-sm text-muted-foreground/90 leading-relaxed mt-0.5",
-              {"sr-only": !description}
-            )}>
-              {description || "Modal Description"}
+          {description ? (
+            <DialogDescription
+              id={descriptionId}
+              className={cn(
+                "text-xs sm:text-sm text-muted-foreground/90 leading-relaxed mt-0.5"
+              )}
+            >
+              {description}
             </DialogDescription>
+          ) : (
+            <VisuallyHidden>
+              <DialogDescription id={descriptionId}>Dialog content</DialogDescription>
+            </VisuallyHidden>
           )}
         </DialogHeader>
 
-        {/* Contenedor interno con scroll optimizado */}
+        {/* Contenedor interno con scroll optimizado - única barra de desplazamiento */}
         <div className={cn(
           "min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain",
           "max-h-[calc(100dvh-140px)] sm:max-h-[calc(92vh-140px)]",
           "px-1 pb-2 sm:pb-2 mt-2 sm:mt-3",
-          // Scrollbar personalizado
+          // Scrollbar personalizado para mejor UX
           "scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent",
-          "hover:scrollbar-thumb-primary/30"
+          "hover:scrollbar-thumb-primary/30",
+          // Asegurar que solo haya scroll vertical
+          "overflow-x-hidden"
         )}>
           {/* Panel de contenido con glassmorphism */}
           <div className={cn(

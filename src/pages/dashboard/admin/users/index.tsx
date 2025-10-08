@@ -194,23 +194,23 @@ const UserCard = ({ user }: { user: UserResponse & { [k: string]: any } }) => {
   const isActive = typeof user.status === 'boolean' ? user.status : user.status === '1';
   
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-200">
+    <Card className="hover:shadow-lg transition-shadow duration-200 overflow-hidden">
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between min-w-0 gap-2">
           <CardTitle className="text-lg font-semibold truncate">{user.fullname}</CardTitle>
           <Badge variant={isActive ? "default" : "secondary"}>
             {isActive ? 'Activo' : 'Inactivo'}
           </Badge>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground min-w-0">
           <UserIcon className="w-4 h-4" />
-          <span>ID: {user.identification}</span>
-          <span>•</span>
-          <span>{user.role}</span>
+          <span className="whitespace-nowrap">ID: {user.identification}</span>
+          <span className="hidden sm:inline">•</span>
+          <span className="break-words">{user.role}</span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="space-y-2 text-sm">
+      <CardContent className="space-y-3 min-w-0">
+        <div className="space-y-2 text-sm min-w-0">
           <div>
             <span className="font-medium">Email:</span>
             <p className="text-muted-foreground truncate">{user.email}</p>
@@ -218,7 +218,7 @@ const UserCard = ({ user }: { user: UserResponse & { [k: string]: any } }) => {
           {user.phone && (
             <div>
               <span className="font-medium">Teléfono:</span>
-              <p className="text-muted-foreground">{user.phone}</p>
+              <p className="text-muted-foreground truncate">{user.phone}</p>
             </div>
           )}
           {user.address && (
@@ -227,12 +227,12 @@ const UserCard = ({ user }: { user: UserResponse & { [k: string]: any } }) => {
               <p className="text-muted-foreground truncate">{user.address}</p>
             </div>
           )}
-          <div className="flex justify-between text-xs text-muted-foreground pt-2 border-t">
+          <div className="flex flex-wrap justify-between gap-x-2 text-xs text-muted-foreground pt-2 border-t">
             <span>Creado: {user.created_at ? new Date(user.created_at).toLocaleDateString('es-ES') : '-'}</span>
             <span>Actualizado: {user.updated_at ? new Date(user.updated_at).toLocaleDateString('es-ES') : '-'}</span>
           </div>
         </div>
-        <div className="flex gap-2 pt-2">
+        <div className="flex flex-wrap gap-2 pt-2">
           <Button
             variant="outline"
             size="sm"
