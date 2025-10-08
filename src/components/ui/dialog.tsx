@@ -23,7 +23,7 @@ const DialogOverlay = React.forwardRef<
       "fixed inset-0 z-50 bg-background",
       "data-[state=open]:animate-in data-[state=closed]:animate-out",
       "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      "transition-all duration-300 ease-out",
+      "motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out motion-reduce:transition-none motion-reduce:animate-none",
       className
     )}
     {...props}
@@ -86,8 +86,8 @@ const DialogContent = React.forwardRef<
           "gap-4 border bg-background p-6 shadow-lg",
           // Mejora de layout: limitar altura pero sin scroll aquí (se maneja en GenericModal)
           "max-h-[90vh] sm:max-h-[88vh] overflow-hidden overscroll-contain",
-          "duration-300 ease-out",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
+          "motion-safe:duration-300 motion-safe:ease-out motion-reduce:duration-0",
+          "data-[state=open]:animate-in data-[state=closed]:animate-out motion-reduce:animate-none",
           "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
           "data-[state=closed]:zoom-out-96 data-[state=open]:zoom-in-100",
           "data-[state=closed]:slide-out-to-top-[10%] data-[state=open]:slide-in-from-top-[10%]",
@@ -117,7 +117,7 @@ const DialogContent = React.forwardRef<
         {children}
         <DialogPrimitive.Close className={cn(
           "absolute right-3 top-3 sm:right-4 sm:top-4",
-          "rounded-full p-2",
+          "rounded-full p-3 sm:p-2",
           "opacity-70 hover:opacity-100",
           "ring-offset-background transition-all duration-200",
           "hover:bg-accent/50 hover:scale-110",

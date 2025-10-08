@@ -238,7 +238,15 @@ export const UserHistoryModal = ({ user, onClose }: UserHistoryModalProps) => {
   };
 
   return (
-    <Modal isOpen={true} onClose={onClose} size="2xl" description={`${user.fullname} • ${user.email}`}>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      size="2xl"
+      description={`${user.fullname} • ${user.email}`}
+      variant="compact"
+      fullScreen
+      allowFullScreenToggle
+    >
       <ModalHeader>
         <span className="flex items-center gap-2">
           <User className="w-5 h-5" />

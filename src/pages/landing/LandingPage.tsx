@@ -21,16 +21,16 @@ const LandingPage = () => {
                 Livestock Management System
               </h1>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex space-x-4 min-w-0">
               <Link 
                 to="/login" 
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors min-w-0 max-w-full whitespace-normal break-words"
               >
                 Login
               </Link>
               <Link 
                 to="/signUp" 
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 min-w-0 max-w-full whitespace-normal break-words"
                 aria-label="Registrarse"
               >
                 <UserPlus className="h-4 w-4" />
@@ -51,15 +51,15 @@ const LandingPage = () => {
             Complete system for livestock farm administration. 
             Control animals, treatments, vaccinations and more from an integrated platform.
           </p>
-          <div className="mt-10 flex justify-center space-x-6">
+          <div className="mt-10 flex justify-center space-x-6 min-w-0">
             <Link 
               to="/login" 
-              className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-colors shadow-lg flex items-center gap-2"
+              className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-lg font-medium transition-colors shadow-lg flex items-center gap-2 min-w-0 max-w-full whitespace-normal break-words"
               aria-label="Comenzar"
             >
               <LogIn className="h-5 w-5" />
             </Link>
-            <button className="bg-white hover:bg-gray-50 text-gray-900 px-8 py-4 rounded-lg text-lg font-medium transition-colors shadow-lg border border-gray-300 flex items-center gap-2" aria-label="Ver demostración">
+            <button className="bg-white hover:bg-gray-50 text-gray-900 px-8 py-4 rounded-lg text-lg font-medium transition-colors shadow-lg border border-gray-300 flex items-center gap-2 min-w-0 max-w-full whitespace-normal break-words" aria-label="Ver demostración">
               <Play className="h-5 w-5" />
             </button>
           </div>

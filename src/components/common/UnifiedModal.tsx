@@ -25,6 +25,10 @@ export interface ModalProps {
   disableAnimations?: boolean;
   className?: string;
   children: React.ReactNode;
+  variant?: 'default' | 'compact';
+  fullScreen?: boolean;
+  allowFullScreenToggle?: boolean;
+  onFullScreenChange?: (next: boolean) => void;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -35,6 +39,10 @@ export const Modal: React.FC<ModalProps> = ({
   disableAnimations,
   className,
   children,
+  variant = 'default',
+  fullScreen = false,
+  allowFullScreenToggle = false,
+  onFullScreenChange,
 }) => {
   const [title, setTitle] = React.useState<React.ReactNode>('');
 
@@ -50,6 +58,10 @@ export const Modal: React.FC<ModalProps> = ({
         disableAnimations={!!disableAnimations}
         className={className}
         description={description}
+        variant={variant}
+        fullScreen={fullScreen}
+        allowFullScreenToggle={allowFullScreenToggle}
+        onFullScreenChange={onFullScreenChange}
       >
         {children}
       </GenericModal>

@@ -190,7 +190,10 @@ const GeneticTreeModal = ({
   return (
     <GenericModal
       isOpen={isOpen}
-      onOpenChange={onClose}
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      variant="compact"
+      fullScreen
+      allowFullScreenToggle
       title={
         <div className="flex items-center gap-2">
           <span>🌳 Árbol de Antepasados</span>

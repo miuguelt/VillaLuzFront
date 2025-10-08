@@ -10,7 +10,7 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const base =
-  "inline-flex items-center justify-center rounded-md font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background select-none relative overflow-hidden";
+  "inline-flex items-center justify-center rounded-md font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background select-none relative overflow-hidden min-w-0 max-w-full whitespace-normal break-words";
 
 const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
   primary: "bg-primary-600 text-primary-foreground hover:bg-primary-700 hover:shadow-lg active:scale-95 shadow-md",

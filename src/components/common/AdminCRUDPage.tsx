@@ -1627,10 +1627,13 @@ const {
               ? t('crud.edit_description', 'Modifica los campos necesarios y guarda los cambios')
               : t('crud.create_description', 'Completa los campos obligatorios marcados con * y guarda')}
             size="6xl"
+            variant="compact"
+            fullScreen
+            allowFullScreenToggle
             enableBackdropBlur
             className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
           >
-            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 h-full flex flex-col">
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 h-full flex flex-col text-[13px] sm:text-sm">
               {config.formSections.map((section, _sectionIndex) => {
                 const gridCols = section.gridCols ?? 3;
                 // Helper: responsive grid classes for Tailwind
@@ -2023,6 +2026,9 @@ const {
             title={detailItem ? `Detalle del ${config.entityName}${config.showIdInDetailTitle === false ? '' : `: ${detailItem.id}`}` : `Detalle del ${config.entityName}`}
             description={detailItem ? `Información detallada del ${config.entityName.toLowerCase()} con ID ${detailItem.id}` : `Información detallada del ${config.entityName.toLowerCase()}`}
             size="5xl"
+            variant="compact"
+            fullScreen
+            allowFullScreenToggle
             enableBackdropBlur
             className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
           >
