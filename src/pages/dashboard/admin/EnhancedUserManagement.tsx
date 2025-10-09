@@ -40,6 +40,7 @@ import { useUsers } from "@/hooks/user/useUser";
 import type { UserInput, UserResponse } from "@/types/swaggerTypes";
 import { UserPlus, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
 import { useToast } from "@/context/ToastContext";
+import { UserActionsMenu } from "@/components/dashboard/UserActionsMenu";
 
 interface UserFormData {
   identification: string;
@@ -294,33 +295,36 @@ const EnhancedUserManagement: React.FC = () => {
                       </a>
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0" aria-label="Abrir menú de acciones">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => openViewDialog(user)} aria-label="Ver detalles">
-                            <Eye className="mr-2 h-4 w-4" /> Ver Detalles
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openEditDialog(user)} aria-label="Editar">
-                            <Edit className="mr-2 h-4 w-4" /> Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onSelect={(e) => e.preventDefault()}
-                            onClick={() => {
-                              setSelectedUser(user);
-                              setIsDeleteDialogOpen(true);
-                            }}
-                            aria-label="Eliminar"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0" aria-label="Abrir menú de acciones">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => openViewDialog(user)} aria-label="Ver detalles">
+                              <Eye className="mr-2 h-4 w-4" /> Ver Detalles
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditDialog(user)} aria-label="Editar">
+                              <Edit className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onSelect={(e) => e.preventDefault()}
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                              aria-label="Eliminar"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <UserActionsMenu user={user} />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

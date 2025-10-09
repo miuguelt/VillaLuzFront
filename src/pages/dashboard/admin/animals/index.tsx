@@ -17,6 +17,8 @@ import { useEffect, useState } from 'react';
 import { checkAnimalDependencies, clearAnimalDependencyCache } from '@/services/dependencyCheckService';
 import { Button } from '@/components/ui/button';
 import { GenericModal } from '@/components/common/GenericModal';
+import { AnimalActionsMenu } from '@/components/dashboard/AnimalActionsMenu';
+import { useAuth } from '@/hooks/useAuth';
 
 // Mapear respuesta del backend al formulario
 const mapResponseToForm = (item: AnimalResponse & { [k: string]: any }): Partial<AnimalInput> => {
@@ -102,6 +104,7 @@ const initialFormData: Partial<AnimalInput> = {
 
 function AdminAnimalsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [formData, setFormData] = useState<Partial<AnimalInput>>(initialFormData);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
     const saved = localStorage.getItem('adminAnimalsViewMode');
@@ -648,6 +651,10 @@ function AdminAnimalsPage() {
         >
           <Baby />
         </button>
+        <AnimalActionsMenu
+          animal={record as AnimalResponse}
+          currentUserId={user?.id}
+        />
       </>
     ),
     // Verificación exhaustiva de dependencias antes de eliminar

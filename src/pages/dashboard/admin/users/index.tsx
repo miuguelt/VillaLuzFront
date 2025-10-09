@@ -5,8 +5,14 @@ import type { UserResponse } from '@/types/swaggerTypes';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Eye, History, User as UserIcon, Grid, Table } from 'lucide-react';
+import { Eye, History, User as UserIcon, Grid, Table, MoreVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 // Defino un input de formulario flexible para evitar forzar password en edición
 type UserFormInput = {
@@ -23,18 +29,18 @@ type UserFormInput = {
   is_active?: boolean;
 };
 
-// Columnas (width numérico -> w-{n})
+// Columnas completas aprovechando todo el ancho de pantalla
 const columns: CRUDColumn<UserResponse & { [k: string]: any }>[] = [
-  { key: 'id', label: 'ID', width: 12 },
-  { key: 'identification', label: 'Identificación', width: 20 },
+  { key: 'id', label: 'ID', width: 16 },
+  { key: 'identification', label: 'Identificación', width: 28 },
   { key: 'fullname', label: 'Nombre Completo' },
   { key: 'email', label: 'Email' },
-  { key: 'phone', label: 'Teléfono', render: (v) => v || '-' },
+  { key: 'phone', label: 'Teléfono', render: (v) => v || '-', width: 28 },
   { key: 'address', label: 'Dirección', render: (v) => v || '-' },
-  { key: 'role', label: 'Rol' },
-  { key: 'status', label: 'Estado', render: (v) => (typeof v === 'boolean' ? (v ? 'Activo' : 'Inactivo') : (v === 1 ? 'Activo' : 'Inactivo')) },
-  { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
-  { key: 'updated_at', label: 'Actualizado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
+  { key: 'role', label: 'Rol', width: 28 },
+  { key: 'status', label: 'Estado', width: 24, render: (v) => (typeof v === 'boolean' ? (v ? 'Activo' : 'Inactivo') : (v === 1 ? 'Activo' : 'Inactivo')) },
+  { key: 'created_at', label: 'Creado', width: 28, render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
+  { key: 'updated_at', label: 'Actualizado', width: 28, render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
 ];
 
 // Secciones del formulario
@@ -262,28 +268,40 @@ const AdminUsersPageWrapper = () => {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const navigate = useNavigate();
 
-  // Acciones personalizadas para la tabla
+  // Acciones personalizadas para la tabla usando menú desplegable
   const customActions = (item: UserResponse & { [k: string]: any }) => (
-    <div className="flex gap-1">
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => navigate(`/dashboard/admin/user-history/${item.identification}`)}
-        className="h-8 px-2"
-        title="Ver historial"
-      >
-        <History className="w-4 h-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => navigate(`/dashboard/admin/user-detail/${item.id}`)}
-        className="h-8 px-2"
-        title="Ver información"
-      >
-        <Eye className="w-4 h-4" />
-      </Button>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/dashboard/admin/user-detail/${item.id}`);
+          }}
+        >
+          <Eye className="w-4 h-4 mr-2" />
+          Ver información
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/dashboard/admin/user-history/${item.identification}`);
+          }}
+        >
+          <History className="w-4 h-4 mr-2" />
+          Ver historial
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
   // Toolbar personalizado con toggle de vista

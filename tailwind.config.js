@@ -184,14 +184,15 @@ export default {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'sans-serif']
       },
-      // Box shadows mejorados para v4
+      // Box shadows mejorados para v4 - más pronunciadas y opacas
       boxShadow: {
-        sm: '0 1px 2px 0 hsl(var(--foreground) / 0.05)',
-        DEFAULT: '0 1px 3px 0 hsl(var(--foreground) / 0.1), 0 1px 2px -1px hsl(var(--foreground) / 0.1)',
-        md: '0 4px 6px -1px hsl(var(--foreground) / 0.1), 0 2px 4px -2px hsl(var(--foreground) / 0.1)',
-        lg: '0 10px 15px -3px hsl(var(--foreground) / 0.1), 0 4px 6px -4px hsl(var(--foreground) / 0.1)',
-        xl: '0 20px 25px -5px hsl(var(--foreground) / 0.1), 0 8px 10px -6px hsl(var(--foreground) / 0.1)',
-        '2xl': '0 25px 50px -12px hsl(var(--foreground) / 0.25)'
+        sm: '0 2px 4px 0 hsl(var(--foreground) / 0.08)',
+        DEFAULT: '0 2px 6px 0 hsl(var(--foreground) / 0.12), 0 1px 3px -1px hsl(var(--foreground) / 0.12)',
+        md: '0 4px 8px -1px hsl(var(--foreground) / 0.12), 0 2px 6px -2px hsl(var(--foreground) / 0.12)',
+        lg: '0 10px 20px -3px hsl(var(--foreground) / 0.15), 0 4px 8px -4px hsl(var(--foreground) / 0.15)',
+        xl: '0 20px 30px -5px hsl(var(--foreground) / 0.18), 0 8px 12px -6px hsl(var(--foreground) / 0.18)',
+        '2xl': '0 25px 50px -12px hsl(var(--foreground) / 0.25)',
+        'inner': 'inset 0 2px 4px 0 hsl(var(--foreground) / 0.06)'
       },
       // Transiciones optimizadas
       transitionTimingFunction: {

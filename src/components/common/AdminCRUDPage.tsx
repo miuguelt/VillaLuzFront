@@ -1236,10 +1236,10 @@ const {
     return (
       <AppLayout
         header={header}
-        className="px-2 sm:px-3 pt-0 sm:pt-1 pb-0 max-w-screen-2xl min-h-0"
+        className="px-2 sm:px-3 pt-0 sm:pt-1 pb-0 max-w-full min-h-0"
         contentClassName="space-y-0"
       >
-        <div className="bg-card border rounded-lg shadow-sm overflow-hidden">
+        <div className="bg-card/95 backdrop-blur-sm border-2 border-border/50 rounded-xl shadow-2xl shadow-primary/10 overflow-hidden">
           <SkeletonTable
             columnLabels={config.columns.map((c) => c.label)}
             columnWidths={config.columns.map((c) => c.width)}
@@ -1254,7 +1254,7 @@ const {
     return (
       <AppLayout
         header={header}
-        className="px-2 sm:px-3 pt-1 sm:pt-2 pb-0 sm:pb-0 md:pb-0 lg:pb-0 max-w-screen-2xl min-h-0"
+        className="px-2 sm:px-3 pt-1 sm:pt-2 pb-0 sm:pb-0 md:pb-0 lg:pb-0 max-w-full min-h-0"
         contentClassName="space-y-0"
       >
         <ErrorState
@@ -1268,7 +1268,7 @@ const {
   return (
     <AppLayout
       header={header}
-      className="px-2 sm:px-3 pt-0 sm:pt-0 pb-0 sm:pb-0 md:pb-0 lg:pb-0 max-w-screen-2xl min-h-0 flex flex-col h-full"
+      className="px-2 sm:px-3 pt-0 sm:pt-0 pb-0 sm:pb-0 md:pb-0 lg:pb-0 max-w-full min-h-0 flex flex-col h-full"
       contentClassName="space-y-0 flex-1 flex flex-col min-h-0"
     >
       <div className="flex-shrink-0">
@@ -1284,7 +1284,7 @@ const {
           )}
         />
       ) : (
-        <div className="bg-card border rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col min-h-0 mt-1">
+        <div className="bg-card/95 backdrop-blur-sm border-2 border-border/50 rounded-xl shadow-2xl shadow-primary/10 overflow-hidden flex-1 flex flex-col min-h-0 mt-1">
           <div
             ref={tableWrapperRef}
             className="overflow-x-auto overflow-y-auto flex-1"
