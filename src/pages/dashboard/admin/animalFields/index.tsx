@@ -129,7 +129,7 @@ function AdminAnimalFieldsPage() {
 
   // Columnas de la tabla con renderizado optimizado
   const columns: CRUDColumn<AnimalFieldResponse & { [k: string]: any }>[] = useMemo(() => [
-    { key: 'id', label: 'ID', width: 12 },
+    
     {
       key: 'animal_id',
       label: 'Animal',

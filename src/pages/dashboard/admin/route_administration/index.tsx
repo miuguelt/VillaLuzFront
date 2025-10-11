@@ -5,7 +5,7 @@ import type { RouteAdministrationResponse, RouteAdministrationInput } from '@/ty
 
 // Columnas (width numérico -> w-{n})
 const columns: CRUDColumn<RouteAdministrationResponse & { [k: string]: any }>[] = [
-  { key: 'id', label: 'ID', width: 12 },
+  
   { key: 'name', label: 'Nombre' },
   { key: 'description', label: 'Descripción', render: (v) => v || '-' },
   { key: 'status', label: 'Estado', render: (v) => (v ? 'Activa' : 'Inactiva') },

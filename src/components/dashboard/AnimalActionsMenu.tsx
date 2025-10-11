@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MoreVertical, Dna, Activity, Syringe, Pill, MapPin, ClipboardList, Eye, Plus } from 'lucide-react';
+import { MoreVertical, Dna, Activity, Syringe, Pill, MapPin, ClipboardList, Eye, Plus, History, GitBranch, Baby } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +29,9 @@ import { usersService } from '@/services/userService';
 interface AnimalActionsMenuProps {
   animal: AnimalResponse;
   currentUserId?: number;
+  onOpenHistory?: () => void;
+  onOpenAncestorsTree?: () => void;
+  onOpenDescendantsTree?: () => void;
 }
 
 type ModalType =
@@ -42,7 +45,7 @@ type ModalType =
 
 type ModalMode = 'create' | 'list';
 
-export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, currentUserId }) => {
+export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, currentUserId, onOpenHistory, onOpenAncestorsTree, onOpenDescendantsTree }) => {
   const [openModal, setOpenModal] = useState<ModalType>(null);
   const [modalMode, setModalMode] = useState<ModalMode>('create');
   const [formData, setFormData] = useState<any>({});
@@ -872,6 +875,41 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenHistory?.();
+            }}
+            className="cursor-pointer"
+          >
+            <History className="mr-2 h-4 w-4" />
+            Historial
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenAncestorsTree?.();
+            }}
+            className="cursor-pointer"
+          >
+            <GitBranch className="mr-2 h-4 w-4" />
+            Árbol de Antepasados
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDescendantsTree?.();
+            }}
+            className="cursor-pointer"
+          >
+            <Baby className="mr-2 h-4 w-4" />
+            Árbol de Descendientes
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <Dna className="mr-2 h-4 w-4" />

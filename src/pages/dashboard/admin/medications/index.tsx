@@ -20,7 +20,7 @@ type MedicationInput = {
 
 // Columnas de la tabla
 const columns: CRUDColumn<MedicationResponse & { [k: string]: any }>[] = [
-  { key: 'id', label: 'ID', width: 12 },
+  
   { key: 'name', label: 'Nombre', render: (v) => v || '-' },
   { key: 'dosis', label: 'Dosis', render: (v) => v || '-' },
   { key: 'availability', label: 'Disponibilidad', render: (v) => (v ? 'Sí' : 'No') },

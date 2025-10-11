@@ -3,9 +3,8 @@ import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/compon
 import { usersService } from '@/services/userService';
 import type { UserResponse } from '@/types/swaggerTypes';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Eye, History, User as UserIcon, Grid, Table, MoreVertical } from 'lucide-react';
+import { Eye, History, Grid, Table, MoreVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
   DropdownMenu,
@@ -31,8 +30,7 @@ type UserFormInput = {
 
 // Columnas completas aprovechando todo el ancho de pantalla
 const columns: CRUDColumn<UserResponse & { [k: string]: any }>[] = [
-  { key: 'id', label: 'ID', width: 16 },
-  { key: 'identification', label: 'Identificación', width: 28 },
+  { key: 'identification', label: 'Identificación', width: 32 },
   { key: 'fullname', label: 'Nombre Completo' },
   { key: 'email', label: 'Email' },
   { key: 'phone', label: 'Teléfono', render: (v) => v || '-', width: 28 },
@@ -185,81 +183,51 @@ const initialFormData: UserFormInput = {
   address: '',
 };
 
-// Componente de tarjeta para usuario
-const UserCard = ({ user }: { user: UserResponse & { [k: string]: any } }) => {
-  const navigate = useNavigate();
-  
-  const handleViewHistory = () => {
-    navigate(`/dashboard/admin/user-history/${user.identification}`);
-  };
-  
-  const handleViewInfo = () => {
-    navigate(`/dashboard/admin/user-detail/${user.id}`);
-  };
-
+// Función para renderizar el contenido de las tarjetas de usuario (sin botones de acción)
+const renderUserCard = (user: UserResponse & { [k: string]: any }) => {
   const isActive = typeof user.status === 'boolean' ? user.status : user.status === '1';
-  
+
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-200 overflow-hidden">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between min-w-0 gap-2">
-          <CardTitle className="text-lg font-semibold truncate">{user.fullname}</CardTitle>
-          <Badge variant={isActive ? "default" : "secondary"}>
-            {isActive ? 'Activo' : 'Inactivo'}
-          </Badge>
-        </div>
-        <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-sm text-muted-foreground min-w-0">
-          <UserIcon className="w-4 h-4" />
-          <span className="whitespace-nowrap">ID: {user.identification}</span>
-          <span className="hidden sm:inline">•</span>
-          <span className="break-words">{user.role}</span>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3 min-w-0">
-        <div className="space-y-2 text-sm min-w-0">
-          <div>
-            <span className="font-medium">Email:</span>
-            <p className="text-muted-foreground truncate">{user.email}</p>
-          </div>
-          {user.phone && (
-            <div>
-              <span className="font-medium">Teléfono:</span>
-              <p className="text-muted-foreground truncate">{user.phone}</p>
-            </div>
-          )}
-          {user.address && (
-            <div>
-              <span className="font-medium">Dirección:</span>
-              <p className="text-muted-foreground truncate">{user.address}</p>
-            </div>
-          )}
-          <div className="flex flex-wrap justify-between gap-x-2 text-xs text-muted-foreground pt-2 border-t">
-            <span>Creado: {user.created_at ? new Date(user.created_at).toLocaleDateString('es-ES') : '-'}</span>
-            <span>Actualizado: {user.updated_at ? new Date(user.updated_at).toLocaleDateString('es-ES') : '-'}</span>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2 pt-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleViewHistory}
-            className="flex-1"
-          >
-            <History className="w-4 h-4 mr-1" />
-            Historial
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleViewInfo}
-            className="flex-1"
-          >
-            <Eye className="w-4 h-4 mr-1" />
-            Info
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="grid grid-cols-2 gap-3 text-xs h-full">
+      {/* Estado y Rol en la misma fila */}
+      <div className="col-span-2 flex items-center justify-between mb-2 gap-2">
+        <Badge variant={isActive ? "default" : "secondary"} className="text-xs px-2 py-0.5 flex-shrink-0">
+          {isActive ? 'Activo' : 'Inactivo'}
+        </Badge>
+        <Badge variant="outline" className="text-xs px-2 py-0.5 flex-shrink-0">{user.role}</Badge>
+      </div>
+      
+      {/* Identificación en fila completa */}
+      <div className="col-span-2 mb-2">
+        <div className="text-muted-foreground text-[10px] mb-0.5">Identificación</div>
+        <div className="font-medium text-[14px] break-all" title={user.identification}>{user.identification}</div>
+      </div>
+
+      <div className="min-w-0 overflow-hidden">
+        <div className="text-muted-foreground text-[10px] mb-0.5">Nombre</div>
+        <div className="truncate font-medium text-[13px]" title={user.fullname || '-'}>{user.fullname || '-'}</div>
+      </div>
+      <div className="min-w-0 overflow-hidden">
+        <div className="text-muted-foreground text-[10px] mb-0.5">Email</div>
+        <div className="truncate font-medium text-[13px]" title={user.email || '-'}>{user.email || '-'}</div>
+      </div>
+      <div className="min-w-0 overflow-hidden">
+        <div className="text-muted-foreground text-[10px] mb-0.5">Teléfono</div>
+        <div className="truncate font-medium text-[13px]" title={user.phone || '-'}>{user.phone || '-'}</div>
+      </div>
+      <div className="min-w-0 overflow-hidden">
+        <div className="text-muted-foreground text-[10px] mb-0.5">Dirección</div>
+        <div className="truncate font-medium text-[13px]" title={user.address || '-'}>{user.address || '-'}</div>
+      </div>
+      <div className="min-w-0 overflow-hidden">
+        <div className="text-muted-foreground text-[10px] mb-0.5">Creado</div>
+        <div className="truncate text-[12px]">{user.created_at ? new Date(user.created_at).toLocaleDateString('es-ES') : '-'}</div>
+      </div>
+      <div className="min-w-0 overflow-hidden">
+        <div className="text-muted-foreground text-[10px] mb-0.5">Actualizado</div>
+        <div className="truncate text-[12px]">{user.updated_at ? new Date(user.updated_at).toLocaleDateString('es-ES') : '-'}</div>
+      </div>
+    </div>
   );
 };
 
@@ -333,7 +301,7 @@ const AdminUsersPageWrapper = () => {
         customActions,
         customToolbar,
         viewMode,
-        renderCard: (item) => <UserCard user={item} />,
+        renderCard: renderUserCard,
       }}
       service={usersService}
       initialFormData={initialFormData}

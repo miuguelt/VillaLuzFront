@@ -98,7 +98,7 @@ function AdminVaccinationsPage() {
 
   // Columnas de la tabla con renderizado optimizado
   const columns: CRUDColumn<VaccinationResponse & { [k: string]: any }>[] = useMemo(() => [
-    { key: 'id', label: 'ID', width: 12 },
+    
     { key: 'vaccination_date', label: 'Fecha', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
     {
       key: 'animal_id',

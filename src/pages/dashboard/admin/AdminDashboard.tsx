@@ -66,7 +66,7 @@ const AlertItem = memo(({ alert, onMarkRead, onNavigate, colorToClasses, renderI
                 size="sm"
                 onClick={() => onNavigate(`/admin/animals?q=${encodeURIComponent(alert.animal_record || String(alert.animal_id))}`)}
               >
-                Ver animal
+                Ver animal  
               </Button>
             )}
           </div>

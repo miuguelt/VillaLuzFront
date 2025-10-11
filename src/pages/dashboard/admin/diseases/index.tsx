@@ -5,7 +5,7 @@ import type { DiseaseResponse, DiseaseInput } from '@/types/swaggerTypes';
 
 // Columnas de la tabla (width numérico -> w-{n})
 const columns: CRUDColumn<DiseaseResponse & { [k: string]: any }>[] = [
-  { key: 'id', label: 'ID', width: 12 },
+  
   { key: 'name', label: 'Nombre', render: (_v, item) => (item as any).name ?? (item as any).disease ?? '-' },
   { key: 'symptoms', label: 'Síntomas', render: (v) => v || '-' },
   { key: 'details', label: 'Detalles', render: (_v, item) => (item as any).details ?? (item as any).description ?? '-' },

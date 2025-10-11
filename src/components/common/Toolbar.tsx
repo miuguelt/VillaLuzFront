@@ -80,25 +80,29 @@ export function Toolbar({
       role="region"
       aria-label="Barra de herramientas"
     >
-      <div className="flex-1 min-w-0">
-        {typeof onSearchChange === "function" ? (
+      {/* Buscador ocupa toda la fila en móvil */}
+      {typeof onSearchChange === "function" ? (
+        <div className="w-full sm:flex-1 sm:min-w-0 order-1 sm:order-none">
           <Input
             value={internalValue}
             onChange={(e) => handleChange(e.target.value)}
             placeholder={searchPlaceholder}
             aria-label={searchPlaceholder}
-            className="w-full sm:max-w-sm"
+            className="w-full sm:max-w-sm h-10 text-base sm:text-sm"
           />
-        ) : null}
+        </div>
+      ) : null}
+
+      {/* Filtros y controles adicionales */}
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-2 sm:order-none">
+        {children ? (
+          <div className="flex flex-wrap items-center gap-2">{children}</div>
+        ) : (
+          <span className="sr-only">Sin filtros adicionales</span>
+        )}
+
+        <div className="flex items-center gap-2">{right}</div>
       </div>
-
-      {children ? (
-        <div className="flex flex-wrap items-center gap-2">{children}</div>
-      ) : (
-        <span className="sr-only">Sin filtros adicionales</span>
-      )}
-
-      <div className="flex items-center gap-2">{right}</div>
     </div>
   );
 }

@@ -67,7 +67,7 @@ const AdminTreatmentVaccinesPage: React.FC = () => {
 
   // Columnas de la tabla con renderizado optimizado
   const columns: CRUDColumn<TreatmentVaccineResponse & { [k: string]: any }>[] = useMemo(() => [
-    { key: 'id', label: 'ID', width: 10 },
+    
     {
       key: 'treatment_id',
       label: 'Tratamiento',

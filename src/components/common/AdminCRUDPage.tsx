@@ -1287,13 +1287,13 @@ const {
         <div className="bg-card/95 backdrop-blur-sm border-2 border-border/50 rounded-xl shadow-2xl shadow-primary/10 overflow-hidden flex-1 flex flex-col min-h-0 mt-1">
           <div
             ref={tableWrapperRef}
-            className="overflow-x-auto overflow-y-auto flex-1"
+            className="overflow-x-auto overflow-y-auto flex-1 bg-muted/40"
             style={{
               maxHeight: wrapperMaxHeight != null ? `${wrapperMaxHeight}px` : undefined,
             }}
           >
                {config.viewMode === 'cards' ? (
-                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr">
                    {visibleItems.map((item) => {
                      const isDeleting = deletingItems.has(String(item.id!));
                      const isNew = newItems.has(item.id!);
@@ -1306,10 +1306,10 @@ const {
                        <Card
                          key={item.id}
                          className={cn(
-                           'cursor-pointer transition-all duration-200 border-2 shadow-lg hover:shadow-xl',
+                           'cursor-pointer transition-all duration-200 border-2 shadow-lg hover:shadow-xl h-full flex flex-col',
                            'bg-gradient-to-br from-card via-card to-card/95',
                            'backdrop-blur-sm',
-                           enhancedHover ? 'hover:border-blue-400 hover:bg-muted/30 hover:scale-[1.02] hover:-translate-y-1' : '',
+                           enhancedHover ? 'hover:border-primary/60 hover:bg-primary/5 hover:scale-[1.02] hover:-translate-y-1' : '',
                            isDeleting ? 'ring-4 ring-red-400 bg-red-50 border-red-300 shadow-red-200' : '',
                            isNew ? 'ring-4 ring-green-400 bg-green-50 border-green-300 shadow-green-200' : '',
                            isUpdated ? 'ring-4 ring-amber-400 bg-amber-50/30 border-amber-300 shadow-amber-200' : '',
@@ -1325,63 +1325,63 @@ const {
                            }
                          }}
                        >
-                        <CardHeader className="py-2">
-                          <CardTitle className="text-sm truncate" title={titleText}>{titleText}</CardTitle>
+                        <CardHeader className="py-3 flex-shrink-0 border-b border-border/30">
+                          <CardTitle className="text-sm font-semibold truncate" title={titleText}>{titleText}</CardTitle>
                         </CardHeader>
-                        <CardContent className="py-2">
+                        <CardContent className="py-3 flex-1 flex flex-col min-h-0 overflow-hidden">
                           {config.renderCard ? (
                             config.renderCard(item)
                           ) : (
-                            <div className="grid grid-cols-2 gap-2 text-[11px] md:text-xs">
+                            <div className="grid grid-cols-2 gap-3 text-xs">
                               {config.columns.map((col) => {
                                 const raw = (item as any)[col.key];
                                 const mapped = fkLabelMap[String(col.key)]?.get(String(raw));
                                 return (
-                                  <div key={String(col.key)} className="min-w-0">
-                                    <div className="text-muted-foreground">{col.label}</div>
-                                    <div className="truncate" title={String(mapped ?? raw ?? '-')}>{String(mapped ?? raw ?? '-')}</div>
+                                  <div key={String(col.key)} className="min-w-0 space-y-1">
+                                    <div className="text-muted-foreground font-medium text-[10px] uppercase tracking-wide">{col.label}</div>
+                                    <div className="truncate font-medium text-foreground" title={String(mapped ?? raw ?? '-')}>{String(mapped ?? raw ?? '-')}</div>
                                   </div>
                                 );
                               })}
                             </div>
                           )}
                           {(config.enableDetailModal !== false || config.enableEditModal !== false || config.enableDelete || config.customActions) && (
-                            <div className="mt-3 w-full overflow-x-auto flex flex-nowrap items-center gap-1.5 sm:gap-2" onClick={(e) => e.stopPropagation()}>
+                            <div className="mt-4 pt-3 border-t border-border/30 w-full flex-shrink-0 flex flex-nowrap items-center justify-center gap-3" onClick={(e) => e.stopPropagation()}>
                               {config.enableDetailModal !== false && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-9 w-9 sm:h-10 sm:w-10 p-0 border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300"
+                                  className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-200"
                                   onClick={() => openDetail(item)}
                                   aria-label={`${t('common.view', 'Ver')} ${config.entityName.toLowerCase()} ${item.id}`}
                                 >
-                                  <Eye className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                                  <Eye className="h-4 w-4" />
                                 </Button>
                               )}
                               {config.enableEditModal !== false && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-9 w-9 sm:h-10 sm:w-10 p-0 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-700 dark:hover:text-amber-300"
+                                  className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-700 dark:hover:text-amber-300 transition-all duration-200"
                                   onClick={() => openEdit(item)}
                                   aria-label={`${t('common.edit', 'Editar')} ${config.entityName.toLowerCase()} ${item.id}`}
                                 >
-                                  <Edit className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                                  <Edit className="h-4 w-4" />
                                 </Button>
                               )}
                               {config.enableDelete && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-9 w-9 sm:h-10 sm:w-10 p-0 border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-700 dark:hover:text-red-300"
+                                  className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200"
                                   onClick={(e) => openDeleteConfirm(item.id, e)}
                                   disabled={deletingId === item.id}
                                   aria-label={`${t('common.delete', 'Eliminar')} ${config.entityName.toLowerCase()} ${item.id}`}
                                 >
                                   {deletingId === item.id ? (
-                                    <Loader2 className="h-4.5 w-4.5 sm:h-5 sm:w-5 animate-spin" />
+                                    <Loader2 className="h-4 w-4 animate-spin" />
                                   ) : (
-                                    <Trash2 className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                                    <Trash2 className="h-4 w-4" />
                                   )}
                                 </Button>
                               )}
@@ -1396,15 +1396,15 @@ const {
               ) : (
               <table
                 ref={tableRef}
-                className="min-w-full divide-y divide-border/70 text-[12px] md:text-sm"
+                className="min-w-full divide-y divide-border/70 text-[12px] md:text-sm shadow-sm rounded-lg overflow-hidden"
               >
-                <thead className="sticky top-0 z-10 bg-muted/60 backdrop-blur-sm supports-[backdrop-filter]:bg-muted/50">
-                  <tr className="h-8">
+                <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm supports-[backdrop-filter]:bg-muted/60 border-b border-border/50">
+                  <tr className="h-10">
                     {config.columns.map((col) => {
                       return (
                         <th
                           key={String(col.key)}
-                          className={`px-1.5 sm:px-2 py-1 text-left text-[10px] sm:text-[11px] md:text-xs font-medium text-muted-foreground uppercase tracking-wider ${col.width ? `w-${col.width}` : ''} ${col.sortable === false ? '' : 'cursor-pointer select-none'} truncate`}
+                          className={`px-2 sm:px-3 py-2 text-left text-[10px] sm:text-[11px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider ${col.width ? `w-${col.width}` : ''} ${col.sortable === false ? '' : 'cursor-pointer select-none hover:text-foreground transition-colors'} truncate`}
                           onClick={col.sortable === false ? undefined : () => toggleSort(col.key)}
                           aria-sort={
                             sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : sortDir === 'desc' ? 'descending' : 'none') : 'none'
@@ -1447,7 +1447,7 @@ const {
                       key={item.id}
                       data-item-id={item.id}
                       className={cn(
-                        "h-8 md:h-9 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:bg-muted/50",
+                        "h-10 md:h-12 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:bg-muted/50",
                         "transition-all duration-300 relative overflow-visible",
                         // 🔵 Hover: AZUL con bordes y sombras - aparece al pasar el mouse sobre CUALQUIER elemento
                         enhancedHover ? cn(
@@ -1514,7 +1514,7 @@ const {
                      {config.columns.map((col) => (
                        <td
                          key={String(col.key)}
-                         className={`px-1.5 sm:px-2 py-1 whitespace-nowrap text-[11px] md:text-xs ${col.width ? `w-${col.width}` : ''} truncate max-w-[120px] sm:max-w-[180px] md:max-w-[240px]`}
+                         className={`px-2 sm:px-3 py-2 whitespace-nowrap text-[11px] md:text-sm ${col.width ? `w-${col.width}` : ''} truncate max-w-[120px] sm:max-w-[180px] md:max-w-[240px]`}
                          title={col.render ? undefined : (fkLabelMap[String(col.key)]?.get(String((item as any)[col.key])) ?? String((item as any)[col.key] ?? ''))}
                        >
                          {col.render
@@ -1527,13 +1527,13 @@ const {
                        </td>
                      ))}
                       {(config.enableDetailModal !== false || config.enableEditModal !== false || config.enableDelete || config.customActions) && (
-                        <td className="px-1 sm:px-2 py-1 whitespace-nowrap text-[11px] md:text-xs font-medium" onClick={(e) => e.stopPropagation()} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} >
-                           <div className="flex items-center gap-1 sm:gap-1.5 flex-nowrap">
+                        <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-[11px] md:text-xs font-medium" onClick={(e) => e.stopPropagation()} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} >
+                           <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap">
                              {config.enableDetailModal !== false && (
                                <Button
                                   variant="ghost"
                                  size="sm"
-                                 className="h-8 w-8 sm:h-8 sm:w-8 p-0 border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-200"
+                                 className="h-9 w-9 sm:h-9 sm:w-9 p-0 border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-200 rounded-lg"
                                  onClick={(e) => { e.stopPropagation(); openDetail(item); }}
                                  aria-label={`${t('common.view', 'Ver')} ${config.entityName.toLowerCase()} ${item.id}`}
                                >
@@ -1544,7 +1544,7 @@ const {
                                <Button
                                   variant="ghost"
                                  size="sm"
-                                 className="h-8 w-8 sm:h-8 sm:w-8 p-0 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-700 dark:hover:text-amber-300 transition-all duration-200"
+                                 className="h-9 w-9 sm:h-9 sm:w-9 p-0 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-700 dark:hover:text-amber-300 transition-all duration-200 rounded-lg"
                                  onClick={(e) => { e.stopPropagation(); openEdit(item); }}
                                  aria-label={`${t('common.edit', 'Editar')} ${config.entityName.toLowerCase()} ${item.id}`}
                                >
@@ -1555,7 +1555,7 @@ const {
                                <Button
                                   variant="ghost"
                                  size="sm"
-                                 className="h-8 w-8 sm:h-8 sm:w-8 p-0 border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200"
+                                 className="h-9 w-9 sm:h-9 sm:w-9 p-0 border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200 rounded-lg"
                                  onClick={(e) => openDeleteConfirm(item.id, e)}
                                  disabled={deletingId === item.id}
                                  aria-label={`${t('common.delete', 'Eliminar')} ${config.entityName.toLowerCase()} ${item.id}`}

@@ -12,10 +12,10 @@ import { useAnimalTreeApi, graphToAncestorLevels, graphToDescendantLevels } from
 import DescendantsTreeModal from '@/components/dashboard/DescendantsTreeModal';
 import { useForeignKeySelect } from '@/hooks/useForeignKeySelect';
 import { ANIMAL_GENDERS, ANIMAL_STATES } from '@/constants/enums';
-import { History, GitBranch, Baby } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { checkAnimalDependencies, clearAnimalDependencyCache } from '@/services/dependencyCheckService';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { GenericModal } from '@/components/common/GenericModal';
 import { AnimalActionsMenu } from '@/components/dashboard/AnimalActionsMenu';
 import { useAuth } from '@/hooks/useAuth';
@@ -273,8 +273,7 @@ function AdminAnimalsPage() {
 
   // Columnas de la tabla
   const columns: CRUDColumn<AnimalResponse & { [k: string]: any }>[] = [
-    { key: 'id', label: 'ID', width: 12 },
-    { key: 'record', label: 'Registro' },
+    { key: 'record', label: 'Registro', width: 15 },
     { 
       key: 'gender', 
       label: 'Sexo', 
@@ -425,18 +424,82 @@ function AdminAnimalsPage() {
     }
   };
 
+  // Función personalizada para renderizar el CONTENIDO de las tarjetas de animales (sin botones)
+  const renderAnimalCard = (item: AnimalResponse & { [k: string]: any }) => {
+    const breedId = item.breeds_id || item.breed_id;
+    const breedLabel = breedId
+      ? (breedOptions.find((b) => Number(b.value) === Number(breedId))?.label || (item.breed?.name) || `ID ${breedId}`)
+      : '-';
+
+    const fatherId = item.idFather || item.father_id;
+    const fatherLabel = fatherId
+      ? (fatherOptions.find((o) => Number(o.value) === Number(fatherId))?.label || `ID ${fatherId}`)
+      : '-';
+
+    const motherId = item.idMother || item.mother_id;
+    const motherLabel = motherId
+      ? (motherOptions.find((o) => Number(o.value) === Number(motherId))?.label || `ID ${motherId}`)
+      : '-';
+
+    const gender = item.sex || item.gender;
+    const birthDate = item.birth_date ? new Date(item.birth_date).toLocaleDateString('es-ES') : '-';
+    const ageMonths = item.age_in_months ?? '-';
+    const weight = item.weight ?? '-';
+    const status = item.status || '-';
+
+    return (
+      <div className="grid grid-cols-2 gap-3 text-xs h-full">
+        <div className="col-span-2 flex items-center justify-between mb-1 gap-2">
+          <span className="font-semibold text-sm whitespace-nowrap">Registro: {item.record || '-'}</span>
+          <Badge variant="outline" className="text-xs px-2 py-0.5 flex-shrink-0">{status}</Badge>
+        </div>
+        <div className="col-span-2 flex items-center justify-center mb-1">
+          <Badge variant="secondary" className="text-xs px-3 py-1">{gender || '-'}</Badge>
+        </div>
+        <div className="min-w-0 overflow-hidden">
+          <div className="text-muted-foreground text-[10px] mb-0.5">Raza</div>
+          <div className="truncate font-medium text-[13px]" title={breedLabel}>{breedLabel}</div>
+        </div>
+        <div className="min-w-0 overflow-hidden">
+          <div className="text-muted-foreground text-[10px] mb-0.5">Peso (kg)</div>
+          <div className="truncate text-[12px]">{weight}</div>
+        </div>
+        <div className="min-w-0 overflow-hidden">
+          <div className="text-muted-foreground text-[10px] mb-0.5">Nacimiento</div>
+          <div className="truncate text-[12px]">{birthDate}</div>
+        </div>
+        <div className="min-w-0 overflow-hidden">
+          <div className="text-muted-foreground text-[10px] mb-0.5">Edad (meses)</div>
+          <div className="truncate text-[12px]">{ageMonths}</div>
+        </div>
+        <div className="min-w-0 overflow-hidden">
+          <div className="text-muted-foreground text-[10px] mb-0.5">Adulto</div>
+          <div className="truncate text-[12px]">{item.is_adult === true ? 'Sí' : item.is_adult === false ? 'No' : '-'}</div>
+        </div>
+        <div className="min-w-0 overflow-hidden">
+          <div className="text-muted-foreground text-[10px] mb-0.5">Padre</div>
+          <div className="truncate text-[13px]" title={fatherLabel}>{fatherLabel}</div>
+        </div>
+        <div className="min-w-0 overflow-hidden">
+          <div className="text-muted-foreground text-[10px] mb-0.5">Madre</div>
+          <div className="truncate text-[13px]" title={motherLabel}>{motherLabel}</div>
+        </div>
+      </div>
+    );
+  };
+
   // Contenido personalizado para el modal de detalle
   const renderAnimalDetail = (item: AnimalResponse & { [k: string]: any }) => {
     const breedId = item.breeds_id || item.breed_id;
     const breedLabel = breedId
       ? (breedOptions.find((b) => Number(b.value) === Number(breedId))?.label || (item.breed?.name) || `ID ${breedId}`)
       : '-';
-    
+
     const fatherId = item.idFather || item.father_id;
     const fatherLabel = fatherId
       ? (fatherOptions.find((o) => Number(o.value) === Number(fatherId))?.label || `ID ${fatherId}`)
       : '-';
-    
+
     const motherId = item.idMother || item.mother_id;
     const motherLabel = motherId
       ? (motherOptions.find((o) => Number(o.value) === Number(motherId))?.label || `ID ${motherId}`)
@@ -461,121 +524,6 @@ function AdminAnimalsPage() {
         <div><strong>Padre:</strong> {fatherLabel}</div>
         <div><strong>Madre:</strong> {motherLabel}</div>
         <div><strong>Creado:</strong> {createdAt}</div>
-      </div>
-    );
-  };
-
-  // Función personalizada para renderizar tarjetas de animales
-  const renderAnimalCard = (item: AnimalResponse & { [k: string]: any }) => {
-    const breedId = item.breeds_id || item.breed_id;
-    const breedLabel = breedId
-      ? (breedOptions.find((b) => Number(b.value) === Number(breedId))?.label || (item.breed?.name) || `ID ${breedId}`)
-      : '-';
-
-    const fatherId = item.idFather || item.father_id;
-    const fatherLabel = fatherId
-      ? (fatherOptions.find((o) => Number(o.value) === Number(fatherId))?.label || `ID ${fatherId}`)
-      : '-';
-
-    const motherId = item.idMother || item.mother_id;
-    const motherLabel = motherId
-      ? (motherOptions.find((o) => Number(o.value) === Number(motherId))?.label || `ID ${motherId}`)
-      : '-';
-
-    const gender = item.sex || item.gender;
-    const birthDate = item.birth_date ? new Date(item.birth_date).toLocaleDateString('es-ES') : '-';
-    const ageMonths = item.age_in_months ?? '-';
-    const weight = item.weight ?? '-';
-    const status = item.status || '-';
-
-    return (
-      <div className="space-y-3">
-        {/* Información básica - mejor distribución para usar el ancho completo */}
-        <div className="grid grid-cols-1 gap-2 text-xs">
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Registro:</span>
-            <span className="font-medium text-foreground">{item.record || '-'}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Sexo:</span>
-            <span className="font-medium text-foreground">{gender || '-'}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Estado:</span>
-            <span className="font-medium text-foreground">{status}</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Edad:</span>
-            <span className="font-medium text-foreground">{ageMonths} meses</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Peso:</span>
-            <span className="font-medium text-foreground">{weight} kg</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Nacimiento:</span>
-            <span className="font-medium text-foreground">{birthDate}</span>
-          </div>
-        </div>
-
-        {/* Raza con enlace - mejor uso del espacio */}
-        <div className="border-t pt-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Raza:</span>
-            {breedId ? (
-              <button
-                className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline transition-colors truncate max-w-[60%]"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openBreedDetailModal(Number(breedId));
-                }}
-                title="Ver detalle de la raza"
-              >
-                {breedLabel}
-              </button>
-            ) : (
-              <span className="text-xs font-medium text-muted-foreground">-</span>
-            )}
-          </div>
-        </div>
-
-        {/* Genealogía con enlaces - mejor distribución */}
-        <div className="border-t pt-2 space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Padre:</span>
-            {fatherId ? (
-              <button
-                className="text-xs font-medium text-green-600 hover:text-green-800 hover:underline transition-colors truncate max-w-[60%]"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openAnimalDetailModal(Number(fatherId));
-                }}
-                title="Ver detalle del padre"
-              >
-                {fatherLabel}
-              </button>
-            ) : (
-              <span className="text-xs font-medium text-muted-foreground">-</span>
-            )}
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Madre:</span>
-            {motherId ? (
-              <button
-                className="text-xs font-medium text-purple-600 hover:text-purple-800 hover:underline transition-colors truncate max-w-[60%]"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  openAnimalDetailModal(Number(motherId));
-                }}
-                title="Ver detalle de la madre"
-              >
-                {motherLabel}
-              </button>
-            ) : (
-              <span className="text-xs font-medium text-muted-foreground">-</span>
-            )}
-          </div>
-        </div>
       </div>
     );
   };
@@ -617,45 +565,15 @@ function AdminAnimalsPage() {
       </div>
     ),
     customActions: (record) => (
-      <>
-        <button
-          className="icon-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            openHistoryModal(record as any);
-          }}
-          title="Ver historial médico completo"
-          aria-label="Ver historial"
-        >
-          <History />
-        </button>
-        <button
-          className="icon-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            openGeneticTreeModal(record as any);
-          }}
-          title="Ver árbol de antepasados (padres, abuelos, bisabuelos...)"
-          aria-label="Ver árbol genealógico"
-        >
-          <GitBranch />
-        </button>
-        <button
-          className="icon-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            openDescendantsTreeModal(record as any);
-          }}
-          title="Ver árbol de descendientes (hijos, nietos, bisnietos...)"
-          aria-label="Ver descendientes"
-        >
-          <Baby />
-        </button>
+      <div className="flex items-center gap-1">
         <AnimalActionsMenu
           animal={record as AnimalResponse}
           currentUserId={user?.id}
+          onOpenHistory={() => openHistoryModal(record as any)}
+          onOpenAncestorsTree={() => openGeneticTreeModal(record as any)}
+          onOpenDescendantsTree={() => openDescendantsTreeModal(record as any)}
         />
-      </>
+      </div>
     ),
     // Verificación exhaustiva de dependencias antes de eliminar
     preDeleteCheck: async (id: number) => {

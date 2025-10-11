@@ -66,7 +66,7 @@ function AdminTreatmentMedicationsPage() {
 
   // Columnas de la tabla con renderizado optimizado
   const columns: CRUDColumn<TreatmentMedicationResponse & { [k: string]: any }>[] = useMemo(() => [
-    { key: 'id', label: 'ID', width: 12 },
+    
     {
       key: 'treatment_id',
       label: 'Tratamiento',

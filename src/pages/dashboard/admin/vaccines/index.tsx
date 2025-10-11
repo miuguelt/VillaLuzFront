@@ -67,7 +67,7 @@ function AdminVaccinesPage() {
 
   // Columnas de la tabla con renderizado optimizado
   const columns: CRUDColumn<VaccineResponse & { [k: string]: any }>[] = useMemo(() => [
-    { key: 'id', label: 'ID', width: 12 },
+    
     { key: 'name', label: 'Nombre' },
     { key: 'type', label: 'Tipo', render: (v) => v || '-' },
     { key: 'dosis', label: 'Dosis', render: (v) => v || '-' },

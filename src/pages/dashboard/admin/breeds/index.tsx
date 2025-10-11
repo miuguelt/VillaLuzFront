@@ -7,7 +7,7 @@ import { checkBreedDependencies } from '@/services/dependencyCheckService';
 
 // Columnas de la tabla (width numérico -> w-{n})
 const columns: CRUDColumn<BreedResponse & { [k: string]: any }>[] = [
-  { key: 'id', label: 'ID', width: 12 },
+  
   { key: 'name', label: 'Nombre' },
   { key: 'species_id', label: 'Especie' },
   { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },

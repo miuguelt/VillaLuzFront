@@ -19,7 +19,7 @@ type FieldFormInput = {
 
 // Columnas (width numérico -> w-{n})
 const columns: CRUDColumn<FieldResponse & { [k: string]: any }>[] = [
-  { key: 'id', label: 'ID', width: 12 },
+  
   { key: 'name', label: 'Nombre' },
   { key: 'location', label: 'Ubicación', render: (_v, item) => item.location || item.ubication || '-' },
   { key: 'area', label: 'Área' },

@@ -342,10 +342,6 @@ const AdminControlPage: React.FC = () => {
   // Configuración de columnas para la tabla
   const columns: CRUDColumn<ControlResponse & { [k: string]: any }>[] = useMemo(() => [
     {
-      key: 'id',
-      label: 'ID',
-      width: 12 },
-    {
       key: 'animal_id',
       label: 'Animal',
       render: (value: any) => animalMap.get(Number(value)) || `Animal ${value}` || '-'
