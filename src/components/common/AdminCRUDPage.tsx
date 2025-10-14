@@ -1673,13 +1673,20 @@ const {
                           <label htmlFor={String(field.name)} className={cn(
                             "block text-xs sm:text-sm font-medium",
                             "text-foreground/90 group-hover:text-foreground",
-                            "transition-colors duration-200"
+                            "transition-colors duration-200",
+                            "flex items-center gap-1.5"
                           )}>
-                            {field.label}
+                            <span>{field.label}</span>
                             {field.required && (
-                              <span className="ml-1 text-destructive font-bold">*</span>
+                              <span className="text-red-600 dark:text-red-400 font-extrabold text-base" title="Campo obligatorio">*</span>
                             )}
                           </label>
+                          {field.required && (
+                            <p className="text-[10px] sm:text-xs text-muted-foreground/70 -mt-1 mb-1 flex items-center gap-1">
+                              <span className="text-red-500 dark:text-red-400">●</span>
+                              <span>Campo obligatorio</span>
+                            </p>
+                          )}
 
                           {field.type === 'textarea' && (() => {
                             const currentValue = (formData as any)[field.name];
@@ -1694,11 +1701,13 @@ const {
                                   rows={3}
                                   disabled={saving}
                                   aria-invalid={showWarning}
+                                  aria-required={field.required}
                                   className={cn(
                                     "w-full min-h-[80px] resize-none text-sm",
                                     showWarning
                                       ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
                                       : "border-border/50 focus:border-primary/50",
+                                    field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
                                     "bg-background/50 focus:bg-background/80",
                                     "transition-all duration-300",
                                     "backdrop-blur-sm"
@@ -1732,6 +1741,7 @@ const {
                                     });
                                   }}
                                   disabled={saving}
+                                  aria-required={field.required}
                                   className={cn(
                                     "w-full px-3 py-2.5 border rounded-lg min-h-[44px] text-sm",
                                     "bg-background/50 focus:bg-background/80",
@@ -1740,7 +1750,8 @@ const {
                                     "cursor-pointer",
                                     showWarning
                                       ? "border-amber-400/70 focus:border-amber-500 hover:border-amber-500/50 text-amber-900 dark:text-amber-200"
-                                      : "border-border/50 focus:border-primary/50 text-foreground hover:border-primary/30"
+                                      : "border-border/50 focus:border-primary/50 text-foreground hover:border-primary/30",
+                                    field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40"
                                   )}
                                 >
                                   <option value="" className="text-muted-foreground">
@@ -1792,28 +1803,32 @@ const {
 
                             return (
                               <div className="space-y-1">
-                                <Combobox
-                                  options={opts.map((o) => ({ value: String(o.value), label: o.label }))}
-                                  value={currentVal == null ? '' : String(currentVal)}
-                                  onValueChange={(val) =>
-                                    setFormData({
-                                      ...formData,
-                                      [field.name]: isNumeric ? (val === '' ? undefined : Number(val)) : val,
-                                    })
-                                  }
-                                  placeholder={getPlaceholderText()}
-                                  searchPlaceholder={t('common.search', 'Buscar...')}
-                                  emptyMessage={emptyText}
-                                  disabled={saving}
-                                  loading={isLoading}
-                                  searchDebounceMs={field.searchDebounceMs || 300}
-                                  onSearchChange={field.onSearchChange}
-                                  className={cn(
-                                    "transition-all duration-200",
-                                    isLoading && "opacity-80",
-                                    !hasOptions && !isLoading && "opacity-60"
-                                  )}
-                                />
+                                <div className={cn(
+                                  field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40 rounded-l-sm"
+                                )}>
+                                  <Combobox
+                                    options={opts.map((o) => ({ value: String(o.value), label: o.label }))}
+                                    value={currentVal == null ? '' : String(currentVal)}
+                                    onValueChange={(val) =>
+                                      setFormData({
+                                        ...formData,
+                                        [field.name]: isNumeric ? (val === '' ? undefined : Number(val)) : val,
+                                      })
+                                    }
+                                    placeholder={getPlaceholderText()}
+                                    searchPlaceholder={t('common.search', 'Buscar...')}
+                                    emptyMessage={emptyText}
+                                    disabled={saving}
+                                    loading={isLoading}
+                                    searchDebounceMs={field.searchDebounceMs || 300}
+                                    onSearchChange={field.onSearchChange}
+                                    className={cn(
+                                      "transition-all duration-200",
+                                      isLoading && "opacity-80",
+                                      !hasOptions && !isLoading && "opacity-60"
+                                    )}
+                                  />
+                                </div>
                                 {isLoading && (
                                   <div className="flex items-center gap-2 text-xs text-[#3b82f6]">
                                     <Loader2 className="h-3 w-3 animate-spin text-[#3b82f6]" />
@@ -1861,11 +1876,13 @@ const {
                                   max={field.validation?.max}
                                   disabled={saving}
                                   aria-invalid={showWarning}
+                                  aria-required={field.required}
                                   className={cn(
                                     "w-full min-h-[44px] text-sm",
                                     showWarning
                                       ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
                                       : "border-border/50 focus:border-primary/50",
+                                    field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
                                     "bg-background/50 focus:bg-background/80",
                                     "transition-all duration-300 backdrop-blur-sm"
                                   )}
@@ -1884,7 +1901,7 @@ const {
                             // Validación especial para birth_date para evitar fechas futuras
                             const isBirthDate = String(field.name) === 'birth_date';
                             const maxDate = isBirthDate ? today : undefined;
-                            
+
                             return (
                               <div className="space-y-1">
                                 <Input
@@ -1895,11 +1912,13 @@ const {
                                   onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
                                   disabled={saving}
                                   aria-invalid={showWarning}
+                                  aria-required={field.required}
                                   className={cn(
                                     "w-full min-h-[44px] text-sm",
                                     showWarning
                                       ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
                                       : "border-border/50 focus:border-primary/50",
+                                    field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
                                     "bg-background/50 focus:bg-background/80",
                                     "transition-all duration-300 backdrop-blur-sm"
                                   )}
@@ -1926,11 +1945,13 @@ const {
                                   placeholder={field.placeholder}
                                   disabled={saving}
                                   aria-invalid={showWarning}
+                                  aria-required={field.required}
                                   className={cn(
                                     "w-full min-h-[44px] text-sm",
                                     showWarning
                                       ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
                                       : "border-border/50 focus:border-primary/50",
+                                    field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
                                     "bg-background/50 focus:bg-background/80",
                                     "transition-all duration-300 backdrop-blur-sm"
                                   )}

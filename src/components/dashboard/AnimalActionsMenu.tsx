@@ -1094,7 +1094,11 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
         isOpen={openModal !== null}
         onOpenChange={(open) => !open && handleCloseModal()}
         title={getModalTitle()}
-        description={modalMode === 'list' ? `Registros del animal ${animal.record || animal.id}` : undefined}
+        description={
+          modalMode === 'list'
+            ? `Registros del animal ${animal.record || animal.id}`
+            : `Formulario para registrar información del animal ${animal.record || animal.id}`
+        }
         size="2xl"
         enableBackdropBlur
         className="bg-card/95 backdrop-blur-md text-card-foreground border-border/50"

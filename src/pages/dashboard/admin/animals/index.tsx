@@ -450,10 +450,7 @@ function AdminAnimalsPage() {
     return (
       <div className="grid grid-cols-2 gap-3 text-xs h-full">
         <div className="col-span-2 flex items-center justify-between mb-1 gap-2">
-          <span className="font-semibold text-sm whitespace-nowrap">Registro: {item.record || '-'}</span>
           <Badge variant="outline" className="text-xs px-2 py-0.5 flex-shrink-0">{status}</Badge>
-        </div>
-        <div className="col-span-2 flex items-center justify-center mb-1">
           <Badge variant="secondary" className="text-xs px-3 py-1">{gender || '-'}</Badge>
         </div>
         <div className="min-w-0 overflow-hidden">
