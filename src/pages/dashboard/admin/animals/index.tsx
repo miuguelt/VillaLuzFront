@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { GenericModal } from '@/components/common/GenericModal';
 import { AnimalActionsMenu } from '@/components/dashboard/AnimalActionsMenu';
 import { useAuth } from '@/hooks/useAuth';
+import { BreedLink, AnimalLink } from '@/components/common/ForeignKeyHelpers';
 
 // Mapear respuesta del backend al formulario
 const mapResponseToForm = (item: AnimalResponse & { [k: string]: any }): Partial<AnimalInput> => {
@@ -284,14 +285,15 @@ function AdminAnimalsPage() {
       label: 'Estado', 
       render: (v) => v || '-' 
     },
-    { 
-      key: 'breed_id', 
-      label: 'Raza', 
+    {
+      key: 'breed_id',
+      label: 'Raza',
       render: (v, record) => {
         const breedId = v || record.breeds_id || record.breed_id;
-        return breedId 
-          ? (breedOptions.find((b) => Number(b.value) === Number(breedId))?.label || `ID ${breedId}`) 
-          : '-';
+        if (!breedId) return '-';
+        const id = Number(breedId);
+        const label = breedOptions.find((b) => Number(b.value) === id)?.label || `Raza ${id}`;
+        return <BreedLink id={id} label={label} />;
       }
     },
     { 
@@ -314,24 +316,26 @@ function AdminAnimalsPage() {
       label: 'Adulto', 
       render: (v) => v === true ? 'Sí' : v === false ? 'No' : '-' 
     },
-    { 
-      key: 'father_id', 
-      label: 'Padre', 
+    {
+      key: 'father_id',
+      label: 'Padre',
       render: (v, record) => {
         const fatherId = v || record.idFather || record.father_id;
-        return fatherId 
-          ? (fatherOptions.find((o) => Number(o.value) === Number(fatherId))?.label || `ID ${fatherId}`) 
-          : '-';
+        if (!fatherId) return '-';
+        const id = Number(fatherId);
+        const label = fatherOptions.find((o) => Number(o.value) === id)?.label || `Animal ${id}`;
+        return <AnimalLink id={id} label={label} />;
       }
     },
-    { 
-      key: 'mother_id', 
-      label: 'Madre', 
+    {
+      key: 'mother_id',
+      label: 'Madre',
       render: (v, record) => {
         const motherId = v || record.idMother || record.mother_id;
-        return motherId 
-          ? (motherOptions.find((o) => Number(o.value) === Number(motherId))?.label || `ID ${motherId}`) 
-          : '-';
+        if (!motherId) return '-';
+        const id = Number(motherId);
+        const label = motherOptions.find((o) => Number(o.value) === id)?.label || `Animal ${id}`;
+        return <AnimalLink id={id} label={label} />;
       }
     },
     {

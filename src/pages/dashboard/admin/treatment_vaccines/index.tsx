@@ -4,6 +4,7 @@ import { treatmentVaccinesService } from '@/services/treatmentVaccinesService';
 import { treatmentsService } from '@/services/treatmentsService';
 import { vaccinesService } from '@/services/vaccinesService';
 import type { TreatmentVaccineResponse, TreatmentVaccineInput } from '@/types/swaggerTypes';
+import { VaccineLink } from '@/components/common/ForeignKeyHelpers';
 
 const AdminTreatmentVaccinesPage: React.FC = () => {
   const [treatmentOptions, setTreatmentOptions] = useState<{ value: number; label: string }[]>([]);
@@ -65,18 +66,27 @@ const AdminTreatmentVaccinesPage: React.FC = () => {
     return map;
   }, [vaccineOptions]);
 
-  // Columnas de la tabla con renderizado optimizado
+  // Columnas de la tabla con renderizado optimizado y Foreign Key Links
   const columns: CRUDColumn<TreatmentVaccineResponse & { [k: string]: any }>[] = useMemo(() => [
-    
     {
       key: 'treatment_id',
       label: 'Tratamiento',
-      render: (v) => treatmentMap.get(Number(v)) || `Tratamiento ${v}` || '-'
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = treatmentMap.get(id) || `Tratamiento ${id}`;
+        return label;
+      }
     },
     {
       key: 'vaccine_id',
       label: 'Vacuna',
-      render: (v) => vaccineMap.get(Number(v)) || `Vacuna ${v}` || '-'
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = vaccineMap.get(id) || `Vacuna ${id}`;
+        return <VaccineLink id={id} label={label} />;
+      }
     },
     { key: 'dose' as any, label: 'Dosis', render: (v) => v || '-' },
     { key: 'created_at' as any, label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },

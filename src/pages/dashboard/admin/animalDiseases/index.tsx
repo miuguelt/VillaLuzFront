@@ -8,6 +8,7 @@ import { usersService } from '@/services/userService';
 import { ANIMAL_DISEASE_STATUSES } from '@/constants/enums';
 import type { AnimalDiseaseResponse, AnimalDiseaseInput } from '@/types/swaggerTypes';
 import { getTodayColombia } from '@/utils/dateUtils';
+import { AnimalLink, DiseaseLink, UserLink } from '@/components/common/ForeignKeyHelpers';
 
 function AdminAnimalDiseasesPage() {
   const [searchParams] = useSearchParams();
@@ -91,23 +92,38 @@ function AdminAnimalDiseasesPage() {
     return map;
   }, [instructorOptions]);
 
-  // Columnas de la tabla con renderizado optimizado
+  // Columnas de la tabla con renderizado optimizado y Foreign Key Links
   const columns: CRUDColumn<AnimalDiseaseResponse & { [k: string]: any }>[] = useMemo(() => [
-    
+
     {
       key: 'animal_id',
       label: 'Animal',
-      render: (v) => animalMap.get(Number(v)) || `Animal ${v}` || '-'
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = animalMap.get(id) || `Animal ${id}`;
+        return <AnimalLink id={id} label={label} />;
+      }
     },
     {
       key: 'disease_id',
       label: 'Enfermedad',
-      render: (v) => diseaseMap.get(Number(v)) || `Enfermedad ${v}` || '-'
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = diseaseMap.get(id) || `Enfermedad ${id}`;
+        return <DiseaseLink id={id} label={label} />;
+      }
     },
     {
       key: 'instructor_id',
       label: 'Instructor',
-      render: (v) => instructorMap.get(Number(v)) || `Instructor ${v}` || '-'
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = instructorMap.get(id) || `Instructor ${id}`;
+        return <UserLink id={id} label={label} role="Instructor" />;
+      }
     },
     { key: 'diagnosis_date', label: 'Diagnóstico', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
     { key: 'status', label: 'Estado', render: (v) => v || '-' },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { fieldService } from '@/services/fieldService';
 import { foodTypesService } from '@/services/foodTypesService';
@@ -7,6 +7,7 @@ import type { FieldResponse } from '@/types/swaggerTypes';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FieldActionsMenu } from '@/components/dashboard/FieldActionsMenu';
+import { FoodTypeLink } from '@/components/common/ForeignKeyHelpers';
 
 // Tipo de formulario alineado al JSON real del backend
 type FieldFormInput = {
@@ -68,55 +69,71 @@ function AdminFieldsPage() {
     return saved === 'cards' ? 'cards' : 'table';
   });
 
-// Columnas - Ahora animal_count viene directamente del backend
-const columns: CRUDColumn<FieldResponse & { [k: string]: any }>[] = [
-  { key: 'name', label: 'Nombre' },
-  { key: 'location', label: 'Ubicación', render: (_v, item) => item.location || item.ubication || '-' },
-  { key: 'area', label: 'Área' },
-  { key: 'capacity', label: 'Capacidad' },
-  { key: 'state', label: 'Estado' },
-  {
-    key: 'animal_count' as any,
-    label: 'Cantidad',
-    render: (_v, item) => {
-      const animalCount = item.animal_count ?? 0;
-      const capacityNum = parseInt(item.capacity || '0') || 0;
-      const percentage = capacityNum > 0 ? Math.round((animalCount / capacityNum) * 100) : 0;
+  // Crear mapa de búsqueda optimizado para tipos de alimento
+  const foodTypeMap = useMemo(() => {
+    const map = new Map<number, string>();
+    foodTypeOptions.forEach(opt => map.set(opt.value, opt.label));
+    return map;
+  }, [foodTypeOptions]);
 
-      // Determinar color del badge según ocupación
-      let badgeColor = 'bg-green-100 text-green-800';
-      if (percentage >= 90) badgeColor = 'bg-red-100 text-red-800';
-      else if (percentage >= 75) badgeColor = 'bg-orange-100 text-orange-800';
-      else if (percentage >= 50) badgeColor = 'bg-yellow-100 text-yellow-800';
-      else if (percentage >= 25) badgeColor = 'bg-blue-100 text-blue-800';
+  // Columnas - Ahora animal_count viene directamente del backend
+  const columns: CRUDColumn<FieldResponse & { [k: string]: any }>[] = useMemo(() => [
+    { key: 'name', label: 'Nombre' },
+    { key: 'location', label: 'Ubicación', render: (_v, item) => item.location || item.ubication || '-' },
+    { key: 'area', label: 'Área' },
+    { key: 'capacity', label: 'Capacidad' },
+    { key: 'state', label: 'Estado' },
+    {
+      key: 'animal_count' as any,
+      label: 'Cantidad',
+      render: (_v, item) => {
+        const animalCount = item.animal_count ?? 0;
+        const capacityNum = parseInt(item.capacity || '0') || 0;
+        const percentage = capacityNum > 0 ? Math.round((animalCount / capacityNum) * 100) : 0;
 
-      return (
-        <div className="flex items-center gap-2">
-          <span className={`px-2 py-1 rounded-md text-xs font-semibold ${badgeColor}`}>
-            {animalCount}
-          </span>
-        </div>
-      );
-    }
-  },
-  {
-    key: 'occupancy' as any,
-    label: 'Ocupación',
-    render: (_v, item) => {
-      const animalCount = item.animal_count ?? 0;
-      const capacity = item.capacity || '';
-      return (
-        <div className="min-w-[180px]">
-          <FieldOccupancyBar animalCount={animalCount} capacity={capacity} />
-        </div>
-      );
-    }
-  },
-  { key: 'management', label: 'Manejo', render: (_v, item) => item.management || item.handlings || '-' },
-  { key: 'measurements', label: 'Mediciones', render: (_v, item) => item.measurements || item.gauges || '-' },
-  { key: 'food_type_id', label: 'Tipo de Alimento' },
-  { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
-];
+        // Determinar color del badge según ocupación
+        let badgeColor = 'bg-green-100 text-green-800';
+        if (percentage >= 90) badgeColor = 'bg-red-100 text-red-800';
+        else if (percentage >= 75) badgeColor = 'bg-orange-100 text-orange-800';
+        else if (percentage >= 50) badgeColor = 'bg-yellow-100 text-yellow-800';
+        else if (percentage >= 25) badgeColor = 'bg-blue-100 text-blue-800';
+
+        return (
+          <div className="flex items-center gap-2">
+            <span className={`px-2 py-1 rounded-md text-xs font-semibold ${badgeColor}`}>
+              {animalCount}
+            </span>
+          </div>
+        );
+      }
+    },
+    {
+      key: 'occupancy' as any,
+      label: 'Ocupación',
+      render: (_v, item) => {
+        const animalCount = item.animal_count ?? 0;
+        const capacity = item.capacity || '';
+        return (
+          <div className="min-w-[180px]">
+            <FieldOccupancyBar animalCount={animalCount} capacity={capacity} />
+          </div>
+        );
+      }
+    },
+    { key: 'management', label: 'Manejo', render: (_v, item) => item.management || item.handlings || '-' },
+    { key: 'measurements', label: 'Mediciones', render: (_v, item) => item.measurements || item.gauges || '-' },
+    {
+      key: 'food_type_id',
+      label: 'Tipo de Alimento',
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = foodTypeMap.get(id) || `Tipo ${id}`;
+        return <FoodTypeLink id={id} label={label} />;
+      }
+    },
+    { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
+  ], [foodTypeMap]);
 
 // Configuración CRUD base
 const crudConfig: CRUDConfig<FieldResponse & { [k: string]: any }, FieldFormInput> = {

@@ -7,6 +7,7 @@ import { vaccinesService } from '@/services/vaccinesService';
 import { usersService } from '@/services/userService';
 import type { VaccinationResponse, VaccinationInput } from '@/types/swaggerTypes';
 import { getTodayColombia } from '@/utils/dateUtils';
+import { AnimalLink, VaccineLink, UserLink } from '@/components/common/ForeignKeyHelpers';
 
 function AdminVaccinationsPage() {
   const [searchParams] = useSearchParams();
@@ -100,29 +101,49 @@ function AdminVaccinationsPage() {
     return map;
   }, [instructorOptions]);
 
-  // Columnas de la tabla con renderizado optimizado
+  // Columnas de la tabla con renderizado optimizado y Foreign Key Links
   const columns: CRUDColumn<VaccinationResponse & { [k: string]: any }>[] = useMemo(() => [
-    
+
     { key: 'vaccination_date', label: 'Fecha', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
     {
       key: 'animal_id',
       label: 'Animal',
-      render: (v) => animalMap.get(Number(v)) || `Animal ${v}` || '-'
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = animalMap.get(id) || `Animal ${id}`;
+        return <AnimalLink id={id} label={label} />;
+      }
     },
     {
       key: 'vaccine_id',
       label: 'Vacuna',
-      render: (v) => vaccineMap.get(Number(v)) || `Vacuna ${v}` || '-'
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = vaccineMap.get(id) || `Vacuna ${id}`;
+        return <VaccineLink id={id} label={label} />;
+      }
     },
     {
       key: 'apprentice_id',
       label: 'Aprendiz',
-      render: (v) => v ? (apprenticeMap.get(Number(v)) || `Aprendiz ${v}`) : '-'
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = apprenticeMap.get(id) || `Aprendiz ${id}`;
+        return <UserLink id={id} label={label} role="Aprendiz" />;
+      }
     },
     {
       key: 'instructor_id',
       label: 'Instructor',
-      render: (v) => v ? (instructorMap.get(Number(v)) || `Instructor ${v}`) : '-'
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = instructorMap.get(id) || `Instructor ${id}`;
+        return <UserLink id={id} label={label} role="Instructor" />;
+      }
     },
     { key: 'created_at' as any, label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
   ], [animalMap, vaccineMap, apprenticeMap, instructorMap]);

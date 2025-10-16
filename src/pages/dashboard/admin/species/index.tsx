@@ -3,6 +3,7 @@ import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/compon
 import { speciesService } from '@/services/speciesService';
 import type { SpeciesResponse, SpeciesInput } from '@/types/swaggerTypes';
 import { checkSpeciesDependencies } from '@/services/dependencyCheckService';
+import { SpeciesActionsMenu } from '@/components/dashboard/SpeciesActionsMenu';
 
 // Columnas de la tabla (mostrar únicamente name)
 const columns: CRUDColumn<SpeciesResponse & { [k: string]: any }>[] = [
@@ -44,6 +45,12 @@ const crudConfig: CRUDConfig<SpeciesResponse & { [k: string]: any }, SpeciesInpu
   preDeleteCheck: async (id: number) => {
     return await checkSpeciesDependencies(id);
   },
+  // Agregar menú de acciones
+  customActions: (record) => (
+    <div className="flex items-center gap-1">
+      <SpeciesActionsMenu species={record as SpeciesResponse} />
+    </div>
+  ),
 };
 
 // Mapear respuesta a formulario

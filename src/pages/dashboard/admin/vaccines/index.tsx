@@ -5,6 +5,7 @@ import { routeAdministrationsService } from '@/services/routeAdministrationsServ
 import { diseaseService } from '@/services/diseaseService';
 import { VACCINE_TYPES } from '@/constants/enums';
 import type { VaccineResponse, VaccineInput } from '@/types/swaggerTypes';
+import { DiseaseLink } from '@/components/common/ForeignKeyHelpers';
 
 function AdminVaccinesPage() {
   const [routeOptions, setRouteOptions] = React.useState<Array<{ value: number; label: string }>>([]);
@@ -65,22 +66,30 @@ function AdminVaccinesPage() {
     return map;
   }, [diseaseOptions]);
 
-  // Columnas de la tabla con renderizado optimizado
+  // Columnas de la tabla con renderizado optimizado y Foreign Key Links
   const columns: CRUDColumn<VaccineResponse & { [k: string]: any }>[] = useMemo(() => [
-    
     { key: 'name', label: 'Nombre' },
     { key: 'type', label: 'Tipo', render: (v) => v || '-' },
     { key: 'dosis', label: 'Dosis', render: (v) => v || '-' },
     {
       key: 'route_administration_id',
       label: 'Ruta Admin.',
-      render: (v) => v ? (routeMap.get(Number(v)) || `Ruta ${v}`) : '-'
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        return routeMap.get(id) || `Ruta ${id}`;
+      }
     },
     { key: 'vaccination_interval', label: 'Intervalo (días)', render: (v) => v || '-' },
     {
       key: 'target_disease_id',
       label: 'Enfermedad Objetivo',
-      render: (v) => v ? (diseaseMap.get(Number(v)) || `Enfermedad ${v}`) : '-'
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = diseaseMap.get(id) || `Enfermedad ${id}`;
+        return <DiseaseLink id={id} label={label} />;
+      }
     },
     { key: 'national_plan', label: 'Plan Nacional', render: (v) => v ? 'Sí' : 'No' },
     { key: 'created_at' as any, label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },

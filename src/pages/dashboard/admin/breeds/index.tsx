@@ -4,14 +4,8 @@ import { breedsService } from '@/services/breedsService';
 import type { BreedResponse, BreedInput } from '@/types/swaggerTypes';
 import { speciesService } from '@/services/speciesService';
 import { checkBreedDependencies } from '@/services/dependencyCheckService';
-
-// Columnas de la tabla (width numérico -> w-{n})
-const columns: CRUDColumn<BreedResponse & { [k: string]: any }>[] = [
-  
-  { key: 'name', label: 'Nombre' },
-  { key: 'species_id', label: 'Especie' },
-  { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
-];
+import { BreedActionsMenu } from '@/components/dashboard/BreedActionsMenu';
+import { SpeciesLink } from '@/components/common/ForeignKeyHelpers';
 
 
 // Mapear respuesta a formulario
@@ -56,6 +50,29 @@ function AdminBreedsPage() {
     })();
   }, []);
 
+  // Crear mapa de búsqueda optimizado
+  const speciesMap = React.useMemo(() => {
+    const map = new Map<number, string>();
+    speciesOptions.forEach(opt => map.set(opt.value, opt.label));
+    return map;
+  }, [speciesOptions]);
+
+  // Columnas de la tabla
+  const columns: CRUDColumn<BreedResponse & { [k: string]: any }>[] = React.useMemo(() => [
+    { key: 'name', label: 'Nombre' },
+    {
+      key: 'species_id',
+      label: 'Especie',
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = speciesMap.get(id) || `Especie ${id}`;
+        return <SpeciesLink id={id} label={label} />;
+      }
+    },
+    { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
+  ], [speciesMap]);
+
   const formSectionsLocal: CRUDFormSection<BreedInput>[] = [
     {
       title: 'Información Básica',
@@ -85,6 +102,12 @@ function AdminBreedsPage() {
     preDeleteCheck: async (id: number) => {
       return await checkBreedDependencies(id);
     },
+    // Agregar menú de acciones
+    customActions: (record) => (
+      <div className="flex items-center gap-1">
+        <BreedActionsMenu breed={record as BreedResponse} />
+      </div>
+    ),
   };
 
   return (

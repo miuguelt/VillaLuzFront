@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MoreVertical, Beef, Plus, Eye } from 'lucide-react';
+import { MoreVertical, Beef, Plus, Eye, LogOut, MoveRight } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,10 +12,12 @@ import {
 import { GenericModal } from '@/components/common/GenericModal';
 import { FieldResponse } from '@/types/swaggerTypes';
 import { getTodayColombia } from '@/utils/dateUtils';
+import { Button } from '@/components/ui/button';
 
 // Importar servicios
 import { animalFieldsService } from '@/services/animalFieldsService';
 import { animalsService } from '@/services/animalService';
+import { fieldService } from '@/services/fieldService';
 
 interface FieldActionsMenuProps {
   field: FieldResponse;
@@ -33,8 +35,15 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
   const [listData, setListData] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(false);
 
+  // Estados para acciones de animales
+  const [selectedAnimalField, setSelectedAnimalField] = useState<any>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [targetFieldId, setTargetFieldId] = useState<number | undefined>(undefined);
+
   // Opciones para los selects
   const [animalOptions, setAnimalOptions] = useState<Array<{ value: number; label: string }>>([]);
+  const [fieldOptions, setFieldOptions] = useState<Array<{ value: number; label: string }>>([]);
 
   // Cargar opciones cuando se abre un modal de creación
   useEffect(() => {
@@ -53,12 +62,22 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
   const loadOptions = async () => {
     try {
       const animals = await animalsService.getAnimals({ page: 1, limit: 1000 }).catch(() => []);
-
       const animalsData = animals || [];
       setAnimalOptions(animalsData.map((a: any) => ({
         value: a.id,
         label: a.record || `Animal ${a.id}`
       })));
+
+      // Cargar potreros para la funcionalidad de mover
+      const fields = await fieldService.getFields({ page: 1, limit: 1000 }).catch(() => ({ data: [] }));
+      const fieldsData = Array.isArray(fields) ? fields : (fields?.data || fields?.items || []);
+      setFieldOptions(fieldsData
+        .filter((f: any) => f.id !== field.id) // Excluir el potrero actual
+        .map((f: any) => ({
+          value: f.id,
+          label: f.name || `Potrero ${f.id}`
+        }))
+      );
     } catch (err) {
       console.error('Error loading options:', err);
     }
@@ -132,6 +151,62 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
     }
   };
 
+  const handleRemoveAnimal = async () => {
+    if (!selectedAnimalField) return;
+
+    setLoading(true);
+    try {
+      // Actualizar el registro con la fecha de retiro
+      await animalFieldsService.updateAnimalField(selectedAnimalField.id, {
+        ...selectedAnimalField,
+        removal_date: getTodayColombia()
+      });
+
+      alert('Animal retirado del potrero exitosamente');
+      setShowRemoveConfirm(false);
+      setSelectedAnimalField(null);
+      loadListData(); // Recargar la lista
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err.message || 'Error al retirar el animal');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMoveAnimal = async () => {
+    if (!selectedAnimalField || !targetFieldId) {
+      alert('Debe seleccionar un potrero de destino');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Marcar como retirado del potrero actual
+      await animalFieldsService.updateAnimalField(selectedAnimalField.id, {
+        ...selectedAnimalField,
+        removal_date: getTodayColombia()
+      });
+
+      // 2. Crear nuevo registro en el potrero destino
+      await animalFieldsService.createAnimalField({
+        animal_id: selectedAnimalField.animal_id,
+        field_id: targetFieldId,
+        assignment_date: getTodayColombia(),
+        notes: `Movido desde ${field.name || `Potrero ${field.id}`}`
+      });
+
+      alert('Animal movido exitosamente');
+      setShowMoveModal(false);
+      setSelectedAnimalField(null);
+      setTargetFieldId(undefined);
+      loadListData(); // Recargar la lista
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err.message || 'Error al mover el animal');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderListContent = () => {
     if (loadingList) {
       return (
@@ -170,28 +245,63 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
       return animal?.label || `Animal ${animalId}`;
     };
 
+    const isActive = !item.removal_date; // Animal activo si no tiene fecha de retiro
+
     return (
-      <div className="space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span className="font-medium text-foreground">Animal:</span>
-          <span className="text-muted-foreground">{item.animal_id ? getAnimalLabel(item.animal_id) : '-'}</span>
+      <div className="space-y-3">
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="font-medium text-foreground">Animal:</span>
+            <span className="text-muted-foreground">{item.animal_id ? getAnimalLabel(item.animal_id) : '-'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-medium text-foreground">Asignación:</span>
+            <span className="text-muted-foreground">
+              {item.assignment_date ? new Date(item.assignment_date).toLocaleDateString('es-ES') : '-'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="font-medium text-foreground">Retiro:</span>
+            <span className="text-muted-foreground">
+              {item.removal_date ? new Date(item.removal_date).toLocaleDateString('es-ES') : 'Actualmente asignado'}
+            </span>
+          </div>
+          {item.notes && (
+            <div>
+              <span className="font-medium text-foreground">Notas:</span>
+              <p className="text-muted-foreground mt-1">{item.notes}</p>
+            </div>
+          )}
         </div>
-        <div className="flex justify-between">
-          <span className="font-medium text-foreground">Asignación:</span>
-          <span className="text-muted-foreground">
-            {item.assignment_date ? new Date(item.assignment_date).toLocaleDateString('es-ES') : '-'}
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span className="font-medium text-foreground">Retiro:</span>
-          <span className="text-muted-foreground">
-            {item.removal_date ? new Date(item.removal_date).toLocaleDateString('es-ES') : 'Actualmente asignado'}
-          </span>
-        </div>
-        {item.notes && (
-          <div>
-            <span className="font-medium text-foreground">Notas:</span>
-            <p className="text-muted-foreground mt-1">{item.notes}</p>
+
+        {/* Botones de acción - solo para animales activos */}
+        {isActive && (
+          <div className="flex gap-2 pt-2 border-t border-border">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 text-xs"
+              onClick={() => {
+                setSelectedAnimalField(item);
+                setShowMoveModal(true);
+                loadOptions(); // Cargar opciones de potreros
+              }}
+            >
+              <MoveRight className="h-3.5 w-3.5 mr-1.5" />
+              Mover a otro potrero
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="flex-1 text-xs"
+              onClick={() => {
+                setSelectedAnimalField(item);
+                setShowRemoveConfirm(true);
+              }}
+            >
+              <LogOut className="h-3.5 w-3.5 mr-1.5" />
+              Retirar del potrero
+            </Button>
           </div>
         )}
       </div>
@@ -348,6 +458,102 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
               </div>
             </>
           )}
+        </div>
+      </GenericModal>
+
+      {/* Modal de confirmación para retirar animal */}
+      <GenericModal
+        isOpen={showRemoveConfirm}
+        onOpenChange={setShowRemoveConfirm}
+        title="Retirar Animal del Potrero"
+        description="¿Está seguro que desea retirar este animal del potrero?"
+        size="md"
+        enableBackdropBlur
+        className="bg-card/95 backdrop-blur-md text-card-foreground border-border/50"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-muted/50 rounded-lg border border-border">
+            <p className="text-sm text-muted-foreground">
+              Esta acción marcará el animal como retirado del potrero con la fecha de hoy.
+              El animal ya no contará en la ocupación del potrero.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRemoveConfirm(false);
+                setSelectedAnimalField(null);
+              }}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRemoveAnimal}
+              disabled={loading}
+            >
+              {loading ? 'Retirando...' : 'Retirar Animal'}
+            </Button>
+          </div>
+        </div>
+      </GenericModal>
+
+      {/* Modal para mover animal a otro potrero */}
+      <GenericModal
+        isOpen={showMoveModal}
+        onOpenChange={setShowMoveModal}
+        title="Mover Animal a Otro Potrero"
+        description="Seleccione el potrero de destino"
+        size="md"
+        enableBackdropBlur
+        className="bg-card/95 backdrop-blur-md text-card-foreground border-border/50"
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground">
+              Potrero de Destino *
+            </label>
+            <select
+              value={targetFieldId || ''}
+              onChange={(e) => setTargetFieldId(parseInt(e.target.value))}
+              className="w-full px-3 py-2 text-sm rounded-md border border-input bg-background ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="">Seleccionar potrero</option>
+              {fieldOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="p-4 bg-muted/50 rounded-lg border border-border">
+            <p className="text-sm text-muted-foreground">
+              Esta acción retirará el animal del potrero actual y lo asignará automáticamente
+              al potrero seleccionado con la fecha de hoy.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowMoveModal(false);
+                setSelectedAnimalField(null);
+                setTargetFieldId(undefined);
+              }}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleMoveAnimal}
+              disabled={loading || !targetFieldId}
+            >
+              {loading ? 'Moviendo...' : 'Mover Animal'}
+            </Button>
+          </div>
         </div>
       </GenericModal>
     </>

@@ -11,6 +11,7 @@ import { medicationsService } from '@/services/medicationsService';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import type { TreatmentResponse, TreatmentInput, TreatmentVaccineResponse, TreatmentMedicationResponse, VaccineResponse, MedicationResponse } from '@/types/swaggerTypes';
 import { getTodayColombia } from '@/utils/dateUtils';
+import { AnimalLink } from '@/components/common/ForeignKeyHelpers';
 
 // MOVIDO: columnas se declaran dentro del componente para poder usar openAssociations
 const AdminTreatmentsPage: React.FC = () => {
@@ -205,7 +206,16 @@ const AdminTreatmentsPage: React.FC = () => {
         </Button>
       ),
     },
-    { key: 'animal_id' as any, label: 'Animal', render: (value: any) => animalMap.get(Number(value)) || `Animal ${value}` || '-' },
+    {
+      key: 'animal_id' as any,
+      label: 'Animal',
+      render: (value: any) => {
+        if (!value) return '-';
+        const id = Number(value);
+        const label = animalMap.get(id) || `Animal ${id}`;
+        return <AnimalLink id={id} label={label} />;
+      }
+    },
     { key: 'treatment_date' as any, label: 'Fecha de tratamiento', render: (v) => (v ? new Date(String(v)).toLocaleDateString('es-ES') : '-') },
     { key: 'description' as any, label: 'Descripción', render: (v) => v ?? '-' },
     { key: 'dosis' as any, label: 'Dosis', render: (v) => v ?? '-' },

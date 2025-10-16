@@ -98,6 +98,80 @@ class AnalyticsService {
 			throw error;
 		}
 	}
+
+	// ========== ENDPOINTS ADICIONALES DE ANALYTICS ==========
+
+	/** Obtiene inventario de animales (distribución por especie, raza, sexo) */
+	async getAnimalInventory(): Promise<any> {
+		const res = await api.get(`${this.base}/animals/inventory`);
+		return unwrapApi(res);
+	}
+
+	/** Obtiene pirámide de edad de animales */
+	async getAgePyramid(): Promise<any> {
+		const res = await api.get(`${this.base}/animals/age-pyramid`);
+		return unwrapApi(res);
+	}
+
+	/** Obtiene tendencias de animales (nacimientos, muertes, ventas) */
+	async getAnimalTrends(months: number = 12): Promise<any> {
+		const res = await api.get(`${this.base}/animals/trends`, { params: { months } });
+		return unwrapApi(res);
+	}
+
+	/** Obtiene eficiencia reproductiva */
+	async getReproductiveEfficiency(): Promise<any> {
+		const res = await api.get(`${this.base}/animals/reproductive-efficiency`);
+		return unwrapApi(res);
+	}
+
+	/** Obtiene resumen de salud general */
+	async getHealthSummary(): Promise<any> {
+		const res = await api.get(`${this.base}/health/summary`);
+		return unwrapApi(res);
+	}
+
+	/** Obtiene estadísticas de enfermedades */
+	async getDiseaseStatistics(months: number = 12): Promise<any> {
+		const res = await api.get(`${this.base}/health/diseases`, { params: { months } });
+		return unwrapApi(res);
+	}
+
+	/** Obtiene cobertura de vacunación */
+	async getVaccinationCoverage(): Promise<any> {
+		const res = await api.get(`${this.base}/health/vaccination-coverage`);
+		return unwrapApi(res);
+	}
+
+	/** Obtiene ocupación de potreros */
+	async getFieldOccupation(): Promise<any> {
+		const res = await api.get(`${this.base}/fields/occupation`);
+		return unwrapApi(res);
+	}
+
+	/** Obtiene mapa de salud de potreros */
+	async getFieldHealthMap(): Promise<any> {
+		const res = await api.get(`${this.base}/fields/health-map`);
+		return unwrapApi(res);
+	}
+
+	/** Obtiene alertas del sistema */
+	async getAlerts(params?: any): Promise<any> {
+		const res = await api.get(`${this.base}/alerts`, { params });
+		return unwrapApi(res);
+	}
+
+	/** Obtiene distribución de animales para gráficos */
+	async getAnimalDistribution(): Promise<any> {
+		const res = await api.get(`${this.base}/charts/animal-distribution`);
+		return unwrapApi(res);
+	}
+
+	/** Obtiene heatmap de salud */
+	async getHealthHeatmap(): Promise<any> {
+		const res = await api.get(`${this.base}/charts/health-heatmap`);
+		return unwrapApi(res);
+	}
 }
 
 export const analyticsService = new AnalyticsService();

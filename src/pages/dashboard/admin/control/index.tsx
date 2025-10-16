@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Eye, Edit, Activity, TrendingUp } from 'lucide-react';
 import { getTodayColombia } from '@/utils/dateUtils';
+import { AnimalLink } from '@/components/common/ForeignKeyHelpers';
 
 // Tipo de formulario simplificado alineado al JSON solicitado
 type ControlForm = {
@@ -344,7 +345,12 @@ const AdminControlPage: React.FC = () => {
     {
       key: 'animal_id',
       label: 'Animal',
-      render: (value: any) => animalMap.get(Number(value)) || `Animal ${value}` || '-'
+      render: (value: any) => {
+        if (!value) return '-';
+        const id = Number(value);
+        const label = animalMap.get(id) || `Animal ${id}`;
+        return <AnimalLink id={id} label={label} />;
+      }
     },
     {
       key: 'checkup_date',

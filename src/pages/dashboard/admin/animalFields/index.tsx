@@ -12,6 +12,7 @@ import { PlusCircle } from 'lucide-react';
 import { FIELD_STATES } from '@/constants/enums';
 import type { AnimalFieldResponse, AnimalFieldInput, FieldInput } from '@/types/swaggerTypes';
 import { getTodayColombia } from '@/utils/dateUtils';
+import { AnimalLink, FieldLink } from '@/components/common/ForeignKeyHelpers';
 
 function AdminAnimalFieldsPage() {
   const [animalOptions, setAnimalOptions] = React.useState<Array<{ value: number; label: string }>>([]);
@@ -129,16 +130,26 @@ function AdminAnimalFieldsPage() {
 
   // Columnas de la tabla con renderizado optimizado
   const columns: CRUDColumn<AnimalFieldResponse & { [k: string]: any }>[] = useMemo(() => [
-    
+
     {
       key: 'animal_id',
       label: 'Animal',
-      render: (v) => animalMap.get(Number(v)) || `Animal ${v}`
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = animalMap.get(id) || `Animal ${id}`;
+        return <AnimalLink id={id} label={label} />;
+      }
     },
     {
       key: 'field_id',
       label: 'Campo',
-      render: (v) => fieldMap.get(Number(v)) || `Campo ${v}`
+      render: (v) => {
+        if (!v) return '-';
+        const id = Number(v);
+        const label = fieldMap.get(id) || `Campo ${id}`;
+        return <FieldLink id={id} label={label} />;
+      }
     },
     {
       key: 'assignment_date',
