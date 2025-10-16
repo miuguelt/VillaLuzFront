@@ -4,14 +4,8 @@ import { usersService } from '@/services/userService';
 import type { UserResponse } from '@/types/swaggerTypes';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, History, Grid, Table, MoreVertical } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Grid, Table } from 'lucide-react';
+import { UserActionsMenu } from '@/components/dashboard/UserActionsMenu';
 
 // Defino un input de formulario flexible para evitar forzar password en edición
 type UserFormInput = {
@@ -234,42 +228,10 @@ const renderUserCard = (user: UserResponse & { [k: string]: any }) => {
 // Página principal con estado para toggle de vista
 const AdminUsersPageWrapper = () => {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
-  const navigate = useNavigate();
 
-  // Acciones personalizadas para la tabla usando menú desplegable
+  // Acciones personalizadas para la tabla usando UserActionsMenu
   const customActions = (item: UserResponse & { [k: string]: any }) => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <MoreVertical className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-        <DropdownMenuItem
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/dashboard/admin/user-detail/${item.id}`);
-          }}
-        >
-          <Eye className="w-4 h-4 mr-2" />
-          Ver información
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/dashboard/admin/user-history/${item.identification}`);
-          }}
-        >
-          <History className="w-4 h-4 mr-2" />
-          Ver historial
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <UserActionsMenu user={item} />
   );
 
   // Toolbar personalizado con toggle de vista

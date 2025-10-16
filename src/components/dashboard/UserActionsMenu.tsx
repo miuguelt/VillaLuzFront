@@ -435,14 +435,9 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
     }
   };
 
-  // Determinar qué opciones mostrar según el rol
-  const showDiseaseOption = user.role === 'Instructor' || user.role === 'Administrador';
-  const showVaccinationOption = true; // Todos los roles pueden registrar/ver vacunaciones
-
-  // Si no hay opciones disponibles, no mostrar el menú
-  if (!showDiseaseOption && !showVaccinationOption) {
-    return null;
-  }
+  // Todos los usuarios pueden ver y registrar enfermedades y vacunaciones
+  const showDiseaseOption = true;
+  const showVaccinationOption = true;
 
   return (
     <>

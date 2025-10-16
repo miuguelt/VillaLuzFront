@@ -4,7 +4,6 @@ import { useAuth } from '../../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../../context/ToastContext';
 import { useModelStats } from '../../../hooks/useModelStats';
-import { useDashboardCounts } from '../../../hooks/useDashboardCounts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
@@ -21,6 +20,8 @@ import { SkeletonCard, SkeletonTable } from '@/components/ui/skeleton';
 // OPTIMIZACIÓN: Hooks PWA optimizados para backend
 import { useOptimizedList } from '@/hooks/useOptimizedData';
 import { DataSyncIndicator } from '@/components/common/DataSyncIndicator';
+import { DashboardStatsCard, DashboardStatsGrid } from '@/components/dashboard/DashboardStatsCard';
+import { useCompleteDashboardStats } from '@/hooks/useCompleteDashboardStats';
 
 // Lazy load de componentes pesados para mejorar tiempo de carga inicial
 const StatisticsCard = lazy(() => import('../../../components/dashboard/StatisticsCard'));
@@ -176,7 +177,7 @@ const AdminDashboard: React.FC = () => {
 
   // Cargar estadísticas de forma escalonada para mejorar percepción de velocidad
   const { data: stats, loading: statsLoading, error: statsError, refresh: refetch } = useModelStats('dashboard');
-  const { counts, loading: countsLoading, error: countsError } = useDashboardCounts();
+  const { stats: completeStats, loading: completeLoading, error: completeError, refetch: refetchComplete, lastUpdated } = useCompleteDashboardStats(true);
   // Cargar estadísticas adicionales SOLO cuando el tab activo las requiera (lazy loading de datos)
   const shouldLoadDetailedStats = activeTab === 'overview';
   const { data: healthStats } = useModelStats<any>('health', { enabled: shouldLoadDetailedStats });
@@ -336,10 +337,10 @@ const AdminDashboard: React.FC = () => {
 
   // OPTIMIZACIÓN: si stats o counts ya están listos, no mantener el skeleton por alertas
   useEffect(() => {
-    if (!countsLoading || !statsLoading) {
+    if (!completeLoading || !statsLoading) {
       setIsInitialLoad(false)
     }
-  }, [countsLoading, statsLoading])
+  }, [completeLoading, statsLoading])
 
   // Cleanup de timeouts programados
   useEffect(() => {
@@ -400,271 +401,76 @@ const AdminDashboard: React.FC = () => {
     [alerts, filterType, filterPriority]
   )
 
-  // Generar tarjetas del dashboard
-  const generateDashboardCards = (): DashboardCard[] => {
-    const baseCards: DashboardCard[] = [
-      {
-        id: 'total-users',
-        title: t('dashboard.cards.totalUsers'),
-        description: t('dashboard.cards.totalUsersDesc'),
-        icon: <Users className="h-5 w-5" />,
-        value: counts.usersRegistered ?? systemStats.totalUsers,
-        trend: {
-          value: 12,
-          isPositive: true,
-        },
-        href: '/admin/users',
-      },
-      {
-        id: 'active-users',
-        title: t('dashboard.cards.activeUsers'),
-        description: t('dashboard.cards.activeUsersDesc'),
-        icon: <Users className="h-5 w-5" />,
-        value: counts.usersActive ?? systemStats.activeUsers,
-        trend: {
-          value: 8,
-          isPositive: true,
-        },
-        href: '/admin/users?filter=active',
-      },
-      {
-        id: 'total-animals',
-        title: t('dashboard.cards.totalAnimals'),
-        description: t('dashboard.cards.totalAnimalsDesc'),
-        icon: <Building2 className="h-5 w-5" />,
-        value: counts.animalsRegistered ?? systemStats.totalAnimals,
-        trend: {
-          value: stats?.animalGrowthRate || 0,
-          isPositive: true,
-        },
-        href: '/admin/animals',
-      },
-      {
-        id: 'active-treatments',
-        title: t('dashboard.cards.activeTreatments'),
-        description: t('dashboard.cards.activeTreatmentsDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.activeTreatments ?? systemStats.activeTreatments,
-        trend: {
-          value: stats?.treatmentChangeRate || 0,
-          isPositive: false,
-        },
-        href: '/admin/treatments',
-      },
-    ];
+  // Generación de tarjetas del dashboard usando estadísticas completas del backend
+  const renderCompleteStatsCards = () => (
+    <div className="space-y-6">
+      {/* Errores del endpoint completo */}
+      {completeError && (
+        <Alert>
+          <AlertDescription>
+            Error cargando estadísticas: {completeError.message}
+            <Button variant="link" onClick={() => refetchComplete()} className="ml-2">
+              Reintentar
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
-    // Agregar tarjeta de tareas pendientes si hay permiso
-    if (hasPermission('task:read')) {
-      baseCards.push({
-        id: 'pending-tasks',
-        title: t('dashboard.cards.pendingTasks'),
-        description: t('dashboard.cards.pendingTasksDesc'),
-        icon: <AlertTriangle className="h-5 w-5" />,
-        value: counts.pendingTasks ?? systemStats.pendingTasks,
-        trend: {
-          value: 5,
-          isPositive: false,
-        },
-        // No hay ruta de tareas en AppRoutes; se deja sin navegación
-        href: undefined,
-      });
-    }
+      {/* Resumen General */}
+      <DashboardStatsGrid>
+        <DashboardStatsCard title="Usuarios Registrados" icon={Users} stat={completeStats?.usuarios_registrados} description="Total de usuarios" onClick={() => navigate('/admin/users')} />
+        <DashboardStatsCard title="Usuarios Activos" icon={Users} stat={completeStats?.usuarios_activos} description="Actividad reciente (30 días)" onClick={() => navigate('/admin/users?filter=active')} />
+        <DashboardStatsCard title="Animales Registrados" icon={Building2} stat={completeStats?.animales_registrados} description="Total de animales" onClick={() => navigate('/admin/animals')} />
+        <DashboardStatsCard title="Animales Activos" icon={Building2} stat={completeStats?.animales_activos} description="En seguimiento" onClick={() => navigate('/admin/animals')} />
+        <DashboardStatsCard title="Tratamientos Activos" icon={ClipboardList} stat={completeStats?.tratamientos_activos} description="En proceso" onClick={() => navigate('/admin/treatments')} />
+        <DashboardStatsCard title="Tratamientos Totales" icon={ClipboardList} stat={completeStats?.tratamientos_totales} description="Histórico" onClick={() => navigate('/admin/treatments')} />
+        <DashboardStatsCard title="Vacunas Aplicadas" icon={ClipboardList} stat={completeStats?.vacunas_aplicadas} description="Total histórico" onClick={() => navigate('/admin/vaccinations')} />
+        <DashboardStatsCard title="Controles Realizados" icon={ClipboardList} stat={completeStats?.controles_realizados} description="Sanidad" onClick={() => navigate('/admin/control')} />
+      </DashboardStatsGrid>
 
-    // Agregar tarjeta de alertas del sistema si hay permiso
-    if (hasPermission('system:read')) {
-      baseCards.push({
-        id: 'system-alerts',
-        title: t('dashboard.cards.systemAlerts'),
-        description: t('dashboard.cards.systemAlertsDesc'),
-        icon: <AlertTriangle className="h-5 w-5" />,
-        value: (counts.systemAlerts || systemStats.systemAlerts || 0),
-        trend: {
-          value: 3,
-          isPositive: false,
-        },
-        // No existe ruta dedicada; se deja sin navegación
-        href: undefined,
-      });
-    }
+      {/* Operación */}
+      <DashboardStatsGrid>
+        <DashboardStatsCard title="Potreros" icon={Building2} stat={completeStats?.campos_registrados} description="Campos registrados" onClick={() => navigate('/admin/fields')} />
+        <DashboardStatsCard title="Tareas Pendientes" icon={AlertTriangle} stat={completeStats?.tareas_pendientes} description="Requieren atención" />
+        <DashboardStatsCard title="Alertas del Sistema" icon={AlertTriangle} stat={completeStats?.alertas_sistema} description="Notificaciones" />
+        <DashboardStatsCard title="Mejoras Genéticas" icon={ClipboardList} stat={completeStats?.mejoras_geneticas} description="Programas activos" onClick={() => navigate('/admin/genetic_improvements')} />
+      </DashboardStatsGrid>
 
-    // Cards adicionales para visión general (salud y producción)
-    baseCards.push(
-      {
-        id: 'total-treatments',
-        title: t('dashboard.cards.totalTreatments'),
-        description: t('dashboard.cards.totalTreatmentsDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.treatmentsTotal ?? (healthStats?.summary?.total_treatments ?? 0),
-        trend: {
-          value: stats?.treatmentChangeRate || 0,
-          isPositive: (stats?.treatmentChangeRate ?? 0) >= 0,
-        },
-        href: '/admin/treatments',
-      },
-      {
-        id: 'total-vaccinations',
-        title: t('dashboard.cards.totalVaccinations'),
-        description: t('dashboard.cards.totalVaccinationsDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.vaccinationsApplied ?? (healthStats?.summary?.total_vaccinations ?? 0),
-        trend: {
-          value: stats?.vaccinationChangeRate || 0,
-          isPositive: (stats?.vaccinationChangeRate ?? 0) >= 0,
-        },
-        href: '/admin/vaccinations',
-      },
-      {
-        id: 'total-controls',
-        title: t('dashboard.cards.totalControls'),
-        description: t('dashboard.cards.totalControlsDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.controlsPerformed ?? (productionStats?.summary?.total_controls ?? 0),
-        trend: {
-          value: stats?.controlsChangeRate || 0,
-          isPositive: (stats?.controlsChangeRate ?? 0) >= 0,
-        },
-        href: '/admin/control',
-      },
-      {
-        id: 'total-fields',
-        title: t('dashboard.cards.totalFields'),
-        description: t('dashboard.cards.totalFieldsDesc'),
-        icon: <Building2 className="h-5 w-5" />,
-        value: counts.fieldsRegistered ?? (productionStats?.summary?.total_fields ?? 0),
-        trend: {
-          value: stats?.fieldsChangeRate || 0,
-          isPositive: (stats?.fieldsChangeRate ?? 0) >= 0,
-        },
-        href: '/admin/fields',
-      }
-    );
+      {/* Catálogos */}
+      <DashboardStatsGrid columns={3}>
+        <DashboardStatsCard title="Vacunas" icon={ClipboardList} stat={completeStats?.catalogo_vacunas} description="Catálogo" onClick={() => navigate('/admin/vaccines')} />
+        <DashboardStatsCard title="Medicamentos" icon={ClipboardList} stat={completeStats?.catalogo_medicamentos} description="Catálogo" onClick={() => navigate('/admin/medications')} />
+        <DashboardStatsCard title="Enfermedades" icon={ClipboardList} stat={completeStats?.catalogo_enfermedades} description="Catálogo" onClick={() => navigate('/admin/diseases')} />
+        <DashboardStatsCard title="Especies" icon={ClipboardList} stat={completeStats?.catalogo_especies} description="Catálogo" onClick={() => navigate('/admin/species')} />
+        <DashboardStatsCard title="Razas" icon={ClipboardList} stat={completeStats?.catalogo_razas} description="Catálogo" onClick={() => navigate('/admin/breeds')} />
+        <DashboardStatsCard title="Tipos de Alimento" icon={ClipboardList} stat={completeStats?.catalogo_tipos_alimento} description="Catálogo" onClick={() => navigate('/admin/food-types')} />
+      </DashboardStatsGrid>
 
-    // Catálogos y relaciones (enlazan a listas de modelos)
-    baseCards.push(
-      {
-        id: 'catalog-vaccines',
-        title: t('dashboard.cards.vaccines'),
-        description: t('dashboard.cards.vaccinesDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.vaccinesCount ?? 0,
-        href: '/admin/vaccines',
-      },
-      {
-        id: 'catalog-medications',
-        title: t('dashboard.cards.medications'),
-        description: t('dashboard.cards.medicationsDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.medicationsCount ?? 0,
-        href: '/admin/medications',
-      },
-      {
-        id: 'catalog-diseases',
-        title: t('dashboard.cards.diseases'),
-        description: t('dashboard.cards.diseasesDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.diseasesCount ?? 0,
-        href: '/admin/diseases',
-      },
-      {
-        id: 'catalog-species',
-        title: t('dashboard.cards.species'),
-        description: t('dashboard.cards.speciesDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.speciesCount ?? 0,
-        href: '/admin/species',
-      },
-      {
-        id: 'catalog-breeds',
-        title: t('dashboard.cards.breeds'),
-        description: t('dashboard.cards.breedsDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.breedsCount ?? 0,
-        href: '/admin/breeds',
-      },
-      {
-        id: 'relations-animal-fields',
-        title: t('dashboard.cards.animalFields'),
-        description: t('dashboard.cards.animalFieldsDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.animalFieldsCount ?? 0,
-        href: '/admin/animal-fields',
-      },
-      {
-        id: 'relations-disease-animals',
-        title: t('dashboard.cards.diseaseAnimals'),
-        description: t('dashboard.cards.diseaseAnimalsDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.animalDiseasesCount ?? 0,
-        href: '/admin/disease-animals',
-      },
-      {
-        id: 'genetic-improvements',
-        title: t('dashboard.cards.geneticImprovements'),
-        description: t('dashboard.cards.geneticImprovementsDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.geneticImprovementsCount ?? 0,
-        href: '/admin/genetic_improvements',
-      },
-      {
-        id: 'treatment-medications',
-        title: t('dashboard.cards.treatmentMedications'),
-        description: t('dashboard.cards.treatmentMedicationsDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.treatmentMedicationsCount ?? 0,
-        href: '/admin/treatment_medications',
-      },
-      {
-        id: 'treatment-vaccines',
-        title: t('dashboard.cards.treatmentVaccines'),
-        description: t('dashboard.cards.treatmentVaccinesDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.treatmentVaccinesCount ?? 0,
-        href: '/admin/treatment_vaccines',
-      },
-      {
-        id: 'catalog-food-types',
-        title: t('dashboard.cards.foodTypes'),
-        description: t('dashboard.cards.foodTypesDesc'),
-        icon: <ClipboardList className="h-5 w-5" />,
-        value: counts.foodTypesCount ?? 0,
-        href: '/admin/food-types',
-      }
-    );
-
-    return baseCards;
-  };
+      {/* Relaciones y Tratamientos */}
+      <DashboardStatsGrid columns={3}>
+        <DashboardStatsCard title="Animales por Campo" icon={ClipboardList} stat={completeStats?.animales_por_campo} description="Distribución" onClick={() => navigate('/admin/animal-fields')} />
+        <DashboardStatsCard title="Animales por Enfermedad" icon={ClipboardList} stat={completeStats?.animales_por_enfermedad} description="Sanidad" onClick={() => navigate('/admin/disease-animals')} />
+        <DashboardStatsCard title="Tratamientos con Medicamentos" icon={ClipboardList} stat={completeStats?.tratamientos_medicamentos} description="Aplicados" onClick={() => navigate('/admin/treatment_medications')} />
+        <DashboardStatsCard title="Tratamientos con Vacunas" icon={ClipboardList} stat={completeStats?.tratamientos_vacunas} description="Aplicados" onClick={() => navigate('/admin/treatment_vaccines')} />
+      </DashboardStatsGrid>
+    </div>
+  );
 
   // Renderizar contenido de la pestaña de resumen
   const renderOverviewTab = () => (
     <div className="space-y-6">
       {/* Tarjetas de estadísticas con skeleton screen mejorado */}
-      {countsError && (
-        <Alert>
-          <AlertDescription>
-            {t('common.error')}: {String(countsError)}
-          </AlertDescription>
-        </Alert>
+      {(completeLoading || isInitialLoad) ? (
+        <DashboardStatsGrid>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </DashboardStatsGrid>
+      ) : (
+        <Suspense fallback={Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}>
+          {renderCompleteStatsCards()}
+        </Suspense>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {(countsLoading || statsLoading || isInitialLoad) ? (
-          // Skeleton screen para mejor UX durante carga
-          Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <Suspense fallback={Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}>
-            {generateDashboardCards().map((card) => (
-              <StatisticsCard
-                key={card.id}
-                title={card.title}
-                description={card.description}
-                icon={card.icon}
-                value={card.value}
-                trend={card.trend}
-                onClick={card.href ? () => navigate(card.href!) : undefined}
-              />
-            ))}
-          </Suspense>
-        )}
-      </div>
 
       {/* Alertas del sistema */}
       {hasPermission('system:read') && (

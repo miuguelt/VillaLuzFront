@@ -1293,7 +1293,7 @@ const {
             }}
           >
                {config.viewMode === 'cards' ? (
-                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 auto-rows-fr">
+                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                    {visibleItems.map((item) => {
                      const isDeleting = deletingItems.has(String(item.id!));
                      const isNew = newItems.has(item.id!);
@@ -1306,7 +1306,7 @@ const {
                        <Card
                          key={item.id}
                          className={cn(
-                           'cursor-pointer transition-all duration-200 border-2 shadow-lg hover:shadow-xl h-full flex flex-col',
+                           'cursor-pointer transition-all duration-200 border-2 shadow-lg hover:shadow-xl flex flex-col',
                            'bg-gradient-to-br from-card via-card to-card/95',
                            'backdrop-blur-sm',
                            enhancedHover ? 'hover:border-primary/60 hover:bg-primary/5 hover:scale-[1.02] hover:-translate-y-1' : '',
@@ -1623,15 +1623,11 @@ const {
             isOpen={isModalOpen}
             onOpenChange={handleModalClose}
             title={editingItem ? `${t('common.edit', 'Editar')} ${config.entityName}: ${editingItem.id}` : `${t('common.create', 'Crear')} ${config.entityName}`}
-            description={editingItem
-              ? t('crud.edit_description', 'Modifica los campos necesarios y guarda los cambios')
-              : t('crud.create_description', 'Completa los campos obligatorios marcados con * y guarda')}
-            size="6xl"
+            size="5xl"
             variant="compact"
-            fullScreen
             allowFullScreenToggle
             enableBackdropBlur
-            className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
+            className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out max-h-[90vh]"
           >
             <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 h-full flex flex-col text-[13px] sm:text-sm">
               {config.formSections.map((section, _sectionIndex) => {
@@ -2045,13 +2041,11 @@ const {
             isOpen={isDetailOpen}
             onOpenChange={setIsDetailOpen}
             title={detailItem ? `Detalle del ${config.entityName}${config.showIdInDetailTitle === false ? '' : `: ${detailItem.id}`}` : `Detalle del ${config.entityName}`}
-            description={detailItem ? `Información detallada del ${config.entityName.toLowerCase()} con ID ${detailItem.id}` : `Información detallada del ${config.entityName.toLowerCase()}`}
-            size="5xl"
+            size="4xl"
             variant="compact"
-            fullScreen
             allowFullScreenToggle
             enableBackdropBlur
-            className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
+            className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out max-h-[90vh]"
           >
             {detailItem && (
               <div className="flex flex-col h-full">

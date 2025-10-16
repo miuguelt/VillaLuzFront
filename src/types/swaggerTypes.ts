@@ -259,7 +259,7 @@ export interface FieldResponse {
   measurements?: string;
   food_type_id?: number;
   food_type?: FoodTypeResponse;
-  current_animals?: number;
+  animal_count?: number; // Cantidad de animales actualmente en el campo (sin removal_date)
   created_at?: string;
   updated_at?: string;
 }

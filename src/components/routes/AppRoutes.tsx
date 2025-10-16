@@ -161,6 +161,11 @@ const AppRoutes = () => {
             <Route path="/admin/food-types/create" element={<FoodTypesCreatePage />} />
             <Route path="/admin/food-types/edit/:id" element={<FoodTypesEditPage />} />
             <Route path="/admin/genetic_improvements" element={<AdminGeneticImprovementsPage />} />
+            {/* Rutas adicionales para consistencia con otros roles */}
+            <Route path="/admin/genetic-improvements" element={<AdminGeneticImprovementsPage />} />
+            <Route path="/admin/controls" element={<AdminControlPage />} />
+            {/* Species-breeds: vista combinada de especies y razas */}
+            <Route path="/admin/species-breeds" element={<AdminSpeciesPage />} />
             {/* Treatments (admin) */}
             <Route path="/admin/treatments" element={<AdminTreatmentsPage />} />
             <Route path="/admin/treatments/form" element={<AdminTreatmentFormPage />} />

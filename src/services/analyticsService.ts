@@ -82,6 +82,22 @@ class AnalyticsService {
 		const path = `${this.base}/animals/${animalId}/medical-history`;
 		return getWithMicroCache<import('@/types/analytics').MedicalHistory>(path, params);
 	}
+
+	/**
+	 * Obtiene TODAS las estadísticas del dashboard en una sola llamada optimizada
+	 * Endpoint: GET /api/v1/analytics/dashboard/complete
+	 * Incluye: usuarios, animales, tratamientos, alertas, catálogos, relaciones, etc.
+	 * Caché del backend: 2 minutos
+	 */
+	async getCompleteDashboardStats(): Promise<any> {
+		try {
+			const res = await api.get(`${this.base}/dashboard/complete`);
+			return unwrapApi(res);
+		} catch (error) {
+			console.error('Error fetching complete dashboard stats:', error);
+			throw error;
+		}
+	}
 }
 
 export const analyticsService = new AnalyticsService();

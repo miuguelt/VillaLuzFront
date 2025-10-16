@@ -222,6 +222,17 @@ function AdminAnimalFieldsPage() {
     enableCreateModal: true,
     enableEditModal: true,
     enableDelete: true,
+    customToolbar: (
+      <Button
+        onClick={() => setIsNewFieldModalOpen(true)}
+        variant="outline"
+        size="sm"
+        className="flex items-center gap-2"
+      >
+        <PlusCircle className="h-4 w-4" />
+        Crear Nuevo Campo
+      </Button>
+    ),
   };
 
   // No renderizar hasta que las opciones estén cargadas
@@ -238,17 +249,6 @@ function AdminAnimalFieldsPage() {
 
   return (
     <>
-      <div className="mb-4 flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Asignación de Animales a Campos</h1>
-        <Button
-          onClick={() => setIsNewFieldModalOpen(true)}
-          className="flex items-center gap-2"
-        >
-          <PlusCircle className="h-4 w-4" />
-          Crear Nuevo Campo
-        </Button>
-      </div>
-
       <AdminCRUDPage
         config={crudConfig}
         service={animalFieldsService}

@@ -13,7 +13,8 @@ export interface Fields {
     measurements: string;
     area: string; // En la BD es varchar(255)
     food_type_id?: number;
-    
+    animal_count?: number; // Cantidad de animales actualmente en el campo
+
     food_types?: FoodTypes;
     animalFields?: AnimalFields[];
 }

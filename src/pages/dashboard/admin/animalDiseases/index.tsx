@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { animalDiseasesService } from '@/services/animalDiseasesService';
 import { animalsService } from '@/services/animalService';
@@ -9,6 +10,9 @@ import type { AnimalDiseaseResponse, AnimalDiseaseInput } from '@/types/swaggerT
 import { getTodayColombia } from '@/utils/dateUtils';
 
 function AdminAnimalDiseasesPage() {
+  const [searchParams] = useSearchParams();
+  const preselectedUserId = searchParams.get('user_id');
+
   const [animalOptions, setAnimalOptions] = React.useState<Array<{ value: number; label: string }>>([]);
   const [diseaseOptions, setDiseaseOptions] = React.useState<Array<{ value: number; label: string }>>([]);
   const [instructorOptions, setInstructorOptions] = React.useState<Array<{ value: number; label: string }>>([]);
@@ -139,6 +143,12 @@ function AdminAnimalDiseasesPage() {
     enableDelete: true,
   };
 
+  // Crear initialFormData con usuario preseleccionado si existe
+  const dynamicInitialFormData = useMemo(() => ({
+    ...initialFormData,
+    instructor_id: preselectedUserId ? Number(preselectedUserId) : undefined as any,
+  }), [preselectedUserId]);
+
   // No renderizar hasta que las opciones estén cargadas
   if (loading) {
     return (
@@ -155,7 +165,7 @@ function AdminAnimalDiseasesPage() {
     <AdminCRUDPage
       config={crudConfig}
       service={animalDiseasesService}
-      initialFormData={initialFormData}
+      initialFormData={dynamicInitialFormData}
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
       realtime={true}
