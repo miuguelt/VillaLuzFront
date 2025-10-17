@@ -197,7 +197,7 @@ export const sidebarItems: SidebarItemConfig[] = [
       {
         title: 'Modelos del Sistema',
         icon: <Database className="h-4 w-4" />,
-        path: 'admin/models',
+        path: 'base_model',
         roles: ['Administrador']
       },
     ],
