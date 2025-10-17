@@ -175,13 +175,9 @@ const AdminDashboard: React.FC = () => {
   const canReadUsers = hasPermission('user:read')
   const canReadSystem = hasPermission('system:read')
 
-  // Cargar estadísticas de forma escalonada para mejorar percepción de velocidad
-  const { data: stats, loading: statsLoading, error: statsError, refresh: refetch } = useModelStats('dashboard');
+  // OPTIMIZACIÓN: Usar SOLO useCompleteDashboardStats que trae TODAS las métricas en una sola llamada
+  // Esto elimina 3 llamadas HTTP redundantes (dashboard, health, production)
   const { stats: completeStats, loading: completeLoading, error: completeError, refetch: refetchComplete, lastUpdated } = useCompleteDashboardStats(true);
-  // Cargar estadísticas adicionales SOLO cuando el tab activo las requiera (lazy loading de datos)
-  const shouldLoadDetailedStats = activeTab === 'overview';
-  const { data: healthStats } = useModelStats<any>('health', { enabled: shouldLoadDetailedStats });
-  const { data: productionStats } = useModelStats<any>('production', { enabled: shouldLoadDetailedStats });
 
   // Helper: mapear color devuelto por backend a clases Tailwind
   const colorToClasses = (color?: string) => {
@@ -335,12 +331,12 @@ const AdminDashboard: React.FC = () => {
     }
   }, [user, canReadDashboard, fetchUsers, fetchAlerts])
 
-  // OPTIMIZACIÓN: si stats o counts ya están listos, no mantener el skeleton por alertas
+  // OPTIMIZACIÓN: si completeStats ya están listos, no mantener el skeleton por alertas
   useEffect(() => {
-    if (!completeLoading || !statsLoading) {
+    if (!completeLoading) {
       setIsInitialLoad(false)
     }
-  }, [completeLoading, statsLoading])
+  }, [completeLoading])
 
   // Cleanup de timeouts programados
   useEffect(() => {
@@ -352,19 +348,7 @@ const AdminDashboard: React.FC = () => {
     }
   }, [])
 
-  // Actualizar estadísticas cuando cambian los datos de la API (con guard para evitar loops)
-  const statsUpdateRef = useRef(false);
-  useEffect(() => {
-    if (stats && Object.keys(stats).length > 0 && !statsUpdateRef.current) {
-      statsUpdateRef.current = true;
-      setSystemStats(prev => ({
-        ...prev,
-        totalAnimals: stats.total_animals || 0,
-        activeTreatments: stats.summary?.active_treatments || 0,
-        pendingTasks: stats.summary?.pending_vaccinations || 0,
-      }));
-    }
-  }, [stats]);
+  // ELIMINADO: Ya no necesitamos actualizar systemStats desde stats (usamos completeStats directamente)
 
   // Marcar alerta como leída
   const markAlertAsRead = async (alertId: string) => {

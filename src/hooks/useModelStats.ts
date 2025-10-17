@@ -82,7 +82,11 @@ export function useModelStats<T=any>(model: string, options?: UseModelStatsOptio
   const cancelTokenSourceRef = useRef<ReturnType<typeof axios.CancelToken.source> | null>(null);
 
   // Memoizar params para evitar recreación en cada render
-  const stableParams = useMemo(() => params, [JSON.stringify(params)]);
+  // OPTIMIZACIÓN: Usar una comparación más eficiente que JSON.stringify
+  const stableParams = useMemo(() => params, [
+    Object.keys(params || {}).sort().join(','),
+    ...Object.values(params || {})
+  ]);
 
   const fetchStats = useCallback(async () => {
     if (!enabled) {

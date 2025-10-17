@@ -4,6 +4,7 @@ import { fieldService } from '@/services/fieldService';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import FieldCard from '@/components/analytics/FieldCard';
 import KPICard from '@/components/analytics/KPICard';
+import FieldDetailsModal from '@/components/analytics/FieldDetailsModal';
 import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 
 /**
@@ -12,6 +13,8 @@ import { MagnifyingGlassIcon } from '@heroicons/react/24/outline';
  */
 const FieldsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedField, setSelectedField] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Obtener lista de potreros
   const { data: fieldsData, isLoading } = useQuery({
@@ -35,14 +38,19 @@ const FieldsPage: React.FC = () => {
   );
 
   const handleViewDetails = (field: any) => {
-    console.log('Ver detalles del potrero:', field);
-    // Aquí puedes navegar a la página de detalles del potrero
-    // navigate(`/dashboard/admin/fields/${field.id}`);
+    setSelectedField(field);
+    setIsModalOpen(true);
   };
 
   const handleViewAnalytics = (field: any) => {
     console.log('Ver analytics del potrero:', field);
-    // Aquí puedes mostrar un modal o navegar a analytics específicos
+    // TODO: Implementar modal de analytics con gráficos
+    alert(`Analytics para ${field.name} - Próximamente disponible`);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setTimeout(() => setSelectedField(null), 300); // Delay para animación
   };
 
   return (
@@ -173,6 +181,13 @@ const FieldsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de Detalles */}
+      <FieldDetailsModal
+        field={selectedField}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 };
