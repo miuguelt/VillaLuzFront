@@ -50,7 +50,11 @@ export const useAnalytics = () => {
       queryKey: ['animal-trends', months],
       queryFn: () => analyticsService.getAnimalTrends(months),
       staleTime: 5 * 60 * 1000,
-      retry: 2,
+      retry: (failureCount, error: any) => {
+        // Don't retry on 404 - endpoint doesn't exist
+        if (error?.response?.status === 404) return false;
+        return failureCount < 2;
+      },
     });
 
   /**
@@ -106,7 +110,11 @@ export const useAnalytics = () => {
       queryKey: ['field-occupation'],
       queryFn: () => analyticsService.getFieldOccupation(),
       staleTime: 2 * 60 * 1000,
-      retry: 2,
+      retry: (failureCount, error: any) => {
+        // Don't retry on 404 - endpoint doesn't exist
+        if (error?.response?.status === 404) return false;
+        return failureCount < 2;
+      },
     });
 
   /**

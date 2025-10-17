@@ -48,7 +48,7 @@ export class BaseService<T> {
       cacheTimeout: 5 * 60 * 1000, // 5 minutos
       preferredListKeys: [],
       retryAttempts: 3,
-      timeout: 10000,
+      timeout: 30000, // Increased from 10s to 30s
       persistCache: true,
       ...options,
     };

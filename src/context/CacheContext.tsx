@@ -186,13 +186,21 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({
 
   // Precarga en background de rutas críticas
   const preloadCriticalRoutes = useCallback(() => {
+    // DISABLED: Using native fetch() causes 400/500 errors because it bypasses
+    // Axios interceptors (no JWT, no CSRF tokens, no auth headers).
+    // TODO: Reimplement using Axios or preloadData() with proper fetch functions
+
+    console.debug('[CacheContext] preloadCriticalRoutes disabled - use react-query prefetching instead');
+    return;
+
+    /* ORIGINAL CODE - DISABLED DUE TO AUTH ISSUES
     // Nota: el gating por autenticación se realiza en GlobalNetworkHandlers usando isAuthenticated.
     // Aquí mantenemos sólo la protección de mismo origen y la lógica de precarga.
 
     // Forzar base relativa para precargas: evita CORS/cookies cruzadas tanto en dev (localhost) como en prod (mismo origen)
     const apiBaseURL = '/api/v1';
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    
+
     const routeMappings = {
       'api:animals': `${apiBaseURL}/animals`,
       'api:fields': `${apiBaseURL}/fields`,
@@ -230,10 +238,11 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({
           throw new Error(`Failed to preload ${cacheKey}`);
         }).then(data => {
           setCacheData(cacheKey, data, 3 * 60 * 1000);
-        }).catch(() => { /* silent */ });
+        }).catch(() => { }); // silent
       }, Math.random() * 5000);
     });
-  }, [getCache, setCacheData]);
+    */
+  }, []);
 
   const value: CacheContextType = {
     getCache,

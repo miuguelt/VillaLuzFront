@@ -44,6 +44,11 @@ const AdminTreatmentDetailPage = lazy(() => import('@/pages/dashboard/admin/trea
 // NUEVO: AdminAnimalsPage para reutilizar en apprentice/instructor y admin
 const AdminAnimalsPage = lazy(() => import('@/pages/dashboard/admin/animals/index.tsx'));
 
+// Analytics Pages
+const DashboardExecutive = lazy(() => import('@/pages/analytics/DashboardExecutive'));
+const FieldsPage = lazy(() => import('@/pages/analytics/FieldsPage'));
+const CustomReports = lazy(() => import('@/pages/analytics/CustomReports'));
+
 // NUEVO: compuerta global de auth
 import { useAuth } from '@/hooks/useAuth';
 import LoadingScreen from '@/components/common/LoadingScreen';
@@ -51,6 +56,11 @@ import LoadingScreen from '@/components/common/LoadingScreen';
 // NUEVO: Helper para generar rutas comunes por rol (Aprendiz/Instructor)
 const renderRoleRoutes = (prefix: string) => (
   <>
+    {/* Analytics Routes */}
+    <Route path={`${prefix}/analytics/executive`} element={<DashboardExecutive />} />
+    <Route path={`${prefix}/analytics/fields`} element={<FieldsPage />} />
+    <Route path={`${prefix}/analytics/reports`} element={<CustomReports />} />
+
     {/* Animales */}
     <Route path={`${prefix}/animals`} element={<AdminAnimalsPage />} />
 
@@ -123,8 +133,14 @@ const AppRoutes = () => {
 
         {/* Protected Routes */}
         <Route element={<DashboardLayout />}> 
-          <Route element={<ProtectedRoute allowedRoles={['Administrador']} />}> 
+          <Route element={<ProtectedRoute allowedRoles={['Administrador']} />}>
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
+
+            {/* Analytics Routes (Admin) */}
+            <Route path="/admin/analytics/executive" element={<DashboardExecutive />} />
+            <Route path="/admin/analytics/fields" element={<FieldsPage />} />
+            <Route path="/admin/analytics/reports" element={<CustomReports />} />
+
             <Route path="/admin/users" element={<AdminUsersPage />} />
             {/* Admin animals ahora usa AdminAnimalsPage (migrado de All/*) */}
             <Route path="/admin/animals" element={<AdminAnimalsPage />} />

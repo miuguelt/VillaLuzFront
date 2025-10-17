@@ -9,8 +9,8 @@ import { getIndexedDBCache, setIndexedDBCache, startIndexedDBCacheCleanup } from
 const env: Record<string, any> = ((globalThis as any)?.['import']?.['meta']?.['env'])
   ?? ((typeof (globalThis as any).process !== 'undefined' ? ((globalThis as any).process as any).env : undefined) as any)
   ?? {};
-const API_TIMEOUT = Number(env.VITE_API_TIMEOUT ?? 10000);
-const REFRESH_TIMEOUT = Number(env.VITE_REFRESH_TIMEOUT ?? 8000);
+const API_TIMEOUT = Number(env.VITE_API_TIMEOUT ?? 30000); // Increased from 10s to 30s
+const REFRESH_TIMEOUT = Number(env.VITE_REFRESH_TIMEOUT ?? 15000); // Increased from 8s to 15s
 // Mantener compatibilidad con VITE_FORCE_ABSOLUTE_BASE_URL pero preferir getApiBaseURL()
 const FORCE_ABSOLUTE = String(env.VITE_FORCE_ABSOLUTE_BASE_URL ?? '').toLowerCase() === 'true';
 const DEBUG_LOG = String(env.VITE_DEBUG_MODE ?? '').toLowerCase() === 'true';

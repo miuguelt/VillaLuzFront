@@ -38,7 +38,7 @@ const DashboardExecutive: React.FC = () => {
   const { useDashboard, useAnimalTrends, useAlerts } = useAnalytics();
 
   const { data: dashboard, isLoading: loadingDashboard } = useDashboard();
-  const { data: trends, isLoading: loadingTrends } = useAnimalTrends(12);
+  const { data: trends, isLoading: loadingTrends, error: trendsError } = useAnimalTrends(12);
   const { data: alerts, isLoading: loadingAlerts } = useAlerts({
     priority: 'critical',
     limit: 5,
@@ -192,7 +192,16 @@ const DashboardExecutive: React.FC = () => {
             Tendencia de Inventario (12 meses)
           </h2>
           <div className="h-64">
-            {trendsData ? (
+            {loadingTrends ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-400">Cargando datos...</p>
+              </div>
+            ) : trendsError ? (
+              <div className="flex flex-col items-center justify-center h-full">
+                <p className="text-gray-400 text-sm">📊</p>
+                <p className="text-gray-400 text-xs mt-2">Endpoint no disponible</p>
+              </div>
+            ) : trendsData ? (
               <Line
                 data={trendsData}
                 options={{
@@ -216,7 +225,7 @@ const DashboardExecutive: React.FC = () => {
               />
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-gray-400">Cargando datos...</p>
+                <p className="text-gray-400">No hay datos disponibles</p>
               </div>
             )}
           </div>

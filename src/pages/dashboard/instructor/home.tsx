@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import StatisticsCard from "@/components/dashboard/Cards";
 import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,9 +15,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAnimalDiseases } from "@/hooks/animalDiseases/useAnimalDiseases";
 import { useAnimals } from "@/hooks/animal/useAnimals";
 import { safeArray } from '@/utils/apiHelpers';
+import { ChartBarIcon } from '@heroicons/react/24/outline';
 
 const InstructorHome = () => {
   const { name } = useAuth();
+  const navigate = useNavigate();
   const { animalStatusData } = useAnimals();
   const { data: animalDiseases } = useAnimalDiseases();
   const safeAnimalDiseases = safeArray(animalDiseases);
@@ -31,16 +34,25 @@ const InstructorHome = () => {
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Welcome, {name}</h1>
             <p className="text-sm text-muted-foreground">Instructor Home</p>
           </div>
-          <div className="overflow-x-auto">
-            <Tabs defaultValue="todos" className="w-full">
-              <TabsList className="whitespace-nowrap">
-                <TabsTrigger value="todos">All</TabsTrigger>
-                <TabsTrigger value="usuarios">Users</TabsTrigger>
-                <TabsTrigger value="animales">Animals</TabsTrigger>
-                <TabsTrigger value="sanidad">Health</TabsTrigger>
-                <TabsTrigger value="terrenos">Fields</TabsTrigger>
-              </TabsList>
-            </Tabs>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => navigate('/dashboard/instructor/analytics')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            >
+              <ChartBarIcon className="w-5 h-5" />
+              Ver Analytics
+            </button>
+            <div className="overflow-x-auto">
+              <Tabs defaultValue="todos" className="w-full">
+                <TabsList className="whitespace-nowrap">
+                  <TabsTrigger value="todos">All</TabsTrigger>
+                  <TabsTrigger value="usuarios">Users</TabsTrigger>
+                  <TabsTrigger value="animales">Animals</TabsTrigger>
+                  <TabsTrigger value="sanidad">Health</TabsTrigger>
+                  <TabsTrigger value="terrenos">Fields</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
         </div>
 
