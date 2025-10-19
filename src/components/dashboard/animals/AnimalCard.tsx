@@ -42,11 +42,11 @@ export function AnimalCard({
       <div className="relative">
         <AnimalImageBanner
           animalId={animal.id}
-          height="280px"
+          height="300px"
           showControls={true}
           autoPlayInterval={4000}
           hideWhenEmpty={false}
-          objectFit="contain"
+          objectFit="cover"
         />
 
         <div

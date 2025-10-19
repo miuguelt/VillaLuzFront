@@ -236,7 +236,9 @@ export function AnimalImageBanner({
               loading="lazy"
               style={{
                 objectPosition: 'center',
-                imageRendering: 'auto'
+                imageRendering: 'auto',
+                width: '100%',
+                height: '100%'
               }}
               onError={() => {
                 setImageErrors(prev => new Set(prev).add(currentImage.id));
@@ -345,17 +347,20 @@ export function AnimalImageBanner({
             <DialogTitle>{selectedImage?.filename}</DialogTitle>
           </DialogHeader>
           {selectedImage && (
-            <div className="relative w-full h-full flex items-center justify-center">
+            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
               <img
                 src={selectedImage.url}
                 alt={selectedImage.filename}
-                className="w-auto h-auto object-contain"
+                className="object-contain"
                 style={{ 
-                  imageRendering: 'auto',
+                  imageRendering: 'high-quality',
                   maxWidth: '100vw',
                   maxHeight: '100vh',
                   width: 'auto',
-                  height: 'auto'
+                  height: 'auto',
+                  display: 'block',
+                  objectFit: 'contain',
+                  objectPosition: 'center'
                 }}
                 onError={() => {
                   setImageErrors(prev => new Set(prev).add(selectedImage.id));

@@ -411,7 +411,7 @@ export function AnimalImageGallery({
           </DialogHeader>
 
           {selectedImage && (
-            <div className="relative w-full h-full flex items-center justify-center">
+            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
               {/* Imagen a pantalla completa */}
               {imageErrors.has(selectedImage.id) ? (
                 <div className="w-full h-full flex items-center justify-center">
@@ -424,13 +424,16 @@ export function AnimalImageGallery({
                 <img
                   src={selectedImage.url}
                   alt={selectedImage.filename}
-                  className="w-auto h-auto object-contain"
+                  className="object-contain"
                   style={{ 
-                    imageRendering: 'auto',
+                    imageRendering: 'high-quality',
                     maxWidth: '100vw',
                     maxHeight: '100vh',
                     width: 'auto',
-                    height: 'auto'
+                    height: 'auto',
+                    display: 'block',
+                    objectFit: 'contain',
+                    objectPosition: 'center'
                   }}
                   onError={() => {
                     setImageErrors(prev => new Set(prev).add(selectedImage.id));
