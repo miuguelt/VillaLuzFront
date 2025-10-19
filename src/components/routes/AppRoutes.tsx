@@ -92,8 +92,9 @@ const renderRoleRoutes = (prefix: string) => (
     {/* Mejoras genéticas */}
     <Route path={`${prefix}/genetic-improvements`} element={<AdminGeneticImprovementsPage />} />
 
-    {/* Especies y razas (vista combinada para no-admin) */}
-    <Route path={`${prefix}/species-breeds`} element={<AdminSpeciesPage />} />
+    {/* Especies y Razas (separadas) */}
+    <Route path={`${prefix}/species`} element={<AdminSpeciesPage />} />
+    <Route path={`${prefix}/breeds`} element={<AdminBreedsPage />} />
 
     {/* Tipos de alimento (solo vista lista en no-admin) */}
     <Route path={`${prefix}/food-types`} element={<AdminFoodTypesPage />} />
@@ -180,8 +181,6 @@ const AppRoutes = () => {
             {/* Rutas adicionales para consistencia con otros roles */}
             <Route path="/admin/genetic-improvements" element={<AdminGeneticImprovementsPage />} />
             <Route path="/admin/controls" element={<AdminControlPage />} />
-            {/* Species-breeds: vista combinada de especies y razas */}
-            <Route path="/admin/species-breeds" element={<AdminSpeciesPage />} />
             {/* Treatments (admin) */}
             <Route path="/admin/treatments" element={<AdminTreatmentsPage />} />
             <Route path="/admin/treatments/form" element={<AdminTreatmentFormPage />} />

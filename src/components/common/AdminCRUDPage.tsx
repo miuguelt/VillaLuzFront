@@ -2041,131 +2041,126 @@ const {
             isOpen={isDetailOpen}
             onOpenChange={setIsDetailOpen}
             title={detailItem ? `Detalle del ${config.entityName}${config.showIdInDetailTitle === false ? '' : `: ${detailItem.id}`}` : `Detalle del ${config.entityName}`}
-            size="4xl"
+            size="full"
             variant="compact"
             allowFullScreenToggle
             enableBackdropBlur
-            className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out max-h-[90vh]"
-          >
-            {detailItem && (
-              <div className="flex flex-col h-full">
-                {/* Contenido principal con scroll */}
-                <div className="flex-1 overflow-y-auto px-1 -mx-1">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pb-4">
-                    {/* Columna principal: información general (ocupa 2/3 en pantallas grandes) */}
-                    <div className="lg:col-span-2 space-y-4">
-                      {customDetailContent ? (
-                        customDetailContent(detailItem)
-                      ) : (
-                        <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-base">Información general</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                              {config.columns.map((col, _colIndex) => (
-                                <div key={String(col.key)} className="space-y-1">
-                                  <dt className="text-xs text-muted-foreground font-medium">{col.label}</dt>
-                                  <dd className="text-sm font-medium text-foreground">
-                                    {col.render
-                                      ? col.render((detailItem as any)[col.key], detailItem, 0)
-                                      : (() => {
-                                          const raw = (detailItem as any)[col.key];
-                                          const mapped = fkLabelMap[String(col.key)]?.get(String(raw));
-                                          return mapped ?? String(raw ?? '-');
-                                        })()}
-                                  </dd>
-                                </div>
-                              ))}
-                            </dl>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </div>
+            className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
+            footer={detailItem && (
+              <div className="border-t border-border/40 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/30 px-4 sm:px-6 py-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  {/* Navegación (izquierda en desktop, arriba en mobile) */}
+                  <div className="flex gap-2 sm:flex-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={handlePrevDetail}
+                      disabled={!visibleItems || visibleItems.length <= 1}
+                      className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                    >
+                      <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Anterior</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={handleNextDetail}
+                      disabled={!visibleItems || visibleItems.length <= 1}
+                      className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                    >
+                      <span className="hidden sm:inline">Siguiente</span>
+                      <ChevronRight className="h-4 w-4 sm:ml-1" />
+                    </Button>
+                  </div>
 
-                    {/* Columna lateral: metadatos (ocupa 1/3 en pantallas grandes) */}
-                    <div className="space-y-4">
-                      {/* Metadatos (fechas) */}
-                      {(config.showDetailTimestamps ?? true) && (((detailItem as any).created_at) || ((detailItem as any).updated_at)) && (
-                        <Card className="shadow-sm">
-                          <CardHeader className="pb-3">
-                            <CardTitle className="text-base">Fecha y hora</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <dl className="grid grid-cols-1 gap-3 text-sm">
-                              {(config.showDetailTimestamps ?? true) && (detailItem as any).created_at && (
-                                <div className="space-y-1">
-                                  <dt className="text-xs text-muted-foreground font-medium">Creado</dt>
-                                  <dd className="text-sm font-medium">{new Date((detailItem as any).created_at).toLocaleString('es-ES')}</dd>
-                                </div>
-                              )}
-                              {(config.showDetailTimestamps ?? true) && (detailItem as any).updated_at && (
-                                <div className="space-y-1">
-                                  <dt className="text-xs text-muted-foreground font-medium">Actualizado</dt>
-                                  <dd className="text-sm font-medium">{new Date((detailItem as any).updated_at).toLocaleString('es-ES')}</dd>
-                                </div>
-                              )}
-                            </dl>
-                          </CardContent>
-                        </Card>
-                      )}
-                    </div>
+                  {/* Acciones principales (derecha en desktop, abajo en mobile) */}
+                  <div className="flex gap-2 sm:justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={() => { setIsDetailOpen(false); setDetailIndex(null); }}
+                      className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                    >
+                      {t('modal.close', 'Cerrar')}
+                    </Button>
+                    {detailItem && config.enableEditModal !== false && (
+                      <Button
+                        size="sm"
+                        type="button"
+                        onClick={() => { openEdit(detailItem); setIsDetailOpen(false); setDetailIndex(null); }}
+                        className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                      >
+                        <Edit className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">{t('common.edit', 'Editar')}</span>
+                      </Button>
+                    )}
                   </div>
                 </div>
+              </div>
+            )}
+          >
+            {detailItem && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Columna principal: información general (ocupa 2/3 en pantallas grandes) */}
+                <div className="lg:col-span-2 space-y-4">
+                  {customDetailContent ? (
+                    customDetailContent(detailItem)
+                  ) : (
+                    <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">Información general</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                          {config.columns.map((col, _colIndex) => (
+                            <div key={String(col.key)} className="space-y-1">
+                              <dt className="text-xs text-muted-foreground font-medium">{col.label}</dt>
+                              <dd className="text-sm font-medium text-foreground">
+                                {col.render
+                                  ? col.render((detailItem as any)[col.key], detailItem, 0)
+                                  : (() => {
+                                      const raw = (detailItem as any)[col.key];
+                                      const mapped = fkLabelMap[String(col.key)]?.get(String(raw));
+                                      return mapped ?? String(raw ?? '-');
+                                    })()}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
 
-                {/* Footer fijo con botones de acción */}
-                <div className="border-t border-border/40 bg-muted/20 -mx-6 sm:-mx-8 px-4 sm:px-6 py-3 mt-4">
-                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                    {/* Navegación (izquierda en desktop, arriba en mobile) */}
-                    <div className="flex gap-2 sm:flex-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        onClick={handlePrevDetail}
-                        disabled={!visibleItems || visibleItems.length <= 1}
-                        className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
-                      >
-                        <ChevronLeft className="h-4 w-4 sm:mr-1" />
-                        <span className="hidden sm:inline">Anterior</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        onClick={handleNextDetail}
-                        disabled={!visibleItems || visibleItems.length <= 1}
-                        className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
-                      >
-                        <span className="hidden sm:inline">Siguiente</span>
-                        <ChevronRight className="h-4 w-4 sm:ml-1" />
-                      </Button>
-                    </div>
-
-                    {/* Acciones principales (derecha en desktop, abajo en mobile) */}
-                    <div className="flex gap-2 sm:justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        onClick={() => { setIsDetailOpen(false); setDetailIndex(null); }}
-                        className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
-                      >
-                        {t('modal.close', 'Cerrar')}
-                      </Button>
-                      {detailItem && config.enableEditModal !== false && (
-                        <Button
-                          size="sm"
-                          type="button"
-                          onClick={() => { openEdit(detailItem); setIsDetailOpen(false); setDetailIndex(null); }}
-                          className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
-                        >
-                          <Edit className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline">{t('common.edit', 'Editar')}</span>
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                {/* Columna lateral: metadatos (ocupa 1/3 en pantallas grandes) */}
+                <div className="space-y-4">
+                  {/* Metadatos (fechas) */}
+                  {(config.showDetailTimestamps ?? true) && (((detailItem as any).created_at) || ((detailItem as any).updated_at)) && (
+                    <Card className="shadow-sm">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">Fecha y hora</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <dl className="grid grid-cols-1 gap-3 text-sm">
+                          {(config.showDetailTimestamps ?? true) && (detailItem as any).created_at && (
+                            <div className="space-y-1">
+                              <dt className="text-xs text-muted-foreground font-medium">Creado</dt>
+                              <dd className="text-sm font-medium">{new Date((detailItem as any).created_at).toLocaleString('es-ES')}</dd>
+                            </div>
+                          )}
+                          {(config.showDetailTimestamps ?? true) && (detailItem as any).updated_at && (
+                            <div className="space-y-1">
+                              <dt className="text-xs text-muted-foreground font-medium">Actualizado</dt>
+                              <dd className="text-sm font-medium">{new Date((detailItem as any).updated_at).toLocaleString('es-ES')}</dd>
+                            </div>
+                          )}
+                        </dl>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
               </div>
             )}

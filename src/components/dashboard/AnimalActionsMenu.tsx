@@ -32,6 +32,7 @@ interface AnimalActionsMenuProps {
   onOpenHistory?: () => void;
   onOpenAncestorsTree?: () => void;
   onOpenDescendantsTree?: () => void;
+  onRefresh?: () => void;
 }
 
 type ModalType =
@@ -45,7 +46,7 @@ type ModalType =
 
 type ModalMode = 'create' | 'list';
 
-export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, currentUserId, onOpenHistory, onOpenAncestorsTree, onOpenDescendantsTree }) => {
+export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, currentUserId, onOpenHistory, onOpenAncestorsTree, onOpenDescendantsTree, onRefresh }) => {
   const [openModal, setOpenModal] = useState<ModalType>(null);
   const [modalMode, setModalMode] = useState<ModalMode>('create');
   const [formData, setFormData] = useState<any>({});
@@ -116,62 +117,79 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
     try {
       let data: any[] = [];
 
+      // Limpiar caché antes de cargar para asegurar datos frescos
       switch (openModal) {
         case 'genetic_improvement':
+          (geneticImprovementsService as any).clearCache?.();
           const giResult = await (geneticImprovementsService as any).getAll?.({
             animal_id: animal.id,
-            limit: 100
+            limit: 100,
+            cache_bust: Date.now() // Forzar bypass de caché
           });
           data = Array.isArray(giResult) ? giResult : (giResult?.data || giResult?.items || []);
           data = data.filter((item: any) => item.animal_id === animal.id);
           break;
 
         case 'animal_disease':
+          (animalDiseasesService as any).clearCache?.();
           const adResult = await (animalDiseasesService as any).getAll?.({
             animal_id: animal.id,
-            limit: 100
+            limit: 100,
+            cache_bust: Date.now()
           });
           data = Array.isArray(adResult) ? adResult : (adResult?.data || adResult?.items || []);
           data = data.filter((item: any) => item.animal_id === animal.id);
           break;
 
         case 'animal_field':
+          (animalFieldsService as any).clearCache?.();
           const afResult = await (animalFieldsService as any).getAll?.({
             animal_id: animal.id,
-            limit: 100
+            limit: 100,
+            cache_bust: Date.now()
           });
           data = Array.isArray(afResult) ? afResult : (afResult?.data || afResult?.items || []);
           data = data.filter((item: any) => item.animal_id === animal.id);
           break;
 
         case 'vaccination':
+          (vaccinationsService as any).clearCache?.();
           const vResult = await (vaccinationsService as any).getAll?.({
             animal_id: animal.id,
-            limit: 100
+            limit: 100,
+            cache_bust: Date.now()
           });
           data = Array.isArray(vResult) ? vResult : (vResult?.data || vResult?.items || []);
           data = data.filter((item: any) => item.animal_id === animal.id);
           break;
 
         case 'treatment':
+          (treatmentsService as any).clearCache?.();
           const tResult = await (treatmentsService as any).getAll?.({
             animal_id: animal.id,
-            limit: 100
+            limit: 100,
+            cache_bust: Date.now()
           });
           data = Array.isArray(tResult) ? tResult : (tResult?.data || tResult?.items || []);
           data = data.filter((item: any) => item.animal_id === animal.id);
           break;
 
         case 'control':
+          (controlService as any).clearCache?.();
           const cResult = await (controlService as any).getAll?.({
             animal_id: animal.id,
-            limit: 100
+            limit: 100,
+            cache_bust: Date.now()
           });
           data = Array.isArray(cResult) ? cResult : (cResult?.data || cResult?.items || []);
+          console.log('[AnimalActionsMenu] Controles recibidos del backend:', data.length);
+          console.log('[AnimalActionsMenu] Datos:', data);
           data = data.filter((item: any) => item.animal_id === animal.id);
+          console.log('[AnimalActionsMenu] Controles después de filtrar por animal_id', animal.id, ':', data.length);
           break;
       }
 
+      console.log('[AnimalActionsMenu] Total registros a mostrar:', data.length);
       setListData(data);
     } catch (err: any) {
       console.error('Error loading list data:', err);
@@ -295,12 +313,21 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
           await treatmentsService.createTreatment(formData);
           break;
         case 'control':
-          await (controlService as any).create(formData);
+          await controlService.createControl(formData);
           break;
       }
 
-      handleCloseModal();
+      // Mostrar modo lista después de crear exitosamente
+      setModalMode('list');
+      setError(null);
+      // Recargar datos de la lista
+      await loadListData();
+
       alert('Registro creado exitosamente');
+      // Refrescar datos de la tabla principal si se proporcionó callback
+      if (onRefresh) {
+        onRefresh();
+      }
     } catch (err: any) {
       setError(err?.response?.data?.message || err.message || 'Error al guardar');
     } finally {
@@ -467,8 +494,26 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
             </div>
             <div className="flex justify-between">
               <span className="font-medium text-foreground">Estado:</span>
-              <span className="text-muted-foreground">{item.health_status || '-'}</span>
+              <span className={`font-medium ${
+                item.health_status === 'Excelente' ? 'text-green-600' :
+                item.health_status === 'Bueno' ? 'text-blue-600' :
+                item.health_status === 'Regular' ? 'text-yellow-600' :
+                item.health_status === 'Malo' ? 'text-red-600' :
+                'text-muted-foreground'
+              }`}>{item.health_status || item.healt_status || 'Sano'}</span>
             </div>
+            {item.description && (
+              <div>
+                <span className="font-medium text-foreground">Descripción:</span>
+                <p className="text-muted-foreground mt-1">{item.description}</p>
+              </div>
+            )}
+            {item.created_at && (
+              <div className="flex justify-between text-xs pt-2 border-t border-border/50">
+                <span className="text-muted-foreground/70">Creado:</span>
+                <span className="text-muted-foreground/70">{new Date(item.created_at).toLocaleDateString('es-ES')}</span>
+              </div>
+            )}
           </div>
         );
 

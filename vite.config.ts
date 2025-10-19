@@ -279,6 +279,17 @@ export default defineConfig(({ command, mode }) => {
               }
             });
           }
+        },
+        // Proxy para rutas estáticas (imágenes y uploads) en desarrollo
+        '/public': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
+        },
+        '/static': {
+          target: proxyTarget,
+          changeOrigin: true,
+          secure: false,
         }
       }
     }

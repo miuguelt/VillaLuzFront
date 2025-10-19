@@ -63,7 +63,7 @@ const DialogContent = React.forwardRef<
 >(({ className, children, overlayClassName, ["aria-labelledby"]: ariaLabelledByProp, ["aria-describedby"]: ariaDescribedByProp, ...props }, ref) => {
   const hasTitle = containsDialogTitle(children)
   const hasDescription = React.Children.toArray(children).some(
-    child => React.isValidElement(child) && 
+    child => React.isValidElement(child) &&
     ((child.type as any) === DialogPrimitive.Description || (child.type as any) === DialogDescription)
   )
 
@@ -96,17 +96,18 @@ const DialogContent = React.forwardRef<
         )}
         aria-labelledby={finalAriaLabelledBy}
         aria-describedby={finalAriaDescribedBy}
+        onClick={(e) => e.stopPropagation()}
         {...props}
       >
         {/* Fallback a11y title to satisfy Radix requirement when none is provided */}
-        {!hasTitle && (
+        {!hasTitle && !ariaLabelledByProp && (
           <VisuallyHidden>
             <DialogPrimitive.Title id={titleId}>Dialog</DialogPrimitive.Title>
           </VisuallyHidden>
         )}
         
         {/* Fallback a11y description to satisfy Radix requirement when none is provided */}
-        {!hasDescription && (
+        {!hasDescription && !ariaDescribedByProp && (
           <VisuallyHidden>
             <DialogPrimitive.Description id={descriptionId}>
               Dialog content

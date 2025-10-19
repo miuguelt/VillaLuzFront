@@ -20,6 +20,8 @@ import { GenericModal } from '@/components/common/GenericModal';
 import { AnimalActionsMenu } from '@/components/dashboard/AnimalActionsMenu';
 import { useAuth } from '@/hooks/useAuth';
 import { BreedLink, AnimalLink } from '@/components/common/ForeignKeyHelpers';
+import { AnimalCard } from '@/components/dashboard/animals/AnimalCard';
+import { AnimalModalContent } from '@/components/dashboard/animals/AnimalModalContent';
 
 // Mapear respuesta del backend al formulario
 const mapResponseToForm = (item: AnimalResponse & { [k: string]: any }): Partial<AnimalInput> => {
@@ -428,7 +430,7 @@ function AdminAnimalsPage() {
     }
   };
 
-  // Función personalizada para renderizar el CONTENIDO de las tarjetas de animales (sin botones)
+  // Función personalizada para renderizar las tarjetas de animales
   const renderAnimalCard = (item: AnimalResponse & { [k: string]: any }) => {
     const breedId = item.breeds_id || item.breed_id;
     const breedLabel = breedId
@@ -445,51 +447,19 @@ function AdminAnimalsPage() {
       ? (motherOptions.find((o) => Number(o.value) === Number(motherId))?.label || `ID ${motherId}`)
       : '-';
 
-    const gender = item.sex || item.gender;
-    const birthDate = item.birth_date ? new Date(item.birth_date).toLocaleDateString('es-ES') : '-';
-    const ageMonths = item.age_in_months ?? '-';
-    const weight = item.weight ?? '-';
-    const status = item.status || '-';
-
     return (
-      <div className="grid grid-cols-2 gap-3 text-xs h-full">
-        <div className="col-span-2 flex items-center justify-between mb-1 gap-2">
-          <Badge variant="outline" className="text-xs px-2 py-0.5 flex-shrink-0">{status}</Badge>
-          <Badge variant="secondary" className="text-xs px-3 py-1">{gender || '-'}</Badge>
-        </div>
-        <div className="min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Raza</div>
-          <div className="truncate font-medium text-[13px]" title={breedLabel}>{breedLabel}</div>
-        </div>
-        <div className="min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Peso (kg)</div>
-          <div className="truncate text-[12px]">{weight}</div>
-        </div>
-        <div className="min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Nacimiento</div>
-          <div className="truncate text-[12px]">{birthDate}</div>
-        </div>
-        <div className="min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Edad (meses)</div>
-          <div className="truncate text-[12px]">{ageMonths}</div>
-        </div>
-        <div className="min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Adulto</div>
-          <div className="truncate text-[12px]">{item.is_adult === true ? 'Sí' : item.is_adult === false ? 'No' : '-'}</div>
-        </div>
-        <div className="min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Padre</div>
-          <div className="truncate text-[13px]" title={fatherLabel}>{fatherLabel}</div>
-        </div>
-        <div className="min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Madre</div>
-          <div className="truncate text-[13px]" title={motherLabel}>{motherLabel}</div>
-        </div>
-      </div>
+      <AnimalCard
+        animal={item}
+        breedLabel={breedLabel}
+        fatherLabel={fatherLabel}
+        motherLabel={motherLabel}
+        onFatherClick={openAnimalDetailModal}
+        onMotherClick={openAnimalDetailModal}
+      />
     );
   };
 
-  // Contenido personalizado para el modal de detalle
+  // Contenido personalizado para el modal de detalle con imágenes
   const renderAnimalDetail = (item: AnimalResponse & { [k: string]: any }) => {
     const breedId = item.breeds_id || item.breed_id;
     const breedLabel = breedId
@@ -506,26 +476,15 @@ function AdminAnimalsPage() {
       ? (motherOptions.find((o) => Number(o.value) === Number(motherId))?.label || `ID ${motherId}`)
       : '-';
 
-    const gender = item.sex || item.gender;
-    const birthDate = item.birth_date ? new Date(item.birth_date).toLocaleDateString('es-ES') : '-';
-    const createdAt = item.created_at ? new Date(item.created_at).toLocaleString('es-ES') : '-';
-
     return (
-      <div className="space-y-2 text-sm">
-        <div><strong>ID:</strong> {item.id}</div>
-        <div><strong>Registro:</strong> {item.record || '-'}</div>
-        <div><strong>Sexo:</strong> {gender || '-'}</div>
-        <div><strong>Estado:</strong> {item.status || '-'}</div>
-        <div><strong>Raza:</strong> {breedLabel}</div>
-        <div><strong>Fecha de nacimiento:</strong> {birthDate}</div>
-        <div><strong>Peso (kg):</strong> {item.weight ?? '-'}</div>
-        <div><strong>Edad (días):</strong> {item.age_in_days ?? '-'}</div>
-        <div><strong>Edad (meses):</strong> {item.age_in_months ?? '-'}</div>
-        <div><strong>Adulto:</strong> {item.is_adult === true ? 'Sí' : item.is_adult === false ? 'No' : '-'}</div>
-        <div><strong>Padre:</strong> {fatherLabel}</div>
-        <div><strong>Madre:</strong> {motherLabel}</div>
-        <div><strong>Creado:</strong> {createdAt}</div>
-      </div>
+      <AnimalModalContent
+        animal={item}
+        breedLabel={breedLabel}
+        fatherLabel={fatherLabel}
+        motherLabel={motherLabel}
+        onFatherClick={openAnimalDetailModal}
+        onMotherClick={openAnimalDetailModal}
+      />
     );
   };
 
@@ -622,39 +581,43 @@ function AdminAnimalsPage() {
       )}
 
       {/* Modal de detalle de animal (padre/madre) */}
-      {isAnimalDetailOpen && selectedAnimal && (
-        <GenericModal
-          isOpen={isAnimalDetailOpen}
-          onOpenChange={setIsAnimalDetailOpen}
-          title={`Detalle de Animal: ${selectedAnimal.record || `ID ${selectedAnimal.id}`}`}
-          description="Información detallada del animal"
-          size="5xl"
-          enableBackdropBlur
-          className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
-        >
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><strong>ID:</strong> {selectedAnimal.id}</div>
-              <div><strong>Registro:</strong> {selectedAnimal.record || '-'}</div>
-              <div><strong>Sexo:</strong> {selectedAnimal.sex || selectedAnimal.gender || '-'}</div>
-              <div><strong>Estado:</strong> {selectedAnimal.status || '-'}</div>
-              <div><strong>Raza:</strong> {selectedAnimal.breed?.name || selectedAnimal.breeds?.name || '-'}</div>
-              <div><strong>Fecha de nacimiento:</strong> {selectedAnimal.birth_date ? new Date(selectedAnimal.birth_date).toLocaleDateString('es-ES') : '-'}</div>
-              <div><strong>Peso:</strong> {selectedAnimal.weight ? `${selectedAnimal.weight} kg` : '-'}</div>
-              <div><strong>Edad:</strong> {selectedAnimal.age_in_months ? `${selectedAnimal.age_in_months} meses` : '-'}</div>
-            </div>
-            {(selectedAnimal.father_id || selectedAnimal.mother_id) && (
-              <div className="border-t pt-4">
-                <h4 className="font-medium mb-2">Genealogía</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><strong>Padre:</strong> {selectedAnimal.father?.record || selectedAnimal.father_id || '-'}</div>
-                  <div><strong>Madre:</strong> {selectedAnimal.mother?.record || selectedAnimal.mother_id || '-'}</div>
-                </div>
-              </div>
-            )}
-          </div>
-        </GenericModal>
-      )}
+      {isAnimalDetailOpen && selectedAnimal && (() => {
+        const breedId = selectedAnimal.breeds_id || selectedAnimal.breed_id;
+        const breedLabel = breedId
+          ? (breedOptions.find((b) => Number(b.value) === Number(breedId))?.label || (selectedAnimal.breed?.name) || `ID ${breedId}`)
+          : '-';
+
+        const fatherId = selectedAnimal.idFather || selectedAnimal.father_id;
+        const fatherLabel = fatherId
+          ? (fatherOptions.find((o) => Number(o.value) === Number(fatherId))?.label || `ID ${fatherId}`)
+          : '-';
+
+        const motherId = selectedAnimal.idMother || selectedAnimal.mother_id;
+        const motherLabel = motherId
+          ? (motherOptions.find((o) => Number(o.value) === Number(motherId))?.label || `ID ${motherId}`)
+          : '-';
+
+        return (
+          <GenericModal
+            isOpen={isAnimalDetailOpen}
+            onOpenChange={setIsAnimalDetailOpen}
+            title={`Detalle de Animal: ${selectedAnimal.record || `ID ${selectedAnimal.id}`}`}
+            description="Información detallada del animal"
+            size="5xl"
+            enableBackdropBlur
+            className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
+          >
+            <AnimalModalContent
+              animal={selectedAnimal}
+              breedLabel={breedLabel}
+              fatherLabel={fatherLabel}
+              motherLabel={motherLabel}
+              onFatherClick={openAnimalDetailModal}
+              onMotherClick={openAnimalDetailModal}
+            />
+          </GenericModal>
+        );
+      })()}
 
       {isHistoryOpen && historyAnimal && (
         <AnimalHistoryModal

@@ -12,32 +12,32 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <img 
-                src="/assets/logoSenaOrange.svg" 
-                alt="Logo SENA" 
+              <img
+                src="/favicon.svg"
+                alt="Logo Finca Villa Luz"
                 className="h-10 w-auto sm:h-12"
                 loading="lazy"
                 decoding="async"
               />
               <h1 className="ml-2 sm:ml-3 text-lg sm:text-2xl font-bold text-gray-900 hidden sm:block">
-                Livestock Management
+                Gestión Ganadera Villa Luz
               </h1>
               <h1 className="ml-2 text-lg font-bold text-gray-900 sm:hidden">
-                LMS
+                Villa Luz
               </h1>
             </div>
-            
+
             {/* Desktop Navigation */}
             <div className="hidden sm:flex items-center space-x-3">
-              <Link 
-                to="/login" 
+              <Link
+                to="/login"
                 className="bg-green-600 hover:bg-green-700 text-white p-2.5 rounded-lg transition-colors"
                 aria-label="Iniciar sesión"
               >
                 <LogIn className="h-5 w-5" />
               </Link>
-              <Link 
-                to="/signUp" 
+              <Link
+                to="/signUp"
                 className="bg-blue-600 hover:bg-blue-700 text-white p-2.5 rounded-lg transition-colors"
                 aria-label="Registrarse"
               >
@@ -49,7 +49,7 @@ const LandingPage = () => {
             <button
               className="sm:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              aria-label="Toggle menu"
+              aria-label="Abrir menú"
             >
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -59,16 +59,16 @@ const LandingPage = () => {
           {isMenuOpen && (
             <div className="sm:hidden py-4 border-t border-gray-200">
               <div className="flex justify-center space-x-4">
-                <Link 
-                  to="/login" 
+                <Link
+                  to="/login"
                   className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-lg transition-colors"
                   aria-label="Iniciar sesión"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   <LogIn className="h-6 w-6" />
                 </Link>
-                <Link 
-                  to="/signUp" 
+                <Link
+                  to="/signUp"
                   className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-lg transition-colors"
                   aria-label="Registrarse"
                   onClick={() => setIsMenuOpen(false)}
@@ -85,25 +85,25 @@ const LandingPage = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
         <div className="text-center">
           <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
-            Smart Livestock
-            <span className="block text-green-600 mt-1">Management</span>
+            Gestión Ganadera
+            <span className="block text-green-600 mt-1">Inteligente</span>
           </h2>
           <p className="mt-4 sm:mt-6 max-w-2xl mx-auto text-base sm:text-lg lg:text-xl text-gray-600 px-4">
-            Complete system for livestock farm administration. 
-            Control animals, treatments, vaccinations and more from an integrated platform.
+            Sistema completo para la administración de fincas ganaderas.
+            Controla animales, tratamientos, vacunaciones y más desde una plataforma integrada.
           </p>
           <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6 px-4">
-            <Link 
-              to="/login" 
+            <Link
+              to="/login"
               className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-medium transition-colors shadow-lg flex items-center justify-center gap-2"
               aria-label="Comenzar"
             >
               <LogIn className="h-5 w-5" />
-              <span className="hidden sm:inline">Get Started</span>
+              <span>Comenzar</span>
             </Link>
             <button className="w-full sm:w-auto bg-white hover:bg-gray-50 text-gray-900 px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-medium transition-colors shadow-lg border border-gray-300 flex items-center justify-center gap-2" aria-label="Ver demostración">
               <Play className="h-5 w-5" />
-              <span className="hidden sm:inline">Watch Demo</span>
+              <span>Ver Demo</span>
             </button>
           </div>
         </div>
@@ -116,8 +116,8 @@ const LandingPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Animal Management</h3>
-            <p className="text-gray-600 text-sm sm:text-base">Complete control of livestock inventory with individual tracking of each animal.</p>
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Gestión de Animales</h3>
+            <p className="text-gray-600 text-sm sm:text-base">Control completo del inventario ganadero con seguimiento individual de cada animal.</p>
           </div>
 
           <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
@@ -126,8 +126,8 @@ const LandingPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
             </div>
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Health Control</h3>
-            <p className="text-gray-600 text-sm sm:text-base">Tracking of treatments, vaccinations and health status of livestock.</p>
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Control Sanitario</h3>
+            <p className="text-gray-600 text-sm sm:text-base">Seguimiento de tratamientos, vacunaciones y estado de salud del ganado.</p>
           </div>
 
           <div className="bg-white p-6 sm:p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
@@ -136,8 +136,8 @@ const LandingPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Reports and Analytics</h3>
-            <p className="text-gray-600 text-sm sm:text-base">Detailed analysis and reports to optimize farm productivity.</p>
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Reportes y Análisis</h3>
+            <p className="text-gray-600 text-sm sm:text-base">Análisis detallados y reportes para optimizar la productividad de la finca.</p>
           </div>
         </div>
       </main>
@@ -147,7 +147,7 @@ const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <p className="text-gray-400 text-sm sm:text-base">
-              © 2024 Livestock Management System - SENA. All rights reserved.
+              © 2024 Sistema de Gestión Ganadera - Finca Villa Luz. Todos los derechos reservados.
             </p>
           </div>
         </div>

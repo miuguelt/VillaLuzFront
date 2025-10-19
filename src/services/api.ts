@@ -158,7 +158,14 @@ api.interceptors.request.use(
 
       if ((config as any).headers) {
         (config as any).headers['Accept'] = 'application/json';
-        (config as any).headers['Content-Type'] = 'application/json';
+
+        // Solo establecer Content-Type si no es FormData
+        // FormData necesita que el navegador establezca el Content-Type con el boundary correcto
+        const isFormData = config.data instanceof FormData;
+        if (!isFormData) {
+          (config as any).headers['Content-Type'] = 'application/json';
+        }
+
         const path = normalizePath(config.url as any);
         const isAuthLogin = path.startsWith('auth/login');
         const isAuthRefresh = path.startsWith('auth/refresh');
@@ -211,7 +218,12 @@ refreshClient.interceptors.request.use(
       const path = normalizePath(config.url as any);
       if ((config as any).headers) {
         (config as any).headers['Accept'] = 'application/json';
-        (config as any).headers['Content-Type'] = 'application/json';
+
+        // Solo establecer Content-Type si no es FormData
+        const isFormData = config.data instanceof FormData;
+        if (!isFormData) {
+          (config as any).headers['Content-Type'] = 'application/json';
+        }
         // Añadir Authorization para /auth/refresh y /auth/me si hay token
         try {
           if (typeof localStorage !== 'undefined') {

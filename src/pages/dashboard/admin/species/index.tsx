@@ -4,10 +4,17 @@ import { speciesService } from '@/services/speciesService';
 import type { SpeciesResponse, SpeciesInput } from '@/types/swaggerTypes';
 import { checkSpeciesDependencies } from '@/services/dependencyCheckService';
 import { SpeciesActionsMenu } from '@/components/dashboard/SpeciesActionsMenu';
+import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalStyles';
 
-// Columnas de la tabla (mostrar únicamente name)
+// Columnas de la tabla
 const columns: CRUDColumn<SpeciesResponse & { [k: string]: any }>[] = [
-  { key: 'name', label: 'name' },
+  { key: 'name', label: 'Nombre' },
+  {
+    key: 'description',
+    label: 'Descripción',
+    render: (v) => v ? (v as string).substring(0, 100) + (((v as string).length > 100) ? '...' : '') : '-'
+  },
+  { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
 ];
 
 // Secciones del formulario (sin cambios funcionales)
@@ -22,23 +29,100 @@ const formSections: CRUDFormSection<SpeciesInput>[] = [
   },
 ];
 
+// Renderizado personalizado para la tarjeta
+const renderSpeciesCard = (item: SpeciesResponse & { [k: string]: any }) => {
+  return (
+    <div className={modalStyles.spacing.section}>
+      <SectionCard title="Información Básica">
+        <InfoField label="Nombre" value={item.name || '-'} valueSize="large" />
+        {item.description && (
+          <InfoField
+            label="Descripción"
+            value={item.description.substring(0, 80) + (item.description.length > 80 ? '...' : '')}
+          />
+        )}
+      </SectionCard>
+      <SectionCard title="Fecha de Creación">
+        <InfoField
+          label="Creado"
+          value={item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }) : '-'}
+        />
+      </SectionCard>
+    </div>
+  );
+};
+
+// Renderizado personalizado para el detalle
+const renderSpeciesDetail = (item: SpeciesResponse & { [k: string]: any }) => {
+  return (
+    <div className={modalStyles.spacing.section}>
+      {/* Menú de Acciones */}
+      <div className="flex items-center justify-end gap-2 px-1 pb-3">
+        <div className="text-xs text-muted-foreground font-medium">Acciones rápidas:</div>
+        <SpeciesActionsMenu species={item as SpeciesResponse} />
+      </div>
+
+      <div className={modalStyles.twoColGrid}>
+        {/* Columna izquierda */}
+        <div className={modalStyles.spacing.section}>
+          <SectionCard title="Información Básica">
+            <div className={modalStyles.spacing.sectionSmall}>
+              <InfoField label="ID" value={`#${item.id}`} />
+              <InfoField label="Nombre" value={item.name || '-'} valueSize="xlarge" />
+            </div>
+          </SectionCard>
+
+          {item.description && (
+            <SectionCard title="Descripción">
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                {item.description}
+              </p>
+            </SectionCard>
+          )}
+        </div>
+
+        {/* Columna derecha */}
+        <div className={modalStyles.spacing.section}>
+          <SectionCard title="Información del Sistema">
+            <div className={modalStyles.fieldsGrid}>
+              <InfoField
+                label="Creado"
+                value={item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES') : '-'}
+              />
+              <InfoField
+                label="Actualizado"
+                value={item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-ES') : '-'}
+              />
+            </div>
+          </SectionCard>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Configuración CRUD
 const crudConfig: CRUDConfig<SpeciesResponse & { [k: string]: any }, SpeciesInput> = {
   title: 'Especies',
   entityName: 'Especie',
   columns,
   formSections,
+  // Especificar campos a cargar para optimizar
+  defaultFields: 'id,name,description,created_at,updated_at',
   searchPlaceholder: 'Buscar especies...',
   emptyStateMessage: 'No hay especies disponibles.',
   emptyStateDescription: 'Crea la primera para comenzar.',
-  enableDetailModal: true, // Habilitado
+  enableDetailModal: true,
   enableCreateModal: true,
   enableEditModal: true,
   enableDelete: true,
-  // Correcciones de modales
   showEditTimestamps: false,
   showDetailTimestamps: false,
-  showIdInDetailTitle: false, // ocultar el id del título
+  showIdInDetailTitle: false,
   confirmDeleteTitle: '¿Eliminar especie?',
   confirmDeleteDescription: 'Esta acción no se puede deshacer. Se eliminará la especie de forma permanente.',
   // Verificación de dependencias antes de eliminar
@@ -51,6 +135,9 @@ const crudConfig: CRUDConfig<SpeciesResponse & { [k: string]: any }, SpeciesInpu
       <SpeciesActionsMenu species={record as SpeciesResponse} />
     </div>
   ),
+  // Renderizado personalizado
+  renderCard: renderSpeciesCard,
+  customDetailContent: renderSpeciesDetail,
 };
 
 // Mapear respuesta a formulario

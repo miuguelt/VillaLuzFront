@@ -12,9 +12,11 @@ import {
   CardContent
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Eye, Edit, Activity, TrendingUp } from 'lucide-react';
 import { getTodayColombia } from '@/utils/dateUtils';
 import { AnimalLink } from '@/components/common/ForeignKeyHelpers';
+import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalStyles';
 
 // Tipo de formulario simplificado alineado al JSON solicitado
 type ControlForm = {
@@ -74,46 +76,48 @@ const renderControlCard = (animalOptions: { value: number; label: string }[]) =>
   const checkupDate = (item as any)?.checkup_date ?? (item as any)?.control_date;
   const formattedDate = checkupDate ? new Date(checkupDate as string).toLocaleDateString('es-ES') : '-';
   const healthStatus = (item as any)?.health_status ?? (item as any)?.healt_status ?? '-';
-  const description = (item as any)?.description ?? (item as any)?.observations ?? '-';
+  const description = (item as any)?.description ?? (item as any)?.observations;
+
+  const getBadgeColor = (status: string) => {
+    switch(status) {
+      case 'Excelente': return 'bg-green-500/90 hover:bg-green-600 text-white';
+      case 'Bueno': case 'Sano': return 'bg-blue-500/90 hover:bg-blue-600 text-white';
+      case 'Regular': return 'bg-yellow-500/90 hover:bg-yellow-600 text-white';
+      case 'Malo': return 'bg-red-500/90 hover:bg-red-600 text-white';
+      default: return 'bg-gray-500/90 hover:bg-gray-600 text-white';
+    }
+  };
 
   return (
-    <div className="space-y-3">
-      {/* Información básica */}
-      <div className="grid grid-cols-1 gap-2 text-xs">
-        <div className="flex justify-between items-center">
-          <span className="text-muted-foreground">Animal:</span>
-          <span className="font-medium text-foreground truncate max-w-[60%]" title={animalLabel}>
-            {animalLabel}
-          </span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-muted-foreground">Fecha:</span>
-          <span className="font-medium text-foreground">{formattedDate}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-muted-foreground">Estado:</span>
-          <span className="font-medium text-foreground">{healthStatus}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-muted-foreground">Peso:</span>
-          <span className="font-medium text-foreground">{item.weight ?? '-'} kg</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-muted-foreground">Altura:</span>
-          <span className="font-medium text-foreground">{item.height ?? '-'} m</span>
-        </div>
-      </div>
+    <div className={modalStyles.spacing.section}>
+      <SectionCard title="Estado de Salud">
+        <Badge className={`text-xs px-3 py-1 ${getBadgeColor(healthStatus)}`}>
+          {healthStatus}
+        </Badge>
+      </SectionCard>
 
-      {/* Descripción */}
-      {description && description !== '-' && (
-        <div className="border-t pt-2">
-          <div className="text-xs">
-            <span className="text-muted-foreground">Descripción:</span>
-            <p className="mt-1 text-foreground line-clamp-2" title={description}>
-              {description}
-            </p>
-          </div>
+      <SectionCard title="Información del Control">
+        <InfoField
+          label="Animal"
+          value={item.animal_id ? <AnimalLink id={item.animal_id} label={animalLabel} /> : '-'}
+          valueSize="large"
+        />
+        <InfoField label="Fecha" value={formattedDate} />
+      </SectionCard>
+
+      <SectionCard title="Métricas">
+        <div className={modalStyles.fieldsGrid}>
+          <InfoField label="Peso" value={item.weight ? `${item.weight} kg` : '-'} valueSize="large" />
+          <InfoField label="Altura" value={item.height ? `${item.height} m` : '-'} valueSize="large" />
         </div>
+      </SectionCard>
+
+      {description && (
+        <SectionCard title="Descripción">
+          <p className="text-xs text-foreground line-clamp-2">
+            {description}
+          </p>
+        </SectionCard>
       )}
     </div>
   );
@@ -137,6 +141,9 @@ const crudConfigLocal = (
   enableCreateModal: true,
   enableEditModal: true,
   enableDelete: true,
+  showDetailTimestamps: false,
+  showEditTimestamps: false,
+  showIdInDetailTitle: false,
   viewMode,
   renderCard: renderControlCard(animalOptions),
   customToolbar: (
@@ -224,49 +231,105 @@ const validateForm = (formData: ControlForm): string | null => {
 const makeCustomDetailContent = (animalOptions: { value: number; label: string }[]) => (item: ControlResponse) => {
   const map = new Map(animalOptions.map((o: { value: number; label: string }) => [o.value, o.label]));
   const animalLabel = map.get(item.animal_id as any) ?? item.animal_id;
+  const checkupDate = (item as any)?.checkup_date ?? (item as any)?.control_date;
+  const formattedDate = checkupDate ? new Date(checkupDate as string).toLocaleDateString('es-ES') : '-';
+  const healthStatus = (item as any)?.health_status ?? (item as any)?.healt_status ?? '-';
+  const description = (item as any)?.description ?? (item as any)?.observations;
+
+  const getBadgeColor = (status: string) => {
+    switch(status) {
+      case 'Excelente': return 'bg-green-500/90 hover:bg-green-600 text-white';
+      case 'Bueno': case 'Sano': return 'bg-blue-500/90 hover:bg-blue-600 text-white';
+      case 'Regular': return 'bg-yellow-500/90 hover:bg-yellow-600 text-white';
+      case 'Malo': return 'bg-red-500/90 hover:bg-red-600 text-white';
+      default: return 'bg-gray-500/90 hover:bg-gray-600 text-white';
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Información del Control</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <dt className="text-muted-foreground">ID</dt>
-              <dd className="font-medium">{item.id}</dd>
+    <div className={modalStyles.spacing.section}>
+      {/* Menú de Acciones */}
+      <div className="flex items-center justify-end gap-2 px-1 pb-3">
+        <div className="text-xs text-muted-foreground font-medium">Acciones rápidas:</div>
+        <div className="flex items-center gap-2">
+          <button
+            className="inline-flex items-center justify-center rounded-lg p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('Análisis detallado del control:', item);
+            }}
+            title="Ver análisis detallado del control"
+            aria-label="Ver análisis"
+          >
+            <Activity className="h-4 w-4" />
+          </button>
+          <button
+            className="inline-flex items-center justify-center rounded-lg p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('Ver tendencias del animal:', item);
+            }}
+            title="Ver tendencias y evolución"
+            aria-label="Ver tendencias"
+          >
+            <TrendingUp className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className={modalStyles.twoColGrid}>
+        {/* Columna izquierda */}
+        <div className={modalStyles.spacing.section}>
+          <SectionCard title="Información Básica">
+            <div className={modalStyles.spacing.sectionSmall}>
+              <InfoField label="ID" value={`#${item.id}`} />
+              <InfoField
+                label="Animal"
+                value={item.animal_id ? <AnimalLink id={item.animal_id} label={animalLabel as string} /> : '-'}
+                valueSize="xlarge"
+              />
+              <InfoField label="Fecha" value={formattedDate} valueSize="large" />
             </div>
-            <div>
-              <dt className="text-muted-foreground">Animal</dt>
-              <dd className="font-medium">{animalLabel}</dd>
+          </SectionCard>
+
+          <SectionCard title="Estado de Salud">
+            <Badge className={`text-sm px-4 py-1.5 ${getBadgeColor(healthStatus)}`}>
+              {healthStatus}
+            </Badge>
+          </SectionCard>
+
+          {description && (
+            <SectionCard title="Descripción">
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                {description}
+              </p>
+            </SectionCard>
+          )}
+        </div>
+
+        {/* Columna derecha */}
+        <div className={modalStyles.spacing.section}>
+          <SectionCard title="Métricas Físicas">
+            <div className={modalStyles.fieldsGrid}>
+              <InfoField label="Peso" value={item.weight ? `${item.weight} kg` : '-'} valueSize="xlarge" />
+              <InfoField label="Altura" value={item.height ? `${item.height} m` : '-'} valueSize="xlarge" />
             </div>
-            <div>
-              <dt className="text-muted-foreground">Fecha de Chequeo</dt>
-              <dd className="font-medium">{(() => { const d = (item as any)?.checkup_date ?? (item as any)?.control_date; return d ? new Date(d as string).toLocaleDateString('es-ES') : '-'; })()}</dd>
+          </SectionCard>
+
+          <SectionCard title="Información del Sistema">
+            <div className={modalStyles.fieldsGrid}>
+              <InfoField
+                label="Creado"
+                value={item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES') : '-'}
+              />
+              <InfoField
+                label="Actualizado"
+                value={item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-ES') : '-'}
+              />
             </div>
-            <div>
-              <dt className="text-muted-foreground">Peso</dt>
-              <dd className="font-medium">{item.weight ?? '-'}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Altura</dt>
-              <dd className="font-medium">{item.height ?? '-'}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Estado de Salud</dt>
-              <dd className="font-medium">{(item as any)?.health_status ?? (item as any)?.healt_status ?? '-'}</dd>
-            </div>
-            <div className="md:col-span-2 text-xs">
-              <dt className="text-muted-foreground">Descripción</dt>
-              <dd className="font-medium whitespace-pre-wrap">{(item as any)?.description ?? (item as any)?.observations ?? '-'}</dd>
-            </div>
-            <div>
-              <dt className="text-muted-foreground">Creado</dt>
-              <dd className="font-medium">{item.created_at ? new Date(item.created_at as string).toLocaleDateString('es-ES') : '-'}</dd>
-            </div>
-          </dl>
-        </CardContent>
-      </Card>
+          </SectionCard>
+        </div>
+      </div>
     </div>
   );
 };

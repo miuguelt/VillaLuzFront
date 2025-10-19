@@ -6,6 +6,7 @@ import { routeAdministrationsService } from '@/services/routeAdministrationsServ
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalStyles';
 
 // Input del formulario
 type MedicationInput = {
@@ -140,88 +141,123 @@ function AdminMedicationsPage() {
     },
   ];
 
-  const crudConfigLocal: CRUDConfig<MedicationResponse & { [k: string]: any }, MedicationInput> = {
-    ...crudConfig,
-    formSections: formSectionsLocal,
-  };
-
   const getRouteLabel = (id?: number | null) => {
     if (!id) return '-';
     return routeOptions.find((r) => r.value === id)?.label || `ID ${id}`;
   };
 
+  // Renderizado personalizado para la tarjeta
+  const renderMedicationCard = (item: MedicationResponse & { [k: string]: any }) => {
+    const availability = (item as any).availability;
+    const dosis = (item as any).dosis || '-';
+
+    return (
+      <div className={modalStyles.spacing.section}>
+        <SectionCard title="Información Básica">
+          <InfoField label="Nombre" value={item.name || '-'} valueSize="large" />
+          <div className="flex items-center gap-2 mt-2">
+            <Badge className={`text-xs px-3 py-1 ${
+              availability ? 'bg-green-500/90 hover:bg-green-600 text-white' : 'bg-gray-500/90 hover:bg-gray-600 text-white'
+            }`}>
+              {availability ? 'Disponible' : 'No disponible'}
+            </Badge>
+          </div>
+        </SectionCard>
+        <SectionCard title="Dosis">
+          <InfoField label="Dosis" value={dosis} valueSize="large" />
+        </SectionCard>
+      </div>
+    );
+  };
+
+  // Renderizado personalizado para el detalle
   const renderDetail = (item: (MedicationResponse & { [k: string]: any })) => {
     const availability = (item as any).availability;
     const routeId = (item as any).route_administration_id as number | undefined;
+    const dosis = (item as any).dosis || '-';
+    const indications = (item as any).indications;
+    const contraindications = (item as any).contraindications;
+    const description = (item as any).description;
+
     return (
-      <div className="space-y-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-base font-semibold">{item.name}</h3>
-            <p className="text-sm text-muted-foreground">Ficha del medicamento</p>
+      <div className={modalStyles.spacing.section}>
+        <div className={modalStyles.twoColGrid}>
+          {/* Columna izquierda */}
+          <div className={modalStyles.spacing.section}>
+            <SectionCard title="Información Básica">
+              <div className={modalStyles.spacing.sectionSmall}>
+                <InfoField label="ID" value={`#${item.id}`} />
+                <InfoField label="Nombre" value={item.name || '-'} valueSize="xlarge" />
+                <div className="mt-3">
+                  <div className={modalStyles.fieldLabel}>Disponibilidad</div>
+                  <Badge className={`text-sm px-3 py-1 ${
+                    availability ? 'bg-green-500/90 hover:bg-green-600 text-white' : 'bg-gray-500/90 hover:bg-gray-600 text-white'
+                  }`}>
+                    {availability ? 'Disponible' : 'No disponible'}
+                  </Badge>
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Dosificación">
+              <div className={modalStyles.fieldsGrid}>
+                <InfoField label="Dosis" value={dosis} valueSize="large" />
+                <InfoField label="Ruta" value={getRouteLabel(routeId)} />
+              </div>
+            </SectionCard>
+
+            {description && (
+              <SectionCard title="Descripción">
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                  {description}
+                </p>
+              </SectionCard>
+            )}
           </div>
-          <Badge variant={availability ? 'default' : 'secondary'}>{availability ? 'Disponible' : 'No disponible'}</Badge>
+
+          {/* Columna derecha */}
+          <div className={modalStyles.spacing.section}>
+            {indications && (
+              <SectionCard title="Indicaciones">
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                  {indications}
+                </p>
+              </SectionCard>
+            )}
+
+            {contraindications && (
+              <SectionCard title="Contraindicaciones">
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                  {contraindications}
+                </p>
+              </SectionCard>
+            )}
+
+            <SectionCard title="Información del Sistema">
+              <div className={modalStyles.fieldsGrid}>
+                <InfoField
+                  label="Creado"
+                  value={item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES') : '-'}
+                />
+                <InfoField
+                  label="Actualizado"
+                  value={item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-ES') : '-'}
+                />
+              </div>
+            </SectionCard>
+          </div>
         </div>
-
-        <Tabs defaultValue="ficha" className="w-full">
-          <TabsList className="grid grid-cols-4 w-full sm:max-w-xl">
-            <TabsTrigger value="ficha">Ficha</TabsTrigger>
-            <TabsTrigger value="indicaciones">Indicaciones</TabsTrigger>
-            <TabsTrigger value="contra">Contraindicaciones</TabsTrigger>
-            <TabsTrigger value="descripcion">Descripción</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="ficha" className="pt-2">
-            <div className="rounded-md border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Campo</TableHead>
-                    <TableHead>Valor</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">Nombre</TableCell>
-                    <TableCell>{item.name || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Dosis</TableCell>
-                    <TableCell>{(item as any).dosis || '-'}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Ruta de Administración</TableCell>
-                    <TableCell>{getRouteLabel(routeId)}</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">Disponibilidad</TableCell>
-                    <TableCell>{availability ? 'Sí' : 'No'}</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="indicaciones" className="pt-2">
-            <div className="p-3 rounded-md border bg-muted/20 text-sm whitespace-pre-wrap min-h-[80px]">
-              {(item as any).indications || '—'}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="contra" className="pt-2">
-            <div className="p-3 rounded-md border bg-muted/20 text-sm whitespace-pre-wrap min-h-[80px]">
-              {(item as any).contraindications || '—'}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="descripcion" className="pt-2">
-            <div className="p-3 rounded-md border bg-muted/20 text-sm whitespace-pre-wrap min-h-[80px]">
-              {(item as any).description || '—'}
-            </div>
-          </TabsContent>
-        </Tabs>
       </div>
     );
+  };
+
+  const crudConfigLocal: CRUDConfig<MedicationResponse & { [k: string]: any }, MedicationInput> = {
+    ...crudConfig,
+    formSections: formSectionsLocal,
+    showDetailTimestamps: false,
+    showEditTimestamps: false,
+    showIdInDetailTitle: false,
+    renderCard: renderMedicationCard,
   };
 
   return (

@@ -52,6 +52,16 @@ interface ForeignKeyLinkProps {
    * Si debe mostrar el icono de enlace externo
    */
   showIcon?: boolean;
+
+  /**
+   * Tamaño del modal
+   */
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full';
+
+  /**
+   * Habilitar botón de pantalla completa
+   */
+  enableFullScreenToggle?: boolean;
 }
 
 /**
@@ -66,7 +76,9 @@ export const ForeignKeyLink: React.FC<ForeignKeyLinkProps> = ({
   renderContent,
   fields,
   className = '',
-  showIcon = true
+  showIcon = true,
+  size = 'lg',
+  enableFullScreenToggle = false
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [data, setData] = useState<any>(null);
@@ -181,11 +193,11 @@ export const ForeignKeyLink: React.FC<ForeignKeyLinkProps> = ({
     <>
       <button
         onClick={handleClick}
-        className={`inline-flex items-center gap-1 text-primary hover:text-primary/80 hover:underline transition-colors cursor-pointer font-medium ${className}`}
+        className={`inline-flex items-center gap-0.5 text-primary hover:text-primary/80 hover:underline transition-colors cursor-pointer font-medium text-[9px] ${className}`}
         title={`Click para ver detalles de ${label}`}
       >
-        <span>{label}</span>
-        {showIcon && <ExternalLink className="h-3 w-3" />}
+        <span className="truncate">{label}</span>
+        {showIcon && <ExternalLink className="h-2.5 w-2.5 flex-shrink-0" />}
       </button>
 
       <GenericModal
@@ -193,8 +205,9 @@ export const ForeignKeyLink: React.FC<ForeignKeyLinkProps> = ({
         onOpenChange={setShowModal}
         title={modalTitle}
         description={`Información detallada de ${label}`}
-        size="2xl"
+        size={size}
         enableBackdropBlur
+        allowFullScreenToggle={enableFullScreenToggle}
         className="bg-card/95 backdrop-blur-md text-card-foreground border-border/50"
       >
         {renderModalContent()}

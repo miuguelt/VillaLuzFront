@@ -49,17 +49,35 @@ interface AnimalHistoryModalProps {
      status?: string;
    };
    onClose: () => void;
+   refreshTrigger?: number;
  }
 
-export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps) => {
+export const AnimalHistoryModal = ({ animal, onClose, refreshTrigger }: AnimalHistoryModalProps) => {
     console.log('AnimalHistoryModal rendered with animal:', animal);
-    const { data: animalDiseases } = useAnimalDiseases();
-    const { data: animalFields } = useAnimalFields();
-    const { data: treatments } = useTreatment();
-    const { data: controls } = useControls();
+    const { data: animalDiseases, refetch: refetchDiseases } = useAnimalDiseases();
+    const { data: animalFields, refetch: refetchFields } = useAnimalFields();
+    const { data: treatments, refetch: refetchTreatments } = useTreatment();
+    const { data: controls, refetch: refetchControls } = useControls();
     const [historyLoading, setHistoryLoading] = useState(false);
     const [historyError, setHistoryError] = useState<string | null>(null);
     const [remoteHistory, setRemoteHistory] = useState<any | null>(null);
+
+    // Refrescar todos los datos al montar el componente (cuando se abre el historial)
+    useEffect(() => {
+      const refreshAllData = async () => {
+        try {
+          await Promise.all([
+            refetchDiseases?.(),
+            refetchFields?.(),
+            refetchTreatments?.(),
+            refetchControls?.()
+          ]);
+        } catch (e) {
+          console.error('Error refreshing history data:', e);
+        }
+      };
+      refreshAllData();
+    }, []); // Solo al montar
 
     // Estado para vista previa
     const [previewOpen, setPreviewOpen] = useState(false);
@@ -86,7 +104,17 @@ export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps)
      return () => {
        active = false;
      };
-   }, [animal.idAnimal]);
+   }, [animal.idAnimal, refreshTrigger]);
+
+   // Refrescar datos cuando cambia refreshTrigger
+   useEffect(() => {
+     if (refreshTrigger !== undefined && refreshTrigger > 0) {
+       refetchDiseases?.();
+       refetchFields?.();
+       refetchTreatments?.();
+       refetchControls?.();
+     }
+   }, [refreshTrigger, refetchDiseases, refetchFields, refetchTreatments, refetchControls]);
 
    // Filter and search states - removed unused filter states
    // const [searchTerm, setSearchTerm] = useState('');
@@ -173,18 +201,19 @@ export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps)
 
      // Add control events
      animalControlsData.forEach((control: any) => {
+       const healthStatus = control.health_status || control.healt_status || '';
        events.push({
          id: `control-${control.id}`,
          date: control.checkup_date,
          type: 'control',
          title: 'Control de Salud',
-         description: `Estado: ${control.healt_status} - ${control.description}`,
-         status: control.healt_status,
+         description: `Estado: ${healthStatus} - ${control.description}`,
+         status: healthStatus,
          icon: <Activity className="w-4 h-4" />,
          previewType: 'control',
          previewData: {
            date: control.checkup_date,
-           status: control.healt_status || control.health_status || '',
+           status: healthStatus,
            weight: control.weight ?? '',
            temperature: control.temperature ?? '',
            heart_rate: control.heart_rate ?? '',
@@ -690,6 +719,7 @@ export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps)
            onClose={onClose}
            size="6xl"
            description={`${getAnimalLabel(animal) || 'Sin registro'}`}
+           allowFullScreenToggle={true}
          >
            <ModalHeader>
              <span className="flex items-center gap-2">
@@ -699,7 +729,7 @@ export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps)
            </ModalHeader>
            <ModalContent>
              <ModalBody>
-               <div className="p-4 overflow-hidden flex-1">
+               <div className="flex flex-col h-full -m-4 -mb-4">
                  {/* Manejo de loading y error */}
                  {historyLoading ? (
                    <div className="flex justify-center items-center py-8">
@@ -711,8 +741,8 @@ export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps)
                    </div>
                  ) : (
                    // --- Tabs solicitadas: Tratamientos, Potreros y Enfermedades ---
-                   <div className="space-y-4">
-                     <Tabs defaultValue="treatments" className="w-full">
+                   <div className="flex flex-col h-full">
+                     <Tabs defaultValue="treatments" className="flex flex-col h-full">
                        <TabsList className="grid w-full grid-cols-5">
                          <TabsTrigger value="timeline">Línea de tiempo</TabsTrigger>
                          <TabsTrigger value="treatments">Tratamientos</TabsTrigger>
@@ -720,7 +750,7 @@ export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps)
                          <TabsTrigger value="diseases">Enfermedades</TabsTrigger>
                          <TabsTrigger value="controls">Controles</TabsTrigger>
                        </TabsList>
-                       <TabsContent value="timeline" className="mt-3">
+                       <TabsContent value="timeline" className="mt-3 flex-1 overflow-y-auto">
                          {timelineEvents.length === 0 ? (
                            <div className="text-center py-6 text-muted-foreground">
                              Sin eventos en la línea de tiempo para este animal.
@@ -765,7 +795,7 @@ export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps)
                          )}
                        </TabsContent>
 
-                       <TabsContent value="treatments" className="mt-3">
+                       <TabsContent value="treatments" className="mt-3 flex-1 overflow-y-auto">
                          {treatmentRows.length === 0 ? (
                            <div className="text-center py-6 text-muted-foreground">
                              Sin tratamientos para este animal.
@@ -803,7 +833,7 @@ export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps)
                          )}
                        </TabsContent>
 
-                       <TabsContent value="fields" className="mt-3">
+                       <TabsContent value="fields" className="mt-3 flex-1 overflow-y-auto">
                          {fieldRows.length === 0 ? (
                            <div className="text-center py-6 text-muted-foreground">
                              Sin movimientos de campo para este animal.
@@ -838,7 +868,7 @@ export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps)
                          )}
                        </TabsContent>
 
-                       <TabsContent value="diseases" className="mt-3">
+                       <TabsContent value="diseases" className="mt-3 flex-1 overflow-y-auto">
                          {diseaseRows.length === 0 ? (
                            <div className="text-center py-6 text-muted-foreground">
                              Sin enfermedades registradas para este animal.
@@ -873,7 +903,7 @@ export const AnimalHistoryModal = ({ animal, onClose }: AnimalHistoryModalProps)
                          )}
                        </TabsContent>
 
-                       <TabsContent value="controls" className="mt-3">
+                       <TabsContent value="controls" className="mt-3 flex-1 overflow-y-auto">
                          {controlRows.length === 0 ? (
                            <div className="text-center py-6 text-muted-foreground">
                              Sin controles de salud para este animal.

@@ -1,6 +1,7 @@
 export * from './analyticsService';
 export * from './animalDiseasesService';
 export * from './animalFieldsService';
+export * from './animalImageService';
 export * from './animalService';
 export * from './authService';
 export * from './baseService';

@@ -29,6 +29,7 @@ interface GenericModalProps {
   fullScreen?: boolean;
   allowFullScreenToggle?: boolean;
   onFullScreenChange?: (next: boolean) => void;
+  footer?: React.ReactNode;
 }
 
 // Mapeo de tamaños a clases Tailwind (aplica principalmente en ≥sm)
@@ -87,6 +88,7 @@ export const GenericModal: React.FC<GenericModalProps> = ({
   fullScreen = false,
   allowFullScreenToggle = false,
   onFullScreenChange,
+  footer,
 }) => {
   const overlayClasses = enableBackdropBlur
     ? '!bg-black/80 backdrop-blur-md sm:backdrop-blur-lg motion-safe:transition-all motion-safe:duration-300 motion-reduce:transition-none'
@@ -157,27 +159,28 @@ export const GenericModal: React.FC<GenericModalProps> = ({
   const modalClasses = cn(
     // Mobile-first: pantalla completa con diseño optimizado
     'w-full h-dvh max-h-dvh rounded-none overflow-hidden',
-    variant === 'compact' ? 'p-2' : 'p-3',
+    // IMPORTANTE: Sobrescribir el padding por defecto del DialogContent
+    '!p-0 !gap-0',
     // Safe areas para dispositivos con notch
     'pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]',
-    // ≥sm: modal flotante con diseño futurista
+    // ≥sm: modal flotante con diseño futurista - aprovechar casi todo el alto
     'sm:w-full',
-    computedFullScreen ? 'sm:h-[92vh] sm:max-h-[92vh] sm:rounded-none sm:p-6 md:p-8' : 'sm:h-auto sm:max-h-[92vh] sm:rounded-3xl sm:p-6 md:p-8',
+    computedFullScreen ? 'sm:h-[98vh] sm:max-h-[98vh] sm:rounded-none sm:p-0' : 'sm:h-[90vh] sm:max-h-[90vh] sm:rounded-2xl sm:p-0',
     // Diseño futurista con glassmorphism y sombras profundas
     'bg-gradient-to-br from-background/98 via-card/96 to-muted/90',
     'backdrop-blur-xl backdrop-saturate-150',
-    'border border-border/50 shadow-2xl',
-    // Sombra múltiple para efecto de elevación
-    'shadow-[0_8px_32px_rgba(0,0,0,0.12),0_24px_48px_rgba(0,0,0,0.18),0_0_1px_rgba(255,255,255,0.1)_inset]',
-    // Ring con gradiente para borde luminoso
-    'ring-1 ring-primary/20',
-    'dark:ring-primary/30 dark:shadow-[0_8px_32px_rgba(0,0,0,0.32),0_24px_64px_rgba(0,0,0,0.48)]',
+    'border-2 border-border/60 shadow-2xl',
+    // Sombra múltiple para efecto de elevación y profundidad
+    'shadow-[0_10px_40px_rgba(0,0,0,0.15),0_30px_60px_rgba(0,0,0,0.25),0_0_2px_rgba(255,255,255,0.1)_inset]',
+    // Ring con gradiente para borde luminoso más pronunciado
+    'ring-2 ring-primary/30',
+    'dark:ring-primary/40 dark:shadow-[0_10px_40px_rgba(0,0,0,0.4),0_30px_80px_rgba(0,0,0,0.6)]',
     // Ancho máximo en ≥sm según size
     sizeClasses[size],
     // Transiciones suaves
     !disableAnimations && 'motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out motion-reduce:transition-none',
     // Evitar overflow horizontal y vertical (se maneja en el contenedor interno)
-    'overflow-hidden',
+    'overflow-hidden flex flex-col',
     // Texto optimizado
     'text-card-foreground',
     variant === 'compact' && 'max-[360px]:text-xs',
@@ -199,40 +202,72 @@ export const GenericModal: React.FC<GenericModalProps> = ({
       >
         <DialogHeader
           className={cn(
-            "relative bg-muted/30 border-b border-border/40",
-            variant === 'compact' ? "-mx-4 sm:-mx-8 px-2 sm:px-6 py-1 sm:py-2" : "-mx-5 sm:-mx-8 px-3 sm:px-6 py-1.5 sm:py-2.5",
+            "relative bg-gradient-to-br from-primary/10 via-muted/50 to-muted/40",
+            "border-b-2 border-primary/20",
+            "shadow-[0_2px_8px_rgba(0,0,0,0.1),0_4px_16px_rgba(0,0,0,0.06)]",
+            variant === 'compact' ? "px-4 sm:px-5 py-2 sm:py-2.5 pr-12 sm:pr-14" : "px-5 sm:px-6 py-2.5 sm:py-3 pr-12 sm:pr-14",
             draggable && "cursor-grab active:cursor-grabbing select-none"
           )}
           onMouseDown={handleMouseDown}
         >
-          {/* Se elimina el botón de cierre adicional para evitar doble “X”.
-              Se mantiene el cierre provisto por DialogContent (esquina superior derecha). */}
+          {/* Decoración superior con gradiente más pronunciado */}
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
 
-          {/* Decoración superior futurista */}
-          <div className="absolute -top-2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+          <div className="flex items-center gap-2 min-w-0">
+            {title ? (
+              <DialogTitle
+                id={titleId}
+                className={cn(
+                  "text-sm sm:text-base font-bold leading-tight text-left",
+                  "text-foreground",
+                  "pb-0",
+                  "tracking-tight",
+                  "flex items-center gap-1.5 flex-1 min-w-0"
+                )}
+              >
+                <div className="flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 shadow-sm">
+                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm bg-gradient-to-br from-primary to-primary/70" />
+                </div>
+                <span className="flex-1 min-w-0 truncate">{title}</span>
+              </DialogTitle>
+            ) : (
+              <VisuallyHidden>
+                <DialogTitle id={titleId}>Modal</DialogTitle>
+              </VisuallyHidden>
+            )}
 
-          {title ? (
-            <DialogTitle
-              id={titleId}
-              className={cn(
-                "text-base sm:text-lg md:text-xl font-semibold leading-tight text-left",
-                "text-foreground/90",
-                "pb-0"
+            {/* Botones de acción del header alineados */}
+            <div className="flex-shrink-0 flex items-center gap-2">
+              {allowFullScreenToggle && (
+                <button
+                  type="button"
+                  aria-label={computedFullScreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+                  className="inline-flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-lg border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 text-foreground hover:text-primary shadow-sm hover:shadow-md motion-safe:transition-all duration-200 hover:scale-105 active:scale-95"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const next = !fsInternal;
+                    setFsInternal(next);
+                    onFullScreenChange?.(next);
+                  }}
+                >
+                  {computedFullScreen ? (
+                    // Minimize icon
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                  ) : (
+                    // Maximize icon
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M3 14h7v7H3z"/><path d="M14 14h7v7h-7z"/></svg>
+                  )}
+                </button>
               )}
-            >
-              {title}
-            </DialogTitle>
-          ) : (
-            <VisuallyHidden>
-              <DialogTitle id={titleId}>Modal</DialogTitle>
-            </VisuallyHidden>
-          )}
+            </div>
+          </div>
 
           {description ? (
             <DialogDescription
               id={descriptionId}
               className={cn(
-                "text-xs sm:text-sm text-muted-foreground/90 leading-relaxed mt-0.5"
+                "text-[11px] sm:text-xs text-muted-foreground/90 leading-snug mt-1 ml-8 sm:ml-9"
               )}
             >
               {description}
@@ -242,68 +277,26 @@ export const GenericModal: React.FC<GenericModalProps> = ({
               <DialogDescription id={descriptionId}>Dialog content</DialogDescription>
             </VisuallyHidden>
           )}
-
-          {allowFullScreenToggle && (
-            <div className="absolute top-2 right-12 sm:right-14 flex items-center gap-1">
-              <button
-                type="button"
-                aria-label={computedFullScreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-                className="inline-flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-md border border-border/50 bg-muted/40 hover:bg-muted/60 text-muted-foreground hover:text-foreground motion-safe:transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const next = !fsInternal;
-                  setFsInternal(next);
-                  onFullScreenChange?.(next);
-                }}
-              >
-                {computedFullScreen ? (
-                  // Minimize icon (lucide X imported as placeholder earlier)
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-                ) : (
-                  // Maximize icon
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M3 14h7v7H3z"/><path d="M14 14h7v7h-7z"/></svg>
-                )}
-              </button>
-            </div>
-          )}
         </DialogHeader>
 
-        {/* Contenedor interno con scroll optimizado - única barra de desplazamiento */}
+        {/* Contenedor interno con scroll optimizado - única barra de desplazamiento vertical */}
         <div className={cn(
-          "min-w-0 overflow-x-hidden overflow-y-auto overscroll-contain",
-          "max-h-[calc(100dvh-140px)] sm:max-h-[calc(92vh-140px)]",
-          variant === 'compact' ? "px-1 pb-1 sm:pb-2 mt-1 sm:mt-3" : "px-1 pb-1.5 sm:pb-2 mt-1.5 sm:mt-3",
+          "flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain",
+          variant === 'compact' ? "px-3 sm:px-4 py-2 sm:py-3" : "px-4 sm:px-5 py-3 sm:py-4",
           // Scrollbar personalizado para mejor UX
-          "scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent",
-          "hover:scrollbar-thumb-primary/30",
-          // Asegurar que solo haya scroll vertical
-          "overflow-x-hidden",
+          "scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-muted/20",
+          "hover:scrollbar-thumb-primary/40",
           variant === 'compact' && 'max-[360px]:text-xs'
         )}>
-          {/* Panel de contenido con glassmorphism */}
-          <div className={cn(
-            "relative rounded-2xl",
-            "border border-border/40",
-            "bg-gradient-to-br from-card/50 via-card/30 to-muted/40",
-            "backdrop-blur-sm",
-            // Sombras internas para profundidad
-            "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_20px_50px_-20px_rgba(0,0,0,0.3)]",
-            // Ring sutil
-            "ring-1 ring-white/5",
-            // Transición suave
-            "transition-all duration-300"
-          )}>
-            {/* Brillo sutil en la parte superior */}
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent rounded-t-2xl" />
-
-            <div className={cn(
-              variant === 'compact' ? "p-2 sm:p-3 md:p-4 text-[13px] sm:text-sm leading-snug" : "p-3 sm:p-4 md:p-6 text-[14px] sm:text-base"
-            )}
-            >
-              {children}
-            </div>
-          </div>
+          {children}
         </div>
+
+        {/* Footer flotante siempre visible - fuera del área de scroll */}
+        {footer && (
+          <div className="flex-shrink-0">
+            {footer}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
