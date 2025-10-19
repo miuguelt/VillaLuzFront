@@ -37,7 +37,7 @@ const DashboardStatsCardComponent: React.FC<DashboardStatsCardProps> = ({
         trendBgColor: 'bg-gray-100',
       };
     }
-    if (change > 0) {
+    if (change && change > 0) {
       return {
         TrendIcon: TrendingUp,
         trendColor: 'text-green-500',

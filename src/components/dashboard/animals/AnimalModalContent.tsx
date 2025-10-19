@@ -12,7 +12,6 @@ interface AnimalModalContentProps {
   breedLabel: string;
   fatherLabel: string;
   motherLabel: string;
-  mode?: 'view' | 'edit' | 'create';
   onFatherClick?: (fatherId: number) => void;
   onMotherClick?: (motherId: number) => void;
 }
@@ -22,7 +21,6 @@ export function AnimalModalContent({
   breedLabel,
   fatherLabel,
   motherLabel,
-  mode = 'view',
   onFatherClick,
   onMotherClick
 }: AnimalModalContentProps) {

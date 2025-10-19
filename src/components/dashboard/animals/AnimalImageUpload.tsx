@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { animalImageService } from '@/services/animalImageService';
+import { useToast } from '@/context/ToastContext';
 
 interface AnimalImageUploadProps {
   animalId: number;
@@ -28,6 +29,7 @@ export function AnimalImageUpload({
   compress = true,
   quality = 0.8,
 }: AnimalImageUploadProps) {
+  const { showToast } = useToast();
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -198,12 +200,28 @@ export function AnimalImageUpload({
         if (onUploadSuccess) {
           onUploadSuccess(response.data.uploaded);
         }
+
+        // Mostrar toast de confirmación
+        showToast(
+          `✅ ${response.data.total_uploaded} imagen(es) subida(s) correctamente`,
+          'success'
+        );
+
+        // Despachar evento global para que cualquier galería o banner se refresque
+        try {
+          window.dispatchEvent(new CustomEvent('animal-images:updated', {
+            detail: { animalId, uploaded: response.data.uploaded }
+          }));
+        } catch {}
       } else {
         throw new Error(response.message || 'Error al subir imágenes');
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Error al subir imágenes';
       setError(errorMessage);
+      
+      // Mostrar toast de error
+      showToast(`❌ ${errorMessage}`, 'error');
 
       if (onUploadError) {
         onUploadError(err);
@@ -211,7 +229,7 @@ export function AnimalImageUpload({
     } finally {
       setUploading(false);
     }
-  }, [files, animalId, compress, quality, onUploadSuccess, onUploadError]);
+  }, [files, animalId, compress, quality, onUploadSuccess, onUploadError, showToast]);
 
   return (
     <div className="space-y-4">

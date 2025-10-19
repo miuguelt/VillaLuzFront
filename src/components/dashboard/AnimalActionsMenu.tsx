@@ -121,72 +121,84 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
       switch (openModal) {
         case 'genetic_improvement':
           (geneticImprovementsService as any).clearCache?.();
-          const giResult = await (geneticImprovementsService as any).getAll?.({
-            animal_id: animal.id,
-            limit: 100,
-            cache_bust: Date.now() // Forzar bypass de caché
-          });
-          data = Array.isArray(giResult) ? giResult : (giResult?.data || giResult?.items || []);
-          data = data.filter((item: any) => item.animal_id === animal.id);
-          break;
+          {
+            const giResult = await (geneticImprovementsService as any).getAll?.({
+              animal_id: animal.id,
+              limit: 100,
+              cache_bust: Date.now() // Forzar bypass de caché
+            });
+            data = Array.isArray(giResult) ? giResult : (giResult?.data || giResult?.items || []);
+            data = data.filter((item: any) => item.animal_id === animal.id);
+            break;
+          }
 
         case 'animal_disease':
           (animalDiseasesService as any).clearCache?.();
-          const adResult = await (animalDiseasesService as any).getAll?.({
-            animal_id: animal.id,
-            limit: 100,
-            cache_bust: Date.now()
-          });
-          data = Array.isArray(adResult) ? adResult : (adResult?.data || adResult?.items || []);
-          data = data.filter((item: any) => item.animal_id === animal.id);
-          break;
+          {
+            const adResult = await (animalDiseasesService as any).getAll?.({
+              animal_id: animal.id,
+              limit: 100,
+              cache_bust: Date.now()
+            });
+            data = Array.isArray(adResult) ? adResult : (adResult?.data || adResult?.items || []);
+            data = data.filter((item: any) => item.animal_id === animal.id);
+            break;
+          }
 
         case 'animal_field':
           (animalFieldsService as any).clearCache?.();
-          const afResult = await (animalFieldsService as any).getAll?.({
-            animal_id: animal.id,
-            limit: 100,
-            cache_bust: Date.now()
-          });
-          data = Array.isArray(afResult) ? afResult : (afResult?.data || afResult?.items || []);
-          data = data.filter((item: any) => item.animal_id === animal.id);
-          break;
+          {
+            const afResult = await (animalFieldsService as any).getAll?.({
+              animal_id: animal.id,
+              limit: 100,
+              cache_bust: Date.now()
+            });
+            data = Array.isArray(afResult) ? afResult : (afResult?.data || afResult?.items || []);
+            data = data.filter((item: any) => item.animal_id === animal.id);
+            break;
+          }
 
         case 'vaccination':
           (vaccinationsService as any).clearCache?.();
-          const vResult = await (vaccinationsService as any).getAll?.({
-            animal_id: animal.id,
-            limit: 100,
-            cache_bust: Date.now()
-          });
-          data = Array.isArray(vResult) ? vResult : (vResult?.data || vResult?.items || []);
-          data = data.filter((item: any) => item.animal_id === animal.id);
-          break;
+          {
+            const vResult = await (vaccinationsService as any).getAll?.({
+              animal_id: animal.id,
+              limit: 100,
+              cache_bust: Date.now()
+            });
+            data = Array.isArray(vResult) ? vResult : (vResult?.data || vResult?.items || []);
+            data = data.filter((item: any) => item.animal_id === animal.id);
+            break;
+          }
 
         case 'treatment':
           (treatmentsService as any).clearCache?.();
-          const tResult = await (treatmentsService as any).getAll?.({
-            animal_id: animal.id,
-            limit: 100,
-            cache_bust: Date.now()
-          });
-          data = Array.isArray(tResult) ? tResult : (tResult?.data || tResult?.items || []);
-          data = data.filter((item: any) => item.animal_id === animal.id);
-          break;
+          {
+            const tResult = await (treatmentsService as any).getAll?.({
+              animal_id: animal.id,
+              limit: 100,
+              cache_bust: Date.now()
+            });
+            data = Array.isArray(tResult) ? tResult : (tResult?.data || tResult?.items || []);
+            data = data.filter((item: any) => item.animal_id === animal.id);
+            break;
+          }
 
         case 'control':
           (controlService as any).clearCache?.();
-          const cResult = await (controlService as any).getAll?.({
-            animal_id: animal.id,
-            limit: 100,
-            cache_bust: Date.now()
-          });
-          data = Array.isArray(cResult) ? cResult : (cResult?.data || cResult?.items || []);
-          console.log('[AnimalActionsMenu] Controles recibidos del backend:', data.length);
-          console.log('[AnimalActionsMenu] Datos:', data);
-          data = data.filter((item: any) => item.animal_id === animal.id);
-          console.log('[AnimalActionsMenu] Controles después de filtrar por animal_id', animal.id, ':', data.length);
-          break;
+          {
+            const cResult = await (controlService as any).getAll?.({
+              animal_id: animal.id,
+              limit: 100,
+              cache_bust: Date.now()
+            });
+            data = Array.isArray(cResult) ? cResult : (cResult?.data || cResult?.items || []);
+            console.log('[AnimalActionsMenu] Controles recibidos del backend:', data.length);
+            console.log('[AnimalActionsMenu] Datos:', data);
+            data = data.filter((item: any) => item.animal_id === animal.id);
+            console.log('[AnimalActionsMenu] Controles después de filtrar por animal_id', animal.id, ':', data.length);
+            break;
+          }
       }
 
       console.log('[AnimalActionsMenu] Total registros a mostrar:', data.length);

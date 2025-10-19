@@ -162,8 +162,8 @@ function DetailModalComponent<T extends { id: number }>({
             }
           })
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 space-y-4">
+          <div className="grid grid-cols-1 gap-4">
+            <div className="space-y-4">
               <Card className="shadow-sm hover:shadow-md transition-shadow duration-200 border border-border rounded-xl overflow-hidden">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">Información general</CardTitle>
@@ -189,35 +189,31 @@ function DetailModalComponent<T extends { id: number }>({
               </Card>
             </div>
             
-            <div className="space-y-4 min-w-0">
-              {showDetailTimestamps && ((item as any).created_at || (item as any).updated_at) && (
-                <Card className="shadow-sm border border-border rounded-xl overflow-hidden">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Fecha y hora</CardTitle>
-                  </CardHeader>
-                  <CardContent className="min-w-0">
-                    <dl className="grid grid-cols-1 gap-3 text-sm">
-                      {(item as any).created_at && (
-                        <div className="space-y-1 min-w-0">
-                          <dt className="text-xs text-muted-foreground font-medium">Creado</dt>
-                          <dd className="text-sm font-medium break-words whitespace-normal leading-snug">
-                            {new Date((item as any).created_at).toLocaleString('es-ES')}
-                          </dd>
-                        </div>
-                      )}
-                      {(item as any).updated_at && (
-                        <div className="space-y-1 min-w-0">
-                          <dt className="text-xs text-muted-foreground font-medium">Actualizado</dt>
-                          <dd className="text-sm font-medium break-words whitespace-normal leading-snug">
-                            {new Date((item as any).updated_at).toLocaleString('es-ES')}
-                          </dd>
-                        </div>
-                      )}
-                    </dl>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            <Card className="shadow-sm border border-border rounded-xl overflow-hidden">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Fecha y hora</CardTitle>
+              </CardHeader>
+              <CardContent className="min-w-0">
+                <dl className="grid grid-cols-1 gap-3 text-sm">
+                  {(item as any).created_at && (
+                    <div className="space-y-1 min-w-0">
+                      <dt className="text-xs text-muted-foreground font-medium">Creado</dt>
+                      <dd className="text-sm font-medium break-words whitespace-normal leading-snug">
+                        {new Date((item as any).created_at).toLocaleString('es-ES')}
+                      </dd>
+                    </div>
+                  )}
+                  {(item as any).updated_at && (
+                    <div className="space-y-1 min-w-0">
+                      <dt className="text-xs text-muted-foreground font-medium">Actualizado</dt>
+                      <dd className="text-sm font-medium break-words whitespace-normal leading-snug">
+                        {new Date((item as any).updated_at).toLocaleString('es-ES')}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </CardContent>
+            </Card>
           </div>
         )
       )}
@@ -245,7 +241,6 @@ export const ConfirmDeleteDialog = memo<{
   onConfirm,
   confirmLabel,
   cancelLabel,
-  entityName,
 }) => {
   return (
     <ConfirmDialog

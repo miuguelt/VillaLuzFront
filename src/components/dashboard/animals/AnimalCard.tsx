@@ -42,11 +42,11 @@ export function AnimalCard({
       <div className="relative">
         <AnimalImageBanner
           animalId={animal.id}
-          height="200px"
+          height="280px"
           showControls={true}
           autoPlayInterval={4000}
           hideWhenEmpty={false}
-          objectFit="cover"
+          objectFit="contain"
         />
 
         <div
@@ -69,7 +69,6 @@ export function AnimalCard({
           <Badge
             variant="outline"
             className={`text-xs font-semibold shadow-sm ${
-              status === 'Vivo' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' :
               status === 'Sano' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' :
               status === 'Enfermo' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800' :
               'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800'

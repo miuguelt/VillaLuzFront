@@ -175,6 +175,25 @@ class AnimalImageService extends BaseService<AnimalImage> {
       if (response.data && response.data.data && response.data.data.images) {
         const backendBaseURL = getBackendBaseURL();
         const apiBaseURL = getApiBaseURL();
+        const addVersionParam = (url: string, updatedAt?: string): string => {
+          try {
+            const hasProtocol = url.startsWith('http://') || url.startsWith('https://');
+            if (hasProtocol) {
+              const u = new URL(url);
+              // usar updated_at si existe; si no, timestamp actual para asegurar recarga mínima
+              const version = updatedAt ? String(new Date(updatedAt).getTime()) : String(Date.now());
+              u.searchParams.set('v', version);
+              return u.toString();
+            }
+            // URL relativa: agregar ?v= o &v=
+            const concatChar = url.includes('?') ? '&' : '?';
+            const version = updatedAt ? String(new Date(updatedAt).getTime()) : String(Date.now());
+            return `${url}${concatChar}v=${version}`;
+          } catch {
+            return url;
+          }
+        };
+
         response.data.data.images = response.data.data.images.map((image: AnimalImage) => {
           // Si la URL ya es absoluta, intentar reescribir a origen local en desarrollo
           if (image.url && (image.url.startsWith('http://') || image.url.startsWith('https://'))) {
@@ -185,13 +204,13 @@ class AnimalImageService extends BaseService<AnimalImage> {
                 // Solo reescribir si apunta a rutas estáticas conocidas
                 if (path.startsWith('/public/images') || path.startsWith('/static/uploads')) {
                   // En dev, usar la ruta local directa para aprovechar el proxy de Vite
-                  return { ...image, url: path };
+                  return { ...image, url: addVersionParam(path, image.updated_at) };
                 }
               } catch {
                 // Ignorar errores de parseo y dejar la URL como está
               }
             }
-            return image;
+            return { ...image, url: addVersionParam(image.url, image.updated_at) };
           }
 
           // Si la URL es relativa, construir URL adecuada según entorno
@@ -201,18 +220,18 @@ class AnimalImageService extends BaseService<AnimalImage> {
             // En desarrollo, enviar rutas estáticas conocidas sin prefijo /api/v1
             if (isDevelopment()) {
               if (imageUrl.startsWith('/public/images') || imageUrl.startsWith('/static/uploads')) {
-                return { ...image, url: imageUrl };
+                return { ...image, url: addVersionParam(imageUrl, image.updated_at) };
               }
               // Para otras rutas relativas de API, construir con /api/v1
               if (apiBaseURL.startsWith('/')) {
                 const baseRel = apiBaseURL.endsWith('/') ? apiBaseURL.slice(0, -1) : apiBaseURL;
-                return { ...image, url: `${baseRel}${imageUrl}` };
+                return { ...image, url: addVersionParam(`${baseRel}${imageUrl}`, image.updated_at) };
               }
             }
 
             // En producción o cuando hay backend explícito, usar backend base
             const baseUrl = backendBaseURL.endsWith('/') ? backendBaseURL.slice(0, -1) : backendBaseURL;
-            return { ...image, url: `${baseUrl}${imageUrl}` };
+            return { ...image, url: addVersionParam(`${baseUrl}${imageUrl}`, image.updated_at) };
           }
 
           return image;

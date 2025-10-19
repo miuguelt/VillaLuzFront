@@ -153,14 +153,16 @@ function appStateReducer(state: AppState, action: AppStateAction): AppState {
     }
 
     case 'ADD_ERROR':
-      const newErrors = [...state.errors, action.payload];
-      const hasCriticalErrors = newErrors.some(error => error.critical);
-      return {
-        ...state,
-        errors: newErrors,
-        hasCriticalErrors,
-        status: hasCriticalErrors ? AppStateStatus.ERROR : state.status
-      };
+      {
+        const newErrors = [...state.errors, action.payload];
+        const hasCriticalErrors = newErrors.some(error => error.critical);
+        return {
+          ...state,
+          errors: newErrors,
+          hasCriticalErrors,
+          status: hasCriticalErrors ? AppStateStatus.ERROR : state.status
+        };
+      }
 
     case 'CLEAR_ERRORS':
       return {
@@ -171,32 +173,36 @@ function appStateReducer(state: AppState, action: AppStateAction): AppState {
       };
 
     case 'CLEAR_NON_CRITICAL_ERRORS':
-      const criticalErrors = state.errors.filter(error => error.critical);
-      return {
-        ...state,
-        errors: criticalErrors,
-        hasCriticalErrors: criticalErrors.length > 0
-      };
+      {
+        const criticalErrors = state.errors.filter(error => error.critical);
+        return {
+          ...state,
+          errors: criticalErrors,
+          hasCriticalErrors: criticalErrors.length > 0
+        };
+      }
 
     case 'INVALIDATE_CACHE': {
-      const moduleKey = action.payload?.module;
-      if (moduleKey) {
-        return {
-          ...state,
-          [`${moduleKey}Data`]: null,
-          [`${moduleKey}Loaded`]: false
-        };
-      } else {
-        return {
-          ...state,
-          dashboardData: null,
-          animalModuleData: null,
-          userModuleData: null,
-          dashboardLoaded: false,
-          animalModuleLoaded: false,
-          userModuleLoaded: false,
-          status: AppStateStatus.INITIALIZING
-        };
+      {
+        const moduleKey = action.payload?.module;
+        if (moduleKey) {
+          return {
+            ...state,
+            [`${moduleKey}Data`]: null,
+            [`${moduleKey}Loaded`]: false
+          };
+        } else {
+          return {
+            ...state,
+            dashboardData: null,
+            animalModuleData: null,
+            userModuleData: null,
+            dashboardLoaded: false,
+            animalModuleLoaded: false,
+            userModuleLoaded: false,
+            status: AppStateStatus.INITIALIZING
+          };
+        }
       }
     }
 

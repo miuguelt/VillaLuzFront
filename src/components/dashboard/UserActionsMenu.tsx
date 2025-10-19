@@ -93,24 +93,28 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
 
       switch (openModal) {
         case 'animal_disease':
-          const adResult = await (animalDiseasesService as any).getAll?.({
-            instructor_id: user.id,
-            limit: 100
-          });
-          data = Array.isArray(adResult) ? adResult : (adResult?.data || adResult?.items || []);
-          data = data.filter((item: any) => item.instructor_id === user.id);
-          break;
+          {
+            const adResult = await (animalDiseasesService as any).getAll?.({
+              instructor_id: user.id,
+              limit: 100
+            });
+            data = Array.isArray(adResult) ? adResult : (adResult?.data || adResult?.items || []);
+            data = data.filter((item: any) => item.instructor_id === user.id);
+            break;
+          }
 
         case 'vaccination':
-          const vResult = await (vaccinationsService as any).getAll?.({
-            limit: 100
-          });
-          let allVaccinations = Array.isArray(vResult) ? vResult : (vResult?.data || vResult?.items || []);
-          // Filtrar por instructor_id o apprentice_id
-          data = allVaccinations.filter((item: any) =>
-            item.instructor_id === user.id || item.apprentice_id === user.id
-          );
-          break;
+          {
+            const vResult = await (vaccinationsService as any).getAll?.({
+              limit: 100
+            });
+            const allVaccinations = Array.isArray(vResult) ? vResult : (vResult?.data || vResult?.items || []);
+            // Filtrar por instructor_id o apprentice_id
+            data = allVaccinations.filter((item: any) =>
+              item.instructor_id === user.id || item.apprentice_id === user.id
+            );
+            break;
+          }
       }
 
       setListData(data);
@@ -262,8 +266,9 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
         );
 
       case 'vaccination':
-        const roleLabel = item.instructor_id === user.id ? 'Instructor' : item.apprentice_id === user.id ? 'Aprendiz' : 'N/A';
-        return (
+        {
+          const roleLabel = item.instructor_id === user.id ? 'Instructor' : item.apprentice_id === user.id ? 'Aprendiz' : 'N/A';
+          return (
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="font-medium text-foreground">Animal:</span>
@@ -284,7 +289,8 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
               <span className="text-muted-foreground">{roleLabel}</span>
             </div>
           </div>
-        );
+          );
+        }
 
       default:
         return null;

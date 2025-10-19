@@ -9,7 +9,6 @@ const DashboardLayout: React.FC = () => {
   const { loading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
-  const location = useLocation();
 
   // Detectar si estamos en desktop para aplicar apertura por defecto del sidebar
   useEffect(() => {

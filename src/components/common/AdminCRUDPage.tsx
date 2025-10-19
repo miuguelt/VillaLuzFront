@@ -2103,9 +2103,8 @@ const {
             )}
           >
             {detailItem && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Columna principal: información general (ocupa 2/3 en pantallas grandes) */}
-                <div className="lg:col-span-2 space-y-4">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-4">
                   {customDetailContent ? (
                     customDetailContent(detailItem)
                   ) : (
@@ -2135,11 +2134,8 @@ const {
                   )}
                 </div>
 
-                {/* Columna lateral: metadatos (ocupa 1/3 en pantallas grandes) */}
-                <div className="space-y-4">
-                  {/* Metadatos (fechas) */}
-                  {(config.showDetailTimestamps ?? true) && (((detailItem as any).created_at) || ((detailItem as any).updated_at)) && (
-                    <Card className="shadow-sm">
+                {(config.showDetailTimestamps ?? true) && ((detailItem as any).created_at || (detailItem as any).updated_at) && (
+                  <Card className="shadow-sm border border-border rounded-xl overflow-hidden">
                       <CardHeader className="pb-3">
                         <CardTitle className="text-base">Fecha y hora</CardTitle>
                       </CardHeader>
@@ -2159,9 +2155,8 @@ const {
                           )}
                         </dl>
                       </CardContent>
-                    </Card>
-                  )}
-                </div>
+                  </Card>
+                )}
               </div>
             )}
           </GenericModal>

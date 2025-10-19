@@ -205,7 +205,7 @@ export function useGenericCRUD<T extends { id?: number }>(
     setError(null);
     // Cancelar cualquier solicitud de lista en curso y crear un nuevo token
     if (listCancelTokenSourceRef.current) {
-      try { listCancelTokenSourceRef.current.cancel('Nueva carga de lista, se cancela la anterior'); } catch {}
+      try { listCancelTokenSourceRef.current.cancel('Nueva carga de lista, se cancela la anterior'); } catch { /* noop */ }
     }
     listCancelTokenSourceRef.current = axios.CancelToken.source();
     try {
@@ -272,7 +272,7 @@ export function useGenericCRUD<T extends { id?: number }>(
     setError(null);
     // Cancelar cualquier solicitud de item en curso y crear un nuevo token
     if (itemCancelTokenSourceRef.current) {
-      try { itemCancelTokenSourceRef.current.cancel('Nueva carga de elemento, se cancela la anterior'); } catch {}
+      try { itemCancelTokenSourceRef.current.cancel('Nueva carga de elemento, se cancela la anterior'); } catch { /* noop */ }
     }
     itemCancelTokenSourceRef.current = axios.CancelToken.source();
     try {
@@ -425,11 +425,11 @@ export function useGenericCRUD<T extends { id?: number }>(
       }
       // Cancelar solicitudes pendientes al desmontar
       if (listCancelTokenSourceRef.current) {
-        try { listCancelTokenSourceRef.current.cancel('Componente desmontado: lista'); } catch {}
+        try { listCancelTokenSourceRef.current.cancel('Componente desmontado: lista'); } catch { /* noop */ }
         listCancelTokenSourceRef.current = null;
       }
       if (itemCancelTokenSourceRef.current) {
-        try { itemCancelTokenSourceRef.current.cancel('Componente desmontado: item'); } catch {}
+        try { itemCancelTokenSourceRef.current.cancel('Componente desmontado: item'); } catch { /* noop */ }
         itemCancelTokenSourceRef.current = null;
       }
     };

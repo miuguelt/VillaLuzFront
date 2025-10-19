@@ -174,7 +174,6 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
         className={`fixed inset-y-0 left-0 z-40 h-screen bg-gradient-to-b from-emerald-950 to-gray-900 text-gray-100 border-r border-gray-800 transform transition-all duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} w-72 ${dynamicWidth} shadow-2xl shadow-gray-900/50 flex flex-col overflow-hidden ${dynamicWidth}`}
         style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${sidebarWidth}px` : 'auto' }}
         aria-hidden={!isSidebarOpen ? "true" : "false"}
-        inert={!isSidebarOpen ? ('' as any) : undefined}
         role="navigation"
         aria-label="Menú de navegación principal"
       >

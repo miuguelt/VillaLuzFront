@@ -42,6 +42,10 @@ const FormField = memo<{
 }>(({ field, value, onChange, saving, editingItem }) => {
   const t = useT();
   
+  // Variables derivadas frecuentes usadas en diferentes ramas
+  const isBirthDateField = String(field.name) === 'birth_date';
+  const today = getTodayColombia();
+  
   // Determinar si el campo es obligatorio y está vacío
   const isRequired = field.required === true;
   const isEmpty = value == null || value === '';
@@ -88,43 +92,45 @@ const FormField = memo<{
           );
         }
         
-        const opts = field.options || [];
-        const isNumeric = opts.length > 0 && opts.every((o: any) => typeof o.value === 'number');
+        {
+          const opts = field.options || [];
+          const isNumeric = opts.length > 0 && opts.every((o: any) => typeof o.value === 'number');
         
-        return (
-          <select
-            id={String(field.name)}
-            value={String(value ?? '')}
-            onChange={(e) => {
-              const val = e.target.value;
-              handleChange(
-                isNumeric ? (val === '' ? undefined : Number(val)) : val
-              );
-            }}
-            disabled={saving}
-            aria-required={isRequired}
-            className={cn(
-              "w-full px-3 py-2.5 border rounded-lg min-h-[44px] text-sm",
-              "bg-background/50 focus:bg-background/80",
-              "transition-all duration-200",
-              "backdrop-blur-sm",
-              "cursor-pointer",
-              showWarning
-                ? "border-amber-400/70 focus:border-amber-500 hover:border-amber-500/50 text-amber-900 dark:text-amber-200"
-                : "border-border/50 focus:border-primary/50 text-foreground hover:border-primary/30",
-              isRequired && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40"
-            )}
-          >
-            <option value="" className="text-muted-foreground">
-              {field.placeholder || 'Seleccionar...'}
-            </option>
-            {opts.map((option: any) => (
-              <option key={String(option.value)} value={String(option.value)} className="text-foreground">
-                {option.label}
+          return (
+            <select
+              id={String(field.name)}
+              value={String(value ?? '')}
+              onChange={(e) => {
+                const val = e.target.value;
+                handleChange(
+                  isNumeric ? (val === '' ? undefined : Number(val)) : val
+                );
+              }}
+              disabled={saving}
+              aria-required={isRequired}
+              className={cn(
+                "w-full px-3 py-2.5 border rounded-lg min-h-[44px] text-sm",
+                "bg-background/50 focus:bg-background/80",
+                "transition-all duration-200",
+                "backdrop-blur-sm",
+                "cursor-pointer",
+                showWarning
+                  ? "border-amber-400/70 focus:border-amber-500 hover:border-amber-500/50 text-amber-900 dark:text-amber-200"
+                  : "border-border/50 focus:border-primary/50 text-foreground hover:border-primary/30",
+                isRequired && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40"
+              )}
+            >
+              <option value="" className="text-muted-foreground">
+                {field.placeholder || 'Seleccionar...'}
               </option>
-            ))}
-          </select>
-        );
+              {opts.map((option: any) => (
+                <option key={String(option.value)} value={String(option.value)} className="text-foreground">
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          );
+        }
         
       case 'searchable-select':
         if (!field.options || field.options.length === 0) {
@@ -135,41 +141,43 @@ const FormField = memo<{
           );
         }
         
-        let opts = field.options || [];
-        const isNumeric = opts.length > 0 && opts.every((o: any) => typeof o.value === 'number');
+        {
+          let opts = field.options || [];
+          const isNumeric = opts.length > 0 && opts.every((o: any) => typeof o.value === 'number');
         
-        // Excluir el propio registro si se solicita
-        if (field.excludeSelf && editingItem?.id != null) {
-          opts = opts.filter((o: any) => o.value !== editingItem.id);
+          // Excluir el propio registro si se solicita
+          if (field.excludeSelf && editingItem?.id != null) {
+            opts = opts.filter((o: any) => o.value !== editingItem.id);
+          }
+          
+          return (
+            <div className={cn(
+              isRequired && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40 rounded-l-sm"
+            )}>
+              <Combobox
+                options={opts.map((o) => ({ value: String(o.value), label: o.label }))}
+                value={value == null ? '' : String(value)}
+                onValueChange={(val) =>
+                  handleChange(
+                    isNumeric ? (val === '' ? undefined : Number(val)) : val
+                  )
+                }
+                placeholder={field.placeholder || t('common.search', 'Buscar...')}
+                searchPlaceholder={t('common.search', 'Buscar...')}
+                emptyMessage={field.emptyMessage || t('state.empty.title', 'Sin resultados')}
+                disabled={saving}
+                loading={field.loading}
+                searchDebounceMs={field.searchDebounceMs || 300}
+                onSearchChange={field.onSearchChange}
+                className={cn(
+                  "transition-all duration-200",
+                  field.loading && "opacity-80",
+                  !opts.length && !field.loading && "opacity-60"
+                )}
+              />
+            </div>
+          );
         }
-        
-        return (
-          <div className={cn(
-            isRequired && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40 rounded-l-sm"
-          )}>
-            <Combobox
-              options={opts.map((o) => ({ value: String(o.value), label: o.label }))}
-              value={value == null ? '' : String(value)}
-              onValueChange={(val) =>
-                handleChange(
-                  isNumeric ? (val === '' ? undefined : Number(val)) : val
-                )
-              }
-              placeholder={field.placeholder || t('common.search', 'Buscar...')}
-              searchPlaceholder={t('common.search', 'Buscar...')}
-              emptyMessage={field.emptyMessage || t('state.empty.title', 'Sin resultados')}
-              disabled={saving}
-              loading={field.loading}
-              searchDebounceMs={field.searchDebounceMs || 300}
-              onSearchChange={field.onSearchChange}
-              className={cn(
-                "transition-all duration-200",
-                field.loading && "opacity-80",
-                !opts.length && !field.loading && "opacity-60"
-              )}
-            />
-          </div>
-        );
         
       case 'checkbox':
         return (
@@ -214,31 +222,31 @@ const FormField = memo<{
         );
         
       case 'date':
-        const today = getTodayColombia();
-        const isBirthDate = String(field.name) === 'birth_date';
-        const maxDate = isBirthDate ? today : undefined;
-        
-        return (
-          <Input
-            id={String(field.name)}
-            type="date"
-            max={maxDate}
-            value={value || ''}
-            onChange={(e) => handleChange(e.target.value)}
-            disabled={saving}
-            aria-invalid={showWarning}
-            aria-required={isRequired}
-            className={cn(
-              "w-full min-h-[44px] text-sm",
-              showWarning
-                ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
-                : "border-border/50 focus:border-primary/50",
-              isRequired && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
-              "bg-background/50 focus:bg-background/80",
-              "transition-all duration-300 backdrop-blur-sm"
-            )}
-          />
-        );
+        {
+          const maxDate = isBirthDateField ? today : undefined;
+          
+          return (
+            <Input
+              id={String(field.name)}
+              type="date"
+              max={maxDate}
+              value={value || ''}
+              onChange={(e) => handleChange(e.target.value)}
+              disabled={saving}
+              aria-invalid={showWarning}
+              aria-required={isRequired}
+              className={cn(
+                "w-full min-h-[44px] text-sm",
+                showWarning
+                  ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
+                  : "border-border/50 focus:border-primary/50",
+                isRequired && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
+                "bg-background/50 focus:bg-background/80",
+                "transition-all duration-300 backdrop-blur-sm"
+              )}
+            />
+          );
+        }
         
       case 'text':
       case 'multiselect':
@@ -294,7 +302,7 @@ const FormField = memo<{
           <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
         )}
         
-        {field.type === 'date' && value && value > today && isBirthDate && (
+        {field.type === 'date' && isBirthDateField && value && value > today && (
           <p className="text-xs text-red-500">La fecha de nacimiento no puede ser futura.</p>
         )}
       </div>

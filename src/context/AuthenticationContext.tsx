@@ -425,7 +425,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false)
             break
           }
-          case 'logout':
+          case 'logout': {
             const logout = async () => {
               try {
                 await authServiceLogout()
@@ -439,6 +439,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             logout()
             setLoading(false)
             break
+          }
           default:
             break
         }
@@ -486,7 +487,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setLoading(false)
           break
         }
-        case 'logout':
+        case 'logout': {
           const logout = async () => {
             try {
               // Llamar al endpoint /auth/logout para cerrar sesión en el backend
@@ -501,6 +502,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           logout()
           setLoading(false)
           break
+        }
         default:
           break
       }

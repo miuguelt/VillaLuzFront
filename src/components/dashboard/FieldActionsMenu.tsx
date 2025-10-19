@@ -70,7 +70,7 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
 
       // Cargar potreros para la funcionalidad de mover
       const fields = await fieldService.getFields({ page: 1, limit: 1000 }).catch(() => ({ data: [] }));
-      const fieldsData = Array.isArray(fields) ? fields : (fields?.data || fields?.items || []);
+      const fieldsData = Array.isArray(fields) ? fields : (fields?.data || []);
       setFieldOptions(fieldsData
         .filter((f: any) => f.id !== field.id) // Excluir el potrero actual
         .map((f: any) => ({

@@ -101,6 +101,20 @@ export function AnimalImageGallery({
     fetchImages();
   }, [fetchImages, refreshTrigger]);
 
+  // Escuchar evento global de actualización de imágenes para refrescar sin recargar la página
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { animalId?: number } | undefined;
+      if (!detail || detail.animalId === animalId) {
+        fetchImages();
+      }
+    };
+    window.addEventListener('animal-images:updated', handler as EventListener);
+    return () => {
+      window.removeEventListener('animal-images:updated', handler as EventListener);
+    };
+  }, [animalId, fetchImages]);
+
   // Establecer imagen principal
   const handleSetPrimary = useCallback(
     async (imageId: number) => {
@@ -373,13 +387,13 @@ export function AnimalImageGallery({
         ))}
       </div>
 
-      {/* Modal de vista previa */}
+      {/* Modal de vista previa - pantalla completa */}
       <Dialog
         open={selectedImage !== null}
         onOpenChange={(open) => !open && setSelectedImage(null)}
       >
-        <DialogContent className="max-w-4xl">
-          <DialogHeader>
+        <DialogContent className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-0 bg-black/98 border-none overflow-hidden rounded-none">
+          <DialogHeader className="sr-only">
             <DialogTitle className="flex items-center gap-2">
               {selectedImage?.is_primary && (
                 <Star className="w-5 h-5 text-yellow-500 fill-current" />
@@ -397,76 +411,49 @@ export function AnimalImageGallery({
           </DialogHeader>
 
           {selectedImage && (
-            <div className="space-y-4">
-              {/* Imagen */}
-              <div className="relative bg-black/5 rounded-lg overflow-hidden">
-                {imageErrors.has(selectedImage.id) ? (
-                  <div className="w-full h-[60vh] flex items-center justify-center">
-                    <div className="text-center">
-                      <ImageIcon className="w-16 h-16 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground">No se pudo cargar la imagen</p>
-                    </div>
+            <div className="relative w-full h-full flex items-center justify-center">
+              {/* Imagen a pantalla completa */}
+              {imageErrors.has(selectedImage.id) ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="text-center">
+                    <ImageIcon className="w-16 h-16 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">No se pudo cargar la imagen</p>
                   </div>
-                ) : (
-                  <img
-                    src={selectedImage.url}
-                    alt={selectedImage.filename}
-                    className="w-full h-auto max-h-[60vh] object-contain mx-auto"
-                    onError={() => {
-                      setImageErrors(prev => new Set(prev).add(selectedImage.id));
-                    }}
-                  />
-                )}
+                </div>
+              ) : (
+                <img
+                  src={selectedImage.url}
+                  alt={selectedImage.filename}
+                  className="w-auto h-auto object-contain"
+                  style={{ 
+                    imageRendering: 'auto',
+                    maxWidth: '100vw',
+                    maxHeight: '100vh',
+                    width: 'auto',
+                    height: 'auto'
+                  }}
+                  onError={() => {
+                    setImageErrors(prev => new Set(prev).add(selectedImage.id));
+                  }}
+                />
+              )}
+
+              {/* Información de la imagen */}
+              <div className="absolute bottom-8 left-0 right-0 flex justify-center z-10">
+                <div className="bg-black/80 backdrop-blur-md text-white px-6 py-3 rounded-full text-sm font-medium shadow-2xl border border-white/10">
+                  {selectedImage.filename} • {(selectedImage.file_size / 1024).toFixed(0)} KB • {selectedImage.mime_type}
+                  {selectedImage.is_primary && (
+                    <span className="ml-2 text-yellow-400">⭐ Principal</span>
+                  )}
+                </div>
               </div>
 
-              {/* Acciones */}
-              {showControls && (
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex gap-2">
-                    {!selectedImage.is_primary && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => handleSetPrimary(selectedImage.id)}
-                        disabled={settingPrimaryId === selectedImage.id}
-                      >
-                        {settingPrimaryId === selectedImage.id ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Star className="w-4 h-4 mr-2" />
-                        )}
-                        Establecer como principal
-                      </Button>
-                    )}
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => handleDownload(selectedImage)}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Descargar
-                    </Button>
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => {
-                      handleDelete(selectedImage.id);
-                      setSelectedImage(null);
-                    }}
-                    disabled={deletingId === selectedImage.id}
-                  >
-                    {deletingId === selectedImage.id ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4 mr-2" />
-                    )}
-                    Eliminar
-                  </Button>
+              {/* Indicador de cierre */}
+              <div className="absolute top-8 right-8 z-10">
+                <div className="bg-black/80 backdrop-blur-md text-white/70 px-4 py-2 rounded-full text-xs font-medium shadow-2xl border border-white/10">
+                  Presione ESC o haga clic para cerrar
                 </div>
-              )}
+              </div>
             </div>
           )}
         </DialogContent>

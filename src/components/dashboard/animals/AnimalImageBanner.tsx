@@ -104,6 +104,18 @@ export function AnimalImageBanner({
     fetchImages();
   }, [fetchImages, refreshTrigger]);
 
+  // Refrescar al recibir evento global
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { animalId?: number } | undefined;
+      if (!detail || detail.animalId === animalId) {
+        fetchImages();
+      }
+    };
+    window.addEventListener('animal-images:updated', handler as EventListener);
+    return () => window.removeEventListener('animal-images:updated', handler as EventListener);
+  }, [animalId, fetchImages]);
+
   // Auto-play del carrusel
   useEffect(() => {
     if (images.length <= 1 || isPaused || !autoPlayInterval) return;
@@ -222,6 +234,10 @@ export function AnimalImageBanner({
               alt={currentImage.filename}
               className={`w-full h-full ${objectFit === 'cover' ? 'object-cover' : 'object-contain'} transition-opacity duration-500`}
               loading="lazy"
+              style={{
+                objectPosition: 'center',
+                imageRendering: 'auto'
+              }}
               onError={() => {
                 setImageErrors(prev => new Set(prev).add(currentImage.id));
               }}
@@ -238,7 +254,10 @@ export function AnimalImageBanner({
             type="button"
             variant="secondary"
             size="icon"
-            onClick={() => setSelectedImage(currentImage)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedImage(currentImage);
+            }}
             className="shadow-lg backdrop-blur-sm bg-white/90 dark:bg-black/90"
           >
             <ZoomIn className="w-4 h-4" />
@@ -250,7 +269,10 @@ export function AnimalImageBanner({
           <>
             {/* Botón anterior */}
             <button
-              onClick={goToPrevious}
+              onClick={(e) => {
+                e.stopPropagation();
+                goToPrevious();
+              }}
               className="absolute left-4 top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
               aria-label="Imagen anterior"
             >
@@ -259,7 +281,10 @@ export function AnimalImageBanner({
 
             {/* Botón siguiente */}
             <button
-              onClick={goToNext}
+              onClick={(e) => {
+                e.stopPropagation();
+                goToNext();
+              }}
               className="absolute right-4 top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
               aria-label="Imagen siguiente"
             >
@@ -297,7 +322,10 @@ export function AnimalImageBanner({
             {images.map((_, index) => (
               <button
                 key={index}
-                onClick={() => goToIndex(index)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goToIndex(index);
+                }}
                 className={`w-2 h-2 rounded-full transition-all ${
                   index === currentIndex
                     ? 'bg-white shadow-lg w-8'
@@ -321,13 +349,22 @@ export function AnimalImageBanner({
               <img
                 src={selectedImage.url}
                 alt={selectedImage.filename}
-                className="max-w-full max-h-full w-auto h-auto object-contain"
-                style={{ imageRendering: 'high-quality' }}
+                className="w-auto h-auto object-contain"
+                style={{ 
+                  imageRendering: 'auto',
+                  maxWidth: '100vw',
+                  maxHeight: '100vh',
+                  width: 'auto',
+                  height: 'auto'
+                }}
+                onError={() => {
+                  setImageErrors(prev => new Set(prev).add(selectedImage.id));
+                }}
               />
               {/* Información de la imagen en la parte inferior */}
               <div className="absolute bottom-8 left-0 right-0 flex justify-center z-10">
                 <div className="bg-black/80 backdrop-blur-md text-white px-6 py-3 rounded-full text-sm font-medium shadow-2xl border border-white/10">
-                  {selectedImage.filename} • {(selectedImage.file_size / 1024).toFixed(0)} KB
+                  {selectedImage.filename} • {(selectedImage.file_size / 1024).toFixed(0)} KB • {selectedImage.mime_type}
                 </div>
               </div>
 
