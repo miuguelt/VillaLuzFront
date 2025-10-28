@@ -65,6 +65,7 @@ const formSections: CRUDFormSection<AdminGeneticImprovementInput>[] = [
         name: 'details',
         label: 'Detalles',
         type: 'textarea' as const,
+        required: true,
         placeholder: 'Detalles de la mejora genética',
         colSpan: 2,
       },
@@ -72,6 +73,7 @@ const formSections: CRUDFormSection<AdminGeneticImprovementInput>[] = [
         name: 'results',
         label: 'Resultados',
         type: 'textarea' as const,
+        required: true,
         placeholder: 'Resultados obtenidos',
         colSpan: 2,
       },
@@ -112,6 +114,12 @@ const validateForm = (formData: AdminGeneticImprovementInput): string | null => 
   }
   if (!formData.genetic_event_technique?.trim()) {
     return 'La técnica del evento genético es obligatoria.';
+  }
+  if (!formData.details?.trim()) {
+    return 'Los detalles son obligatorios.';
+  }
+  if (!formData.results?.trim()) {
+    return 'Los resultados son obligatorios.';
   }
   return null;
 };

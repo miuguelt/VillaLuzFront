@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { cn } from '@/components/ui/cn.ts';
-import { X } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Interfaces y tipos
 export type ModalSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' | 'full';
@@ -30,6 +30,12 @@ interface GenericModalProps {
   allowFullScreenToggle?: boolean;
   onFullScreenChange?: (next: boolean) => void;
   footer?: React.ReactNode;
+  // Navegación entre items
+  enableNavigation?: boolean;
+  onNavigatePrevious?: () => void;
+  onNavigateNext?: () => void;
+  hasPrevious?: boolean;
+  hasNext?: boolean;
 }
 
 // Mapeo de tamaños a clases Tailwind (aplica principalmente en ≥sm)
@@ -89,6 +95,11 @@ export const GenericModal: React.FC<GenericModalProps> = ({
   allowFullScreenToggle = false,
   onFullScreenChange,
   footer,
+  enableNavigation = false,
+  onNavigatePrevious,
+  onNavigateNext,
+  hasPrevious = false,
+  hasNext = false,
 }) => {
   const overlayClasses = enableBackdropBlur
     ? '!bg-black/80 backdrop-blur-md sm:backdrop-blur-lg motion-safe:transition-all motion-safe:duration-300 motion-reduce:transition-none'
@@ -148,6 +159,27 @@ export const GenericModal: React.FC<GenericModalProps> = ({
     };
   }, [isDragging, dragOffset, draggable]);
 
+  // Manejador de navegación por teclado
+  React.useEffect(() => {
+    if (!isOpen || !enableNavigation) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Solo manejar si el foco está dentro del modal
+      if (!dialogRef.current?.contains(document.activeElement)) return;
+
+      if (e.key === 'ArrowLeft' && hasPrevious && onNavigatePrevious) {
+        e.preventDefault();
+        onNavigatePrevious();
+      } else if (e.key === 'ArrowRight' && hasNext && onNavigateNext) {
+        e.preventDefault();
+        onNavigateNext();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, enableNavigation, hasPrevious, hasNext, onNavigatePrevious, onNavigateNext]);
+
   // Clases base responsive con diseño futurista optimizado
   const [fsInternal, setFsInternal] = React.useState<boolean>(fullScreen);
   React.useEffect(() => {
@@ -163,9 +195,9 @@ export const GenericModal: React.FC<GenericModalProps> = ({
     '!p-0 !gap-0',
     // Safe areas para dispositivos con notch
     'pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]',
-    // ≥sm: modal flotante con diseño futurista - aprovechar casi todo el alto
-    'sm:w-full',
-    computedFullScreen ? 'sm:h-[98vh] sm:max-h-[98vh] sm:rounded-none sm:p-0' : 'sm:h-[90vh] sm:max-h-[90vh] sm:rounded-2xl sm:p-0',
+    // ≥sm: modal flotante con altura automática que se ajusta al contenido
+    'sm:w-full sm:h-auto',
+    computedFullScreen ? 'sm:h-[98vh] sm:max-h-[98vh] sm:rounded-none sm:p-0' : 'sm:max-h-[95vh] sm:rounded-2xl sm:p-0',
     // Diseño futurista con glassmorphism y sombras profundas
     'bg-gradient-to-br from-background/98 via-card/96 to-muted/90',
     'backdrop-blur-xl backdrop-saturate-150',
@@ -203,32 +235,28 @@ export const GenericModal: React.FC<GenericModalProps> = ({
         <DialogHeader
           className={cn(
             "relative bg-gradient-to-br from-primary/10 via-muted/50 to-muted/40",
-            "border-b-2 border-primary/20",
-            "shadow-[0_2px_8px_rgba(0,0,0,0.1),0_4px_16px_rgba(0,0,0,0.06)]",
-            variant === 'compact' ? "px-4 sm:px-5 py-2 sm:py-2.5 pr-12 sm:pr-14" : "px-5 sm:px-6 py-2.5 sm:py-3 pr-12 sm:pr-14",
+            "border-b border-primary/20",
+            "shadow-sm",
+            // Más espacio a la derecha cuando hay botón de pantalla completa
+            variant === 'compact'
+              ? allowFullScreenToggle ? "px-4 sm:px-5 py-1.5 pr-16 sm:pr-20" : "px-4 sm:px-5 py-1.5 pr-10 sm:pr-11"
+              : allowFullScreenToggle ? "px-5 sm:px-6 py-2 pr-16 sm:pr-20" : "px-5 sm:px-6 py-2 pr-10 sm:pr-11",
             draggable && "cursor-grab active:cursor-grabbing select-none"
           )}
           onMouseDown={handleMouseDown}
         >
-          {/* Decoración superior con gradiente más pronunciado */}
-          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
 
           <div className="flex items-center gap-2 min-w-0">
             {title ? (
               <DialogTitle
                 id={titleId}
                 className={cn(
-                  "text-sm sm:text-base font-bold leading-tight text-left",
+                  "text-sm sm:text-base font-semibold leading-none text-left",
                   "text-foreground",
-                  "pb-0",
-                  "tracking-tight",
-                  "flex items-center gap-1.5 flex-1 min-w-0"
+                  "flex items-center gap-2 flex-1 min-w-0"
                 )}
               >
-                <div className="flex-shrink-0 flex items-center justify-center w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 shadow-sm">
-                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-sm bg-gradient-to-br from-primary to-primary/70" />
-                </div>
+                <div className="flex-shrink-0 w-1 h-4 rounded-full bg-primary" />
                 <span className="flex-1 min-w-0 truncate">{title}</span>
               </DialogTitle>
             ) : (
@@ -238,12 +266,12 @@ export const GenericModal: React.FC<GenericModalProps> = ({
             )}
 
             {/* Botones de acción del header alineados */}
-            <div className="flex-shrink-0 flex items-center gap-2">
+            <div className="flex-shrink-0 flex items-center gap-1.5">
               {allowFullScreenToggle && (
                 <button
                   type="button"
                   aria-label={computedFullScreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-                  className="inline-flex items-center justify-center h-8 w-8 sm:h-9 sm:w-9 rounded-lg border-2 border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 text-foreground hover:text-primary shadow-sm hover:shadow-md motion-safe:transition-all duration-200 hover:scale-105 active:scale-95"
+                  className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 text-foreground hover:text-primary shadow-sm motion-safe:transition-all duration-200 hover:scale-105 active:scale-95"
                   onClick={(e) => {
                     e.stopPropagation();
                     const next = !fsInternal;
@@ -253,10 +281,10 @@ export const GenericModal: React.FC<GenericModalProps> = ({
                 >
                   {computedFullScreen ? (
                     // Minimize icon
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/></svg>
                   ) : (
                     // Maximize icon
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M3 14h7v7H3z"/><path d="M14 14h7v7h-7z"/></svg>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M3 14h7v7H3z"/><path d="M14 14h7v7h-7z"/></svg>
                   )}
                 </button>
               )}
@@ -281,8 +309,16 @@ export const GenericModal: React.FC<GenericModalProps> = ({
 
         {/* Contenedor interno con scroll optimizado - única barra de desplazamiento vertical */}
         <div className={cn(
-          "flex-1 min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain",
-          variant === 'compact' ? "px-3 sm:px-4 py-2 sm:py-3" : "px-4 sm:px-5 py-3 sm:py-4",
+          "overflow-x-hidden overflow-y-auto overscroll-contain",
+          // En escritorio: aprovechar al máximo la altura disponible
+          "flex-1 min-h-0",
+          // Altura máxima: restar el header (aprox 4rem) y dar margen para footer si existe
+          computedFullScreen
+            ? "sm:max-h-[calc(98vh-5rem)]"
+            : footer
+              ? "sm:max-h-[calc(95vh-8rem)]"
+              : "sm:max-h-[calc(95vh-6rem)]",
+          variant === 'compact' ? "px-3 sm:px-4 py-2" : "px-4 sm:px-5 py-3",
           // Scrollbar personalizado para mejor UX
           "scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-muted/20",
           "hover:scrollbar-thumb-primary/40",
@@ -296,6 +332,81 @@ export const GenericModal: React.FC<GenericModalProps> = ({
           <div className="flex-shrink-0">
             {footer}
           </div>
+        )}
+
+        {/* Botones de navegación flotantes */}
+        {enableNavigation && (
+          <>
+            {/* Botón Anterior (Izquierda) */}
+            {hasPrevious && onNavigatePrevious && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigatePrevious();
+                }}
+                aria-label="Animal anterior"
+                className={cn(
+                  "absolute left-2 sm:left-3 top-1/2 -translate-y-1/2",
+                  "h-8 w-8 sm:h-9 sm:w-9",
+                  "flex items-center justify-center",
+                  "rounded-full",
+                  // Estado normal: casi invisible (97% transparente = 3% opacidad)
+                  "bg-background/[0.03] backdrop-blur-sm",
+                  "border border-primary/[0.05]",
+                  "text-foreground/10",
+                  // Hover/Focus: visible
+                  "hover:bg-background/80 hover:backdrop-blur-md",
+                  "hover:border-primary/30",
+                  "hover:text-foreground hover:shadow-lg",
+                  "hover:scale-105",
+                  // Active
+                  "active:scale-95",
+                  // Transiciones suaves
+                  "transition-all duration-300 ease-in-out",
+                  "focus:outline-none focus:bg-background/80 focus:text-foreground focus:border-primary/30",
+                  "z-10"
+                )}
+              >
+                <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            )}
+
+            {/* Botón Siguiente (Derecha) */}
+            {hasNext && onNavigateNext && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNavigateNext();
+                }}
+                aria-label="Animal siguiente"
+                className={cn(
+                  "absolute right-2 sm:right-3 top-1/2 -translate-y-1/2",
+                  "h-8 w-8 sm:h-9 sm:w-9",
+                  "flex items-center justify-center",
+                  "rounded-full",
+                  // Estado normal: casi invisible (97% transparente = 3% opacidad)
+                  "bg-background/[0.03] backdrop-blur-sm",
+                  "border border-primary/[0.05]",
+                  "text-foreground/10",
+                  // Hover/Focus: visible
+                  "hover:bg-background/80 hover:backdrop-blur-md",
+                  "hover:border-primary/30",
+                  "hover:text-foreground hover:shadow-lg",
+                  "hover:scale-105",
+                  // Active
+                  "active:scale-95",
+                  // Transiciones suaves
+                  "transition-all duration-300 ease-in-out",
+                  "focus:outline-none focus:bg-background/80 focus:text-foreground focus:border-primary/30",
+                  "z-10"
+                )}
+              >
+                <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            )}
+          </>
         )}
       </DialogContent>
     </Dialog>

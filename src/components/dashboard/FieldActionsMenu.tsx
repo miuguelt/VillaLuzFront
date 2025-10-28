@@ -139,7 +139,6 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
       await animalFieldsService.createAnimalField(formData);
 
       handleCloseModal();
-      alert('Registro creado exitosamente');
       // Recargar la lista si estamos en modo lista
       if (modalMode === 'list') {
         loadListData();

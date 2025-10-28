@@ -22,6 +22,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { BreedLink, AnimalLink } from '@/components/common/ForeignKeyHelpers';
 import { AnimalCard } from '@/components/dashboard/animals/AnimalCard';
 import { AnimalModalContent } from '@/components/dashboard/animals/AnimalModalContent';
+import { AnimalImagePreUpload } from '@/components/dashboard/animals/AnimalImagePreUpload';
+import { animalImageService } from '@/services/animalImageService';
 
 // Mapear respuesta del backend al formulario
 const mapResponseToForm = (item: AnimalResponse & { [k: string]: any }): Partial<AnimalInput> => {
@@ -114,6 +116,9 @@ function AdminAnimalsPage() {
     return saved === 'cards' ? 'cards' : 'table';
   });
 
+  // Estado para imágenes pre-seleccionadas durante la creación
+  const [pendingImages, setPendingImages] = useState<File[]>([]);
+
   useEffect(() => {
     try {
       localStorage.setItem('adminAnimalsViewMode', viewMode);
@@ -136,6 +141,7 @@ function AdminAnimalsPage() {
   const {
     options: fatherOptions,
     loading: loadingFathers,
+    refresh: refreshFathers,
   } = useForeignKeySelect(
     (params) => animalsService.getAnimalsPaginated({ ...params, limit: 1000 }),
     (a: { id: number; record: string; sex?: string; gender?: string }) => ({
@@ -153,6 +159,7 @@ function AdminAnimalsPage() {
   const {
     options: motherOptions,
     loading: loadingMothers,
+    refresh: refreshMothers,
   } = useForeignKeySelect(
     (params) => animalsService.getAnimalsPaginated({ ...params, limit: 1000 }),
     (a: { id: number; record: string; sex?: string; gender?: string }) => ({
@@ -484,6 +491,10 @@ function AdminAnimalsPage() {
         motherLabel={motherLabel}
         onFatherClick={openAnimalDetailModal}
         onMotherClick={openAnimalDetailModal}
+        currentUserId={user?.id}
+        onOpenHistory={() => openHistoryModal(item)}
+        onOpenAncestorsTree={() => openGeneticTreeModal(item)}
+        onOpenDescendantsTree={() => openDescendantsTreeModal(item)}
       />
     );
   };
@@ -541,6 +552,49 @@ function AdminAnimalsPage() {
       clearAnimalDependencyCache(id);
       return await checkAnimalDependencies(id);
     },
+    // Refrescar dropdowns después de crear/actualizar animales
+    onAfterCreate: async (createdAnimal) => {
+      console.log('[AdminAnimalsPage] Animal creado, refrescando dropdowns:', createdAnimal);
+
+      // Refrescar listas de padre y madre para que aparezcan animales nuevos
+      refreshFathers();
+      refreshMothers();
+
+      // Subir imágenes pendientes si existen
+      if (pendingImages.length > 0 && createdAnimal?.id) {
+        console.log(`[AdminAnimalsPage] Subiendo ${pendingImages.length} imágenes para el animal ${createdAnimal.id}`);
+        try {
+          const uploadResponse = await animalImageService.uploadImages(
+            createdAnimal.id,
+            pendingImages,
+            {
+              compress: true,
+              quality: 0.8,
+            }
+          );
+
+          if (uploadResponse.success) {
+            console.log(`[AdminAnimalsPage] ${uploadResponse.data.total_uploaded} imagen(es) subida(s) exitosamente`);
+
+            // Despachar evento global para refrescar galerías
+            window.dispatchEvent(new CustomEvent('animal-images:updated', {
+              detail: { animalId: createdAnimal.id, uploaded: uploadResponse.data.uploaded }
+            }));
+          }
+        } catch (err) {
+          console.error('[AdminAnimalsPage] Error al subir imágenes:', err);
+        } finally {
+          // Limpiar imágenes pendientes
+          setPendingImages([]);
+        }
+      }
+    },
+    onAfterUpdate: async (updatedAnimal) => {
+      console.log('[AdminAnimalsPage] Animal actualizado, refrescando dropdowns:', updatedAnimal);
+      // Refrescar listas de padre y madre para reflejar cambios de nombre
+      refreshFathers();
+      refreshMothers();
+    },
   };
 
   return (
@@ -554,6 +608,26 @@ function AdminAnimalsPage() {
         customDetailContent={renderAnimalDetail}
         onFormDataChange={setFormData}
         enhancedHover={true}
+        additionalFormContent={(formData, editingItem) => {
+          // Solo mostrar selector de imágenes durante la creación (no en edición)
+          if (editingItem) return null;
+
+          return (
+            <div className="relative rounded-xl p-4 border border-border/40 bg-gradient-to-br from-card/30 via-card/20 to-transparent shadow-sm backdrop-blur-sm">
+              <div className="mb-4 pb-2 border-b border-border/30">
+                <h3 className="text-base sm:text-lg font-semibold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent flex items-center gap-2">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                  Imágenes del Animal (Opcional)
+                </h3>
+              </div>
+              <AnimalImagePreUpload
+                files={pendingImages}
+                onChange={setPendingImages}
+                maxFiles={20}
+              />
+            </div>
+          );
+        }}
       />
 
       {/* Modal de detalle de raza */}
@@ -601,9 +675,10 @@ function AdminAnimalsPage() {
           <GenericModal
             isOpen={isAnimalDetailOpen}
             onOpenChange={setIsAnimalDetailOpen}
-            title={`Detalle de Animal: ${selectedAnimal.record || `ID ${selectedAnimal.id}`}`}
+            title={`Detalle del Animal: ${selectedAnimal.id}`}
             description="Información detallada del animal"
-            size="5xl"
+            size="full"
+            variant="compact"
             enableBackdropBlur
             className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
           >
@@ -614,6 +689,10 @@ function AdminAnimalsPage() {
               motherLabel={motherLabel}
               onFatherClick={openAnimalDetailModal}
               onMotherClick={openAnimalDetailModal}
+              currentUserId={user?.id}
+              onOpenHistory={() => openHistoryModal(selectedAnimal)}
+              onOpenAncestorsTree={() => openGeneticTreeModal(selectedAnimal)}
+              onOpenDescendantsTree={() => openDescendantsTreeModal(selectedAnimal)}
             />
           </GenericModal>
         );

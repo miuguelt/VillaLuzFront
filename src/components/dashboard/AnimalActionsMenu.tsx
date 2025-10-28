@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MoreVertical, Dna, Activity, Syringe, Pill, MapPin, ClipboardList, Eye, Plus, History, GitBranch, Baby } from 'lucide-react';
+import { MoreVertical, Dna, Activity, Syringe, Pill, MapPin, ClipboardList, Eye, Plus, History, GitBranch, Baby, Edit2, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +13,8 @@ import {
 import { GenericModal } from '@/components/common/GenericModal';
 import { AnimalResponse } from '@/types/swaggerTypes';
 import { getTodayColombia } from '@/utils/dateUtils';
+import { SectionCard, InfoField } from '@/components/common/ModalStyles';
+import { Badge } from '@/components/ui/badge';
 
 // Importar servicios
 import { geneticImprovementsService } from '@/services/geneticImprovementsService';
@@ -54,6 +56,8 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
   const [error, setError] = useState<string | null>(null);
   const [listData, setListData] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
 
   // Opciones para los selects
   const [diseaseOptions, setDiseaseOptions] = useState<Array<{ value: number; label: string }>>([]);
@@ -224,9 +228,9 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
           setFormData({
             animal_id: animal.id,
             date: getTodayColombia(),
-            genetic_event_technique: '',
-            details: '',
-            results: '',
+            improvement_type: '',
+            description: '',
+            expected_result: '',
           });
           break;
         case 'animal_disease':
@@ -286,6 +290,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
     setFormData({});
     setError(null);
     setListData([]);
+    setEditingItem(null);
   };
 
   const handleSubmit = async () => {
@@ -293,49 +298,108 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
     setError(null);
 
     try {
+      const isEditing = !!editingItem;
+
       switch (openModal) {
         case 'genetic_improvement':
-          if (!formData.genetic_event_technique?.trim()) {
-            throw new Error('La técnica del evento genético es obligatoria');
+          if (!formData.animal_id) {
+            throw new Error('El ID del animal es requerido');
           }
-          await geneticImprovementsService.createGeneticImprovement(formData);
+          if (!formData.improvement_type?.trim()) {
+            throw new Error('El tipo de mejora genética es obligatorio');
+          }
+          if (!formData.date) {
+            throw new Error('La fecha es obligatoria');
+          }
+          if (isEditing) {
+            await geneticImprovementsService.updateGeneticImprovement(editingItem.id, formData);
+          } else {
+            await geneticImprovementsService.createGeneticImprovement(formData);
+          }
           break;
         case 'animal_disease':
+          if (!formData.animal_id) {
+            throw new Error('El ID del animal es requerido');
+          }
           if (!formData.disease_id || !formData.instructor_id) {
             throw new Error('Enfermedad e instructor son obligatorios');
           }
-          await animalDiseasesService.createAnimalDisease(formData);
+          if (isEditing) {
+            await animalDiseasesService.updateAnimalDisease(editingItem.id, formData);
+          } else {
+            await animalDiseasesService.createAnimalDisease(formData);
+          }
           break;
         case 'animal_field':
+          if (!formData.animal_id) {
+            throw new Error('El ID del animal es requerido');
+          }
           if (!formData.field_id) {
             throw new Error('El campo es obligatorio');
           }
-          await animalFieldsService.createAnimalField(formData);
+          if (!formData.assignment_date) {
+            throw new Error('La fecha de asignación es obligatoria');
+          }
+          if (isEditing) {
+            await animalFieldsService.updateAnimalField(editingItem.id, formData);
+          } else {
+            await animalFieldsService.createAnimalField(formData);
+          }
           break;
         case 'vaccination':
+          if (!formData.animal_id) {
+            throw new Error('El ID del animal es requerido');
+          }
           if (!formData.vaccine_id) {
             throw new Error('La vacuna es obligatoria');
           }
-          await vaccinationsService.createVaccination(formData);
+          if (!formData.vaccination_date) {
+            throw new Error('La fecha de vacunación es obligatoria');
+          }
+          if (isEditing) {
+            await vaccinationsService.updateVaccination(editingItem.id, formData);
+          } else {
+            await vaccinationsService.createVaccination(formData);
+          }
           break;
         case 'treatment':
+          if (!formData.animal_id) {
+            throw new Error('El ID del animal es requerido');
+          }
           if (!formData.diagnosis?.trim()) {
             throw new Error('El diagnóstico es obligatorio');
           }
-          await treatmentsService.createTreatment(formData);
+          if (!formData.treatment_date) {
+            throw new Error('La fecha del tratamiento es obligatoria');
+          }
+          if (isEditing) {
+            await treatmentsService.updateTreatment(editingItem.id, formData);
+          } else {
+            await treatmentsService.createTreatment(formData);
+          }
           break;
         case 'control':
-          await controlService.createControl(formData);
+          if (!formData.animal_id) {
+            throw new Error('El ID del animal es requerido');
+          }
+          if (!formData.checkup_date && !formData.control_date) {
+            throw new Error('La fecha del control es obligatoria');
+          }
+          if (isEditing) {
+            await controlService.updateControl(editingItem.id, formData);
+          } else {
+            await controlService.createControl(formData);
+          }
           break;
       }
 
-      // Mostrar modo lista después de crear exitosamente
+      // Mostrar modo lista después de crear/editar exitosamente
       setModalMode('list');
       setError(null);
+      setEditingItem(null);
       // Recargar datos de la lista
       await loadListData();
 
-      alert('Registro creado exitosamente');
       // Refrescar datos de la tabla principal si se proporcionó callback
       if (onRefresh) {
         onRefresh();
@@ -344,6 +408,48 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
       setError(err?.response?.data?.message || err.message || 'Error al guardar');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEdit = (item: any) => {
+    setEditingItem(item);
+    setFormData(item);
+    setModalMode('create');
+  };
+
+  const handleDelete = async (itemId: number) => {
+    if (!confirm('¿Está seguro de eliminar este registro?')) return;
+
+    setDeletingItemId(itemId);
+    try {
+      switch (openModal) {
+        case 'genetic_improvement':
+          await geneticImprovementsService.deleteGeneticImprovement(itemId);
+          break;
+        case 'animal_disease':
+          await animalDiseasesService.deleteAnimalDisease(itemId);
+          break;
+        case 'animal_field':
+          await animalFieldsService.deleteAnimalField(itemId);
+          break;
+        case 'vaccination':
+          await vaccinationsService.deleteVaccination(itemId);
+          break;
+        case 'treatment':
+          await treatmentsService.deleteTreatment(itemId);
+          break;
+        case 'control':
+          await controlService.deleteControl(itemId);
+          break;
+      }
+
+      // Recargar lista después de eliminar
+      await loadListData();
+      if (onRefresh) onRefresh();
+    } catch (err: any) {
+      alert(err?.response?.data?.message || err.message || 'Error al eliminar');
+    } finally {
+      setDeletingItemId(null);
     }
   };
 
@@ -359,20 +465,54 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
 
     if (listData.length === 0) {
       return (
-        <div className="py-10 text-center">
-          <p className="text-muted-foreground">No hay registros para este animal</p>
+        <div className="py-6 text-center bg-gradient-to-br from-muted/20 to-muted/5 rounded-xl border-2 border-dashed border-border/50">
+          <ClipboardList className="w-12 h-12 mx-auto text-muted-foreground/40 mb-2" />
+          <p className="text-sm font-medium text-muted-foreground">No hay registros</p>
+          <p className="text-xs text-muted-foreground/70 mt-0.5 mb-3">Este animal aún no tiene registros de este tipo</p>
+          <button
+            onClick={() => setModalMode('create')}
+            className="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm inline-flex items-center gap-1.5"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Crear primer registro
+          </button>
         </div>
       );
     }
 
     return (
-      <div className="space-y-3 max-h-[500px] overflow-y-auto">
+      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
         {listData.map((item, index) => (
           <div
             key={item.id || index}
-            className="border border-border rounded-lg p-4 bg-card hover:bg-accent/50 transition-colors"
+            className="bg-gradient-to-br from-accent/30 to-accent/10 border border-border/60 rounded-xl p-3 hover:shadow-lg hover:border-primary/30 transition-all duration-300 group"
           >
-            {renderListItem(item)}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                {renderListItem(item)}
+              </div>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => handleEdit(item)}
+                  className="p-2 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 transition-colors"
+                  title="Editar"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(item.id)}
+                  disabled={deletingItemId === item.id}
+                  className="p-2 rounded-md bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors disabled:opacity-50"
+                  title="Eliminar"
+                >
+                  {deletingItemId === item.id ? (
+                    <div className="w-4 h-4 border-2 border-destructive border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         ))}
       </div>
@@ -383,25 +523,27 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
     switch (openModal) {
       case 'genetic_improvement':
         return (
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Técnica:</span>
-              <span className="text-muted-foreground">{item.genetic_event_technique || '-'}</span>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <InfoField
+                label="Tipo de Mejora"
+                value={item.improvement_type || item.genetic_event_technique || '-'}
+              />
+              <InfoField
+                label="Fecha"
+                value={item.date ? new Date(item.date).toLocaleDateString('es-ES') : '-'}
+              />
             </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Fecha:</span>
-              <span className="text-muted-foreground">{item.date ? new Date(item.date).toLocaleDateString('es-ES') : '-'}</span>
-            </div>
-            {item.details && (
+            {(item.description || item.details) && (
               <div>
-                <span className="font-medium text-foreground">Detalles:</span>
-                <p className="text-muted-foreground mt-1">{item.details}</p>
+                <div className="text-xs text-foreground/70 mb-1.5 font-medium">Descripción</div>
+                <p className="text-sm text-foreground/80 bg-muted/30 rounded-lg p-2.5">{item.description || item.details}</p>
               </div>
             )}
-            {item.results && (
+            {(item.expected_result || item.results) && (
               <div>
-                <span className="font-medium text-foreground">Resultados:</span>
-                <p className="text-muted-foreground mt-1">{item.results}</p>
+                <div className="text-xs text-foreground/70 mb-1.5 font-medium">Resultado Esperado</div>
+                <p className="text-sm text-foreground/80 bg-muted/30 rounded-lg p-2.5">{item.expected_result || item.results}</p>
               </div>
             )}
           </div>
@@ -409,23 +551,30 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
 
       case 'animal_disease':
         return (
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Enfermedad ID:</span>
-              <span className="text-muted-foreground">{item.disease_id || '-'}</span>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <InfoField
+                label="Enfermedad ID"
+                value={item.disease_id || '-'}
+              />
+              <div>
+                <div className="text-xs text-foreground/70 mb-1.5 font-medium">Estado</div>
+                <Badge
+                  variant={item.status === 'Activo' ? 'destructive' : 'default'}
+                  className={item.status === 'Curado' ? 'bg-green-600 text-white' : ''}
+                >
+                  {item.status || '-'}
+                </Badge>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Estado:</span>
-              <span className={item.status === 'Activo' ? 'text-destructive font-medium' : 'text-green-600 font-medium'}>{item.status || '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Diagnóstico:</span>
-              <span className="text-muted-foreground">{item.diagnosis_date ? new Date(item.diagnosis_date).toLocaleDateString('es-ES') : '-'}</span>
-            </div>
+            <InfoField
+              label="Fecha de Diagnóstico"
+              value={item.diagnosis_date ? new Date(item.diagnosis_date).toLocaleDateString('es-ES') : '-'}
+            />
             {item.notes && (
               <div>
-                <span className="font-medium text-foreground">Notas:</span>
-                <p className="text-muted-foreground mt-1">{item.notes}</p>
+                <div className="text-xs text-foreground/70 mb-1.5 font-medium">Notas</div>
+                <p className="text-sm text-foreground/80 bg-muted/30 rounded-lg p-2.5">{item.notes}</p>
               </div>
             )}
           </div>
@@ -433,23 +582,31 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
 
       case 'animal_field':
         return (
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Campo ID:</span>
-              <span className="text-muted-foreground">{item.field_id || '-'}</span>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <InfoField
+                label="Campo ID"
+                value={item.field_id || '-'}
+              />
+              <InfoField
+                label="Asignación"
+                value={item.assignment_date ? new Date(item.assignment_date).toLocaleDateString('es-ES') : '-'}
+              />
             </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Asignación:</span>
-              <span className="text-muted-foreground">{item.assignment_date ? new Date(item.assignment_date).toLocaleDateString('es-ES') : '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Retiro:</span>
-              <span className="text-muted-foreground">{item.removal_date ? new Date(item.removal_date).toLocaleDateString('es-ES') : 'Actualmente asignado'}</span>
+            <div>
+              <div className="text-xs text-foreground/70 mb-1.5 font-medium">Estado</div>
+              {item.removal_date ? (
+                <Badge variant="secondary">
+                  Retirado: {new Date(item.removal_date).toLocaleDateString('es-ES')}
+                </Badge>
+              ) : (
+                <Badge className="bg-green-600 text-white">Actualmente asignado</Badge>
+              )}
             </div>
             {item.notes && (
               <div>
-                <span className="font-medium text-foreground">Notas:</span>
-                <p className="text-muted-foreground mt-1">{item.notes}</p>
+                <div className="text-xs text-foreground/70 mb-1.5 font-medium">Notas</div>
+                <p className="text-sm text-foreground/80 bg-muted/30 rounded-lg p-2.5">{item.notes}</p>
               </div>
             )}
           </div>
@@ -457,73 +614,83 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
 
       case 'vaccination':
         return (
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Vacuna ID:</span>
-              <span className="text-muted-foreground">{item.vaccine_id || '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Fecha:</span>
-              <span className="text-muted-foreground">{item.vaccination_date ? new Date(item.vaccination_date).toLocaleDateString('es-ES') : '-'}</span>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <InfoField
+                label="Vacuna ID"
+                value={item.vaccine_id || '-'}
+              />
+              <InfoField
+                label="Fecha"
+                value={item.vaccination_date ? new Date(item.vaccination_date).toLocaleDateString('es-ES') : '-'}
+              />
             </div>
           </div>
         );
 
       case 'treatment':
         return (
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Diagnóstico:</span>
-              <span className="text-muted-foreground">{item.diagnosis || '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Fecha:</span>
-              <span className="text-muted-foreground">{item.treatment_date ? new Date(item.treatment_date).toLocaleDateString('es-ES') : '-'}</span>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <InfoField
+                label="Diagnóstico"
+                value={item.diagnosis || '-'}
+              />
+              <InfoField
+                label="Fecha"
+                value={item.treatment_date ? new Date(item.treatment_date).toLocaleDateString('es-ES') : '-'}
+              />
             </div>
             {item.description && (
               <div>
-                <span className="font-medium text-foreground">Descripción:</span>
-                <p className="text-muted-foreground mt-1">{item.description}</p>
+                <div className="text-xs text-foreground/70 mb-1.5 font-medium">Descripción</div>
+                <p className="text-sm text-foreground/80 bg-muted/30 rounded-lg p-2.5">{item.description}</p>
               </div>
+            )}
+            {item.frequency && (
+              <InfoField
+                label="Frecuencia"
+                value={item.frequency}
+              />
             )}
           </div>
         );
 
       case 'control':
         return (
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Fecha:</span>
-              <span className="text-muted-foreground">{item.checkup_date ? new Date(item.checkup_date).toLocaleDateString('es-ES') : '-'}</span>
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-3">
+              <InfoField
+                label="Fecha"
+                value={item.checkup_date ? new Date(item.checkup_date).toLocaleDateString('es-ES') : '-'}
+              />
+              <InfoField
+                label="Peso"
+                value={item.weight ? `${item.weight} kg` : '-'}
+              />
+              <InfoField
+                label="Altura"
+                value={item.height ? `${item.height} m` : '-'}
+              />
             </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Peso:</span>
-              <span className="text-muted-foreground">{item.weight ? `${item.weight} kg` : '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Altura:</span>
-              <span className="text-muted-foreground">{item.height ? `${item.height} m` : '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Estado:</span>
-              <span className={`font-medium ${
-                item.health_status === 'Excelente' ? 'text-green-600' :
-                item.health_status === 'Bueno' ? 'text-blue-600' :
-                item.health_status === 'Regular' ? 'text-yellow-600' :
-                item.health_status === 'Malo' ? 'text-red-600' :
-                'text-muted-foreground'
-              }`}>{item.health_status || item.healt_status || 'Sano'}</span>
+            <div>
+              <div className="text-xs text-foreground/70 mb-1.5 font-medium">Estado de Salud</div>
+              <Badge
+                className={
+                  item.health_status === 'Excelente' ? 'bg-green-600 text-white' :
+                  item.health_status === 'Bueno' || item.health_status === 'Sano' ? 'bg-blue-600 text-white' :
+                  item.health_status === 'Regular' ? 'bg-yellow-600 text-white' :
+                  item.health_status === 'Malo' ? 'bg-red-600 text-white' :
+                  ''
+                }
+              >
+                {item.health_status || item.healt_status || 'Sano'}
+              </Badge>
             </div>
             {item.description && (
               <div>
-                <span className="font-medium text-foreground">Descripción:</span>
-                <p className="text-muted-foreground mt-1">{item.description}</p>
-              </div>
-            )}
-            {item.created_at && (
-              <div className="flex justify-between text-xs pt-2 border-t border-border/50">
-                <span className="text-muted-foreground/70">Creado:</span>
-                <span className="text-muted-foreground/70">{new Date(item.created_at).toLocaleDateString('es-ES')}</span>
+                <div className="text-xs text-foreground/70 mb-1.5 font-medium">Descripción</div>
+                <p className="text-sm text-foreground/80 bg-muted/30 rounded-lg p-2.5">{item.description}</p>
               </div>
             )}
           </div>
@@ -562,31 +729,31 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
               />
             </div>
             <div>
-              <label className={labelClass}>Técnica del Evento Genético *</label>
+              <label className={labelClass}>Tipo de Mejora Genética *</label>
               <input
                 type="text"
-                value={formData.genetic_event_technique || ''}
-                onChange={(e) => setFormData({ ...formData, genetic_event_technique: e.target.value })}
-                placeholder="Técnica utilizada"
+                value={formData.improvement_type || ''}
+                onChange={(e) => setFormData({ ...formData, improvement_type: e.target.value })}
+                placeholder="Tipo de mejora (ej: Inseminación, Cruzamiento, etc.)"
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>Detalles</label>
+              <label className={labelClass}>Descripción</label>
               <textarea
-                value={formData.details || ''}
-                onChange={(e) => setFormData({ ...formData, details: e.target.value })}
-                placeholder="Detalles de la mejora genética"
+                value={formData.description || ''}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Descripción de la mejora genética"
                 rows={3}
                 className={inputClass}
               />
             </div>
             <div>
-              <label className={labelClass}>Resultados</label>
+              <label className={labelClass}>Resultado Esperado</label>
               <textarea
-                value={formData.results || ''}
-                onChange={(e) => setFormData({ ...formData, results: e.target.value })}
-                placeholder="Resultados obtenidos"
+                value={formData.expected_result || ''}
+                onChange={(e) => setFormData({ ...formData, expected_result: e.target.value })}
+                placeholder="Resultado esperado de la mejora"
                 rows={3}
                 className={inputClass}
               />
@@ -900,21 +1067,30 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
   };
 
   const getModalTitle = () => {
+    const isEditing = !!editingItem;
+    const animalName = animal.record || `#${animal.id}`;
+
     switch (openModal) {
       case 'genetic_improvement':
-        return modalMode === 'create' ? 'Nueva Mejora Genética' : 'Mejoras Genéticas';
+        if (modalMode === 'list') return `Mejoras Genéticas - ${animalName}`;
+        return isEditing ? `Editar Mejora Genética - ${animalName}` : `Nueva Mejora Genética - ${animalName}`;
       case 'animal_disease':
-        return modalMode === 'create' ? 'Registrar Enfermedad' : 'Enfermedades';
+        if (modalMode === 'list') return `Enfermedades - ${animalName}`;
+        return isEditing ? `Editar Enfermedad - ${animalName}` : `Registrar Enfermedad - ${animalName}`;
       case 'animal_field':
-        return modalMode === 'create' ? 'Asignar a Campo' : 'Asignaciones de Campo';
+        if (modalMode === 'list') return `Asignaciones de Campo - ${animalName}`;
+        return isEditing ? `Editar Asignación - ${animalName}` : `Asignar a Campo - ${animalName}`;
       case 'vaccination':
-        return modalMode === 'create' ? 'Registrar Vacunación' : 'Vacunaciones';
+        if (modalMode === 'list') return `Vacunaciones - ${animalName}`;
+        return isEditing ? `Editar Vacunación - ${animalName}` : `Registrar Vacunación - ${animalName}`;
       case 'treatment':
-        return modalMode === 'create' ? 'Registrar Tratamiento' : 'Tratamientos';
+        if (modalMode === 'list') return `Tratamientos - ${animalName}`;
+        return isEditing ? `Editar Tratamiento - ${animalName}` : `Registrar Tratamiento - ${animalName}`;
       case 'control':
-        return modalMode === 'create' ? 'Nuevo Control' : 'Controles';
+        if (modalMode === 'list') return `Controles - ${animalName}`;
+        return isEditing ? `Editar Control - ${animalName}` : `Nuevo Control - ${animalName}`;
       default:
-        return '';
+        return `Detalles - ${animalName}`;
     }
   };
 
@@ -1151,20 +1327,53 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
         isOpen={openModal !== null}
         onOpenChange={(open) => !open && handleCloseModal()}
         title={getModalTitle()}
-        description={
-          modalMode === 'list'
-            ? `Registros del animal ${animal.record || animal.id}`
-            : `Formulario para registrar información del animal ${animal.record || animal.id}`
-        }
         size="2xl"
         enableBackdropBlur
         className="bg-card/95 backdrop-blur-md text-card-foreground border-border/50"
       >
-        <div className="space-y-4">
+        <div className="space-y-3">
           {modalMode === 'list' ? (
-            renderListContent()
+            <>
+              {renderListContent()}
+
+              {/* Botón para crear nuevo - siempre visible en modo lista */}
+              <div className="flex justify-between items-center pt-3 border-t border-border/50">
+                <button
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 text-sm rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  Cerrar
+                </button>
+                <button
+                  onClick={() => {
+                    setEditingItem(null);
+                    handleOpenModal(openModal, 'create');
+                  }}
+                  className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm inline-flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Crear Nuevo
+                </button>
+              </div>
+            </>
           ) : (
             <>
+              {/* Botón para volver a la lista si hay registros */}
+              {listData.length > 0 && (
+                <div className="flex justify-start mb-2">
+                  <button
+                    onClick={() => {
+                      setModalMode('list');
+                      setEditingItem(null);
+                      setError(null);
+                    }}
+                    className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    ← Volver a la lista
+                  </button>
+                </div>
+              )}
+
               {renderFormContent()}
 
               {error && (
@@ -1175,18 +1384,26 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
 
               <div className="flex justify-end gap-2 pt-4 border-t border-border">
                 <button
-                  onClick={handleCloseModal}
+                  onClick={() => {
+                    if (listData.length > 0) {
+                      setModalMode('list');
+                      setEditingItem(null);
+                      setError(null);
+                    } else {
+                      handleCloseModal();
+                    }
+                  }}
                   className="px-4 py-2 text-sm rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
                   disabled={loading}
                 >
-                  Cancelar
+                  {listData.length > 0 ? 'Cancelar' : 'Cerrar'}
                 </button>
                 <button
                   onClick={handleSubmit}
                   className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
                   disabled={loading}
                 >
-                  {loading ? 'Guardando...' : 'Guardar'}
+                  {loading ? 'Guardando...' : (editingItem ? 'Actualizar' : 'Guardar')}
                 </button>
               </div>
             </>

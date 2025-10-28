@@ -186,7 +186,6 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
       }
 
       handleCloseModal();
-      alert('Registro creado exitosamente');
     } catch (err: any) {
       setError(err?.response?.data?.message || err.message || 'Error al guardar');
     } finally {

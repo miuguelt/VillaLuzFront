@@ -262,9 +262,12 @@ export function AnimalImageGallery({
               <img
                 src={image.url}
                 alt={image.filename}
-                className="w-full h-full object-cover cursor-pointer"
+                className="w-full h-full object-cover cursor-pointer transition-transform duration-300 hover:scale-110"
                 onClick={() => setSelectedImage(image)}
                 loading="lazy"
+                style={{
+                  imageRendering: 'high-quality',
+                }}
                 onError={() => {
                   setImageErrors(prev => new Set(prev).add(image.id));
                 }}
@@ -392,7 +395,7 @@ export function AnimalImageGallery({
         open={selectedImage !== null}
         onOpenChange={(open) => !open && setSelectedImage(null)}
       >
-        <DialogContent className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-0 bg-black/98 border-none overflow-hidden rounded-none">
+        <DialogContent className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-0 bg-black border-none overflow-hidden rounded-none m-0 fixed inset-0">
           <DialogHeader className="sr-only">
             <DialogTitle className="flex items-center gap-2">
               {selectedImage?.is_primary && (
@@ -411,7 +414,7 @@ export function AnimalImageGallery({
           </DialogHeader>
 
           {selectedImage && (
-            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden bg-black group">
               {/* Imagen a pantalla completa */}
               {imageErrors.has(selectedImage.id) ? (
                 <div className="w-full h-full flex items-center justify-center">
@@ -424,25 +427,31 @@ export function AnimalImageGallery({
                 <img
                   src={selectedImage.url}
                   alt={selectedImage.filename}
-                  className="object-contain"
-                  style={{ 
-                    imageRendering: 'high-quality',
-                    maxWidth: '100vw',
-                    maxHeight: '100vh',
+                  className="w-full h-full"
+                  style={{
+                    objectFit: 'contain',
+                    objectPosition: 'center',
+                    imageRendering: '-webkit-optimize-contrast',
+                    WebkitFontSmoothing: 'antialiased',
+                    MozOsxFontSmoothing: 'grayscale',
+                    backfaceVisibility: 'hidden',
+                    transform: 'translateZ(0)',
+                    willChange: 'transform',
+                    maxWidth: '100%',
+                    maxHeight: '100%',
                     width: 'auto',
                     height: 'auto',
-                    display: 'block',
-                    objectFit: 'contain',
-                    objectPosition: 'center'
                   }}
+                  decoding="async"
+                  fetchpriority="high"
                   onError={() => {
                     setImageErrors(prev => new Set(prev).add(selectedImage.id));
                   }}
                 />
               )}
 
-              {/* Información de la imagen */}
-              <div className="absolute bottom-8 left-0 right-0 flex justify-center z-10">
+              {/* Información de la imagen - aparece solo en hover */}
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 <div className="bg-black/80 backdrop-blur-md text-white px-6 py-3 rounded-full text-sm font-medium shadow-2xl border border-white/10">
                   {selectedImage.filename} • {(selectedImage.file_size / 1024).toFixed(0)} KB • {selectedImage.mime_type}
                   {selectedImage.is_primary && (
@@ -451,10 +460,10 @@ export function AnimalImageGallery({
                 </div>
               </div>
 
-              {/* Indicador de cierre */}
-              <div className="absolute top-8 right-8 z-10">
+              {/* Indicador de cierre - aparece solo en hover */}
+              <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 <div className="bg-black/80 backdrop-blur-md text-white/70 px-4 py-2 rounded-full text-xs font-medium shadow-2xl border border-white/10">
-                  Presione ESC o haga clic para cerrar
+                  ESC para cerrar
                 </div>
               </div>
             </div>

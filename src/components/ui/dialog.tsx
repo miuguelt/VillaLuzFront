@@ -84,8 +84,8 @@ const DialogContent = React.forwardRef<
           "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg",
           "translate-x-[-50%] translate-y-[-50%]",
           "gap-4 border bg-background p-6 shadow-lg",
-          // Mejora de layout: limitar altura pero sin scroll aquí (se maneja en GenericModal)
-          "max-h-[90vh] sm:max-h-[88vh] overflow-hidden overscroll-contain",
+          // Mejora de layout: maximizar altura disponible (se maneja scroll en GenericModal)
+          "max-h-[95vh] overflow-hidden overscroll-contain",
           "motion-safe:duration-300 motion-safe:ease-out motion-reduce:duration-0",
           "data-[state=open]:animate-in data-[state=closed]:animate-out motion-reduce:animate-none",
           "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
@@ -117,16 +117,16 @@ const DialogContent = React.forwardRef<
         
         {children}
         <DialogPrimitive.Close className={cn(
-          "absolute right-3 top-3 sm:right-4 sm:top-4",
-          "rounded-full p-3 sm:p-2",
+          "absolute right-2 top-2 sm:right-3 sm:top-2",
+          "rounded-md p-1.5 sm:p-2",
           "opacity-70 hover:opacity-100",
           "ring-offset-background transition-all duration-200",
-          "hover:bg-accent/50 hover:scale-110",
+          "hover:bg-accent/50 hover:scale-105",
           "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
           "disabled:pointer-events-none",
           "data-[state=open]:bg-accent/30 data-[state=open]:text-muted-foreground"
         )}>
-          <X className="h-4 w-4 sm:h-5 sm:w-5" />
+          <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>

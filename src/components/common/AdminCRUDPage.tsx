@@ -73,7 +73,9 @@ import { Toolbar } from '@/components/common/Toolbar';
 import { ErrorState } from '@/components/feedback/ErrorState';
 import { useToast } from '@/context/ToastContext';
 import { useT } from '@/i18n';
-import { ConfirmDialog } from '@/components/common/ConfirmDialog';import { SkeletonTable } from '@/components/feedback/SkeletonTable';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { SkeletonTable } from '@/components/feedback/SkeletonTable';
+import { LoadingOverlay } from '@/components/feedback/LoadingOverlay';
 import { animalsService } from '@/services/animalService';
 import { Combobox } from '@/components/ui/combobox';
 import { addTombstone, getTombstoneIds, clearExpired } from '@/utils/tombstones';
@@ -121,8 +123,8 @@ export interface CRUDFormSection<T> {
   export interface CRUDConfig<T, TInput> {
   title: string;
   entityName: string;
-  columns: CRUDColumn<T>[];  
-  formSections: CRUDFormSection<TInput>[];  
+  columns: CRUDColumn<T>[];
+  formSections: CRUDFormSection<TInput>[];
   searchPlaceholder?: string;
   emptyStateMessage?: string;
   emptyStateDescription?: string;
@@ -146,6 +148,10 @@ export interface CRUDFormSection<T> {
   viewMode?: 'table' | 'cards';
   // Contenido interno opcional para cada tarjeta
   renderCard?: (item: T) => React.ReactNode;
+  // Callbacks para refrescar datos después de operaciones
+  onAfterCreate?: (createdItem: T) => void | Promise<void>;  // Llamado después de crear
+  onAfterUpdate?: (updatedItem: T) => void | Promise<void>;  // Llamado después de actualizar
+  onAfterDelete?: (deletedId: number) => void | Promise<void>; // Llamado después de eliminar
   }
 
 interface AdminCRUDPageProps<T extends { id: number }, TInput extends Record<string, any>> {
@@ -163,6 +169,8 @@ interface AdminCRUDPageProps<T extends { id: number }, TInput extends Record<str
   refetchOnReconnect?: boolean;
   // Opciones de estilo hover personalizado
   enhancedHover?: boolean; // Habilitar hover mejorado con borde azul y fondo azul suave
+  // Contenido adicional personalizado en el formulario de creación/edición
+  additionalFormContent?: (formData: TInput, editingItem: T | null) => React.ReactNode;
 }
 
 export function AdminCRUDPage<T extends { id: number }, TInput extends Record<string, any>>({
@@ -178,6 +186,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   refetchOnFocus,
   refetchOnReconnect,
   enhancedHover = false,
+  additionalFormContent,
 }: AdminCRUDPageProps<T, TInput>) {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const { showToast } = useToast();
@@ -194,6 +203,10 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<T | null>(null);
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
+
+  // Loading overlay state
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState('Procesando...');
 
   // Límite inicial fijo estándar para consistencia y mejor UX
   // Valores comunes: 10, 20, 50, 100
@@ -708,25 +721,36 @@ const {
     }
 
     setSaving(true);
+    setIsProcessing(true);
+    setProcessingMessage(editingItem ? `Actualizando ${config.entityName.toLowerCase()}...` : `Creando ${config.entityName.toLowerCase()}...`);
 
     try {
       let itemId: number | undefined;
 
       if (editingItem?.id) {
-        await updateItem(editingItem.id, formData as any);
+        const updatedItem = await updateItem(editingItem.id, formData as any);
         showToast(`✅ ${config.entityName} actualizado correctamente`, 'success');
         itemId = editingItem.id;
 
-        // Marcar item como actualizado para mostrar efecto visual
+        // Marcar item como actualizado para mostrar efecto visual amarillo
         setUpdatedItems(prev => new Set(prev).add(itemId!));
-        // Limpiar después de la animación (600ms de animación + 400ms extra)
+        // Limpiar después de una animación más larga para mejor visibilidad
         setTimeout(() => {
           setUpdatedItems(prev => {
             const newSet = new Set(prev);
             newSet.delete(itemId!);
             return newSet;
           });
-        }, 1000);
+        }, 2000); // Aumentado de 1000ms a 2000ms
+
+        // Llamar callback después de actualizar
+        if (config.onAfterUpdate) {
+          try {
+            await config.onAfterUpdate(updatedItem);
+          } catch (err) {
+            console.error('[AdminCRUDPage] Error en callback onAfterUpdate:', err);
+          }
+        }
       } else {
         // ✅ MARCAR que esta es una inserción manual del usuario
         // Esta flag activa el efecto verde SOLO para este item específico
@@ -752,6 +776,15 @@ const {
         if (setPage && meta?.page && meta.page > 1) {
           setPage(1);
         }
+
+        // Llamar callback después de crear
+        if (config.onAfterCreate) {
+          try {
+            await config.onAfterCreate(createdItem);
+          } catch (err) {
+            console.error('[AdminCRUDPage] Error en callback onAfterCreate:', err);
+          }
+        }
       }
 
       // Asegurar visibilidad del nuevo registro: ir a página 1 si no estamos allí
@@ -764,10 +797,15 @@ const {
         } catch { /* noop */ }
       }
 
-      // CERRAR MODAL INMEDIATAMENTE para apreciar las animaciones
-      handleModalClose();
+      // Ocultar loading overlay primero con transición suave
+      setTimeout(() => setIsProcessing(false), 200);
 
-      // Refrescar datos DESPUÉS de cerrar modal y cambiar página - delay mayor para asegurar sincronización
+      // CERRAR MODAL con delay para que el usuario vea el loading desaparecer
+      setTimeout(() => {
+        handleModalClose();
+      }, 400);
+
+      // Refrescar datos DESPUÉS de cerrar modal - delay para apreciar animaciones de color
       setTimeout(async () => {
         try {
           const freshData = await refetch();
@@ -808,7 +846,7 @@ const {
             });
           }
         }
-      }, 500); // 500ms para dar tiempo a que página cambie y modal se cierre suavemente
+      }, 800); // 800ms para dar tiempo a que página cambie, modal se cierre y se vean los efectos de color
     } catch (error: any) {
       // Extraer mensaje de error detallado del backend
       let errorMessage = `${t('crud.save_error', 'Error al guardar')} ${config.entityName.toLowerCase()}`;
@@ -845,6 +883,8 @@ const {
 
       showToast(errorMessage, 'error');
       // NO cerrar el modal para permitir correcciones
+      // Ocultar overlay en caso de error
+      setTimeout(() => setIsProcessing(false), 300);
     } finally {
       setSaving(false);
     }
@@ -1000,6 +1040,10 @@ const {
     setDependencyCheckResult(null); // Limpiar resultado
     // Limpiar targetId INMEDIATAMENTE para permitir abrir nuevos diálogos
     setTargetId(null);
+
+    // Mostrar loading overlay
+    setIsProcessing(true);
+    setProcessingMessage(`Eliminando ${config.entityName.toLowerCase()}...`);
 
     // Marcar item como "deleting" para animación de fade-out
     setDeletingItems(prev => {
@@ -1229,6 +1273,8 @@ const {
     } finally {
       setDeletingId(null);
       // NO resetear targetId aquí - ya se reseteó al inicio para permitir abrir nuevos diálogos
+      // Ocultar loading overlay con delay para mejor UX
+      setTimeout(() => setIsProcessing(false), 300);
     }
   };
 
@@ -1325,10 +1371,13 @@ const {
                            }
                          }}
                        >
-                        <CardHeader className="py-3 flex-shrink-0 border-b border-border/30">
-                          <CardTitle className="text-sm font-semibold truncate" title={titleText}>{titleText}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="py-3 flex-1 flex flex-col min-h-0 overflow-hidden">
+                        {/* Solo mostrar CardHeader si NO hay renderCard personalizado */}
+                        {!config.renderCard && (
+                          <CardHeader className="py-3 flex-shrink-0 border-b border-border/30">
+                            <CardTitle className="text-sm font-semibold truncate" title={titleText}>{titleText}</CardTitle>
+                          </CardHeader>
+                        )}
+                        <CardContent className={config.renderCard ? "p-0 flex-1 flex flex-col min-h-0 overflow-hidden" : "py-3 flex-1 flex flex-col min-h-0 overflow-hidden"}>
                           {config.renderCard ? (
                             config.renderCard(item)
                           ) : (
@@ -1983,6 +2032,13 @@ const {
                 </div>
               )}
 
+              {/* Contenido adicional personalizado */}
+              {additionalFormContent && (
+                <div className="mt-3">
+                  {additionalFormContent(formData, editingItem)}
+                </div>
+              )}
+
               <div className={cn(
                 "flex flex-col sm:flex-row gap-3 pt-4 mt-auto",
                 "sticky bottom-0 -mx-4 -mb-4 p-4 sm:-mx-6 sm:-mb-6 sm:p-6",
@@ -2046,6 +2102,11 @@ const {
             allowFullScreenToggle
             enableBackdropBlur
             className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
+            enableNavigation={!!visibleItems && visibleItems.length > 1}
+            onNavigatePrevious={handlePrevDetail}
+            onNavigateNext={handleNextDetail}
+            hasPrevious={!!visibleItems && visibleItems.length > 1}
+            hasNext={!!visibleItems && visibleItems.length > 1}
             footer={detailItem && (
               <div className="border-t border-border/40 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/30 px-4 sm:px-6 py-3">
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
@@ -2224,6 +2285,13 @@ const {
           showWarningIcon={dependencyCheckResult?.hasDependencies || false}
           detailedMessage={dependencyCheckResult?.detailedMessage}
           dependencies={dependencyCheckResult?.dependencies}
+        />
+
+        {/* Loading Overlay - Elegante y no intrusivo */}
+        <LoadingOverlay
+          show={isProcessing}
+          message={processingMessage}
+          allowInteraction={true}
         />
     </AppLayout>
   );
