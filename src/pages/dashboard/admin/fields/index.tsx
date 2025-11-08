@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { fieldService } from '@/services/fieldService';
 import { foodTypesService } from '@/services/foodTypesService';
@@ -64,10 +65,7 @@ const FieldOccupancyBar: React.FC<{ animalCount: number; capacity: string }> = (
 // Página principal
 function AdminFieldsPage() {
   const [foodTypeOptions, setFoodTypeOptions] = useState<Array<{ value: number; label: string }>>([]);
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
-    const saved = localStorage.getItem('adminFieldsViewMode');
-    return saved === 'cards' ? 'cards' : 'table';
-  });
+  const [viewMode, setViewMode] = useGlobalViewMode();
 
   // Crear mapa de búsqueda optimizado para tipos de alimento
   const foodTypeMap = useMemo(() => {
@@ -229,12 +227,13 @@ const initialFormData: FieldFormInput = {
     const capacity = item.capacity || '';
 
     return (
-      <div className="grid grid-cols-2 gap-3 text-xs h-full">
-        <div className="col-span-2 flex items-center justify-between mb-1 gap-2">
-          <Badge variant="outline" className="text-xs px-2 py-0.5 flex-shrink-0">{item.state || '-'}</Badge>
-          {animalCount > 0 && (
-            <Badge variant="default" className="text-xs px-3 py-1 bg-primary/90">
-              {animalCount} {animalCount === 1 ? 'Animal' : 'Animales'}
+      <div className="flex flex-col h-full px-3 sm:px-4 py-3 sm:py-4">
+        <div className="grid grid-cols-2 gap-3 text-xs flex-1">
+          <div className="col-span-2 flex items-center justify-between mb-1 gap-2">
+            <Badge variant="outline" className="text-xs px-2 py-0.5 flex-shrink-0">{item.state || '-'}</Badge>
+            {animalCount > 0 && (
+              <Badge variant="default" className="text-xs px-3 py-1 bg-primary/90">
+                {animalCount} {animalCount === 1 ? 'Animal' : 'Animales'}
             </Badge>
           )}
         </div>
@@ -264,6 +263,7 @@ const initialFormData: FieldFormInput = {
         <div className="col-span-2 min-w-0 overflow-hidden">
           <div className="text-muted-foreground text-[10px] mb-0.5">Mediciones</div>
           <div className="truncate text-[12px]" title={measurements}>{measurements}</div>
+        </div>
         </div>
       </div>
     );

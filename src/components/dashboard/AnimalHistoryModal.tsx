@@ -618,95 +618,138 @@ export const AnimalHistoryModal = ({ animal, onClose, refreshTrigger }: AnimalHi
      setPreviewType(null);
    };
 
-   const PreviewContent = () => {
+  // Componente InfoField reutilizable
+  const InfoField = ({
+    label,
+    value,
+    fullWidth = false,
+    badge = false,
+    badgeVariant = 'default'
+  }: {
+    label: string;
+    value: any;
+    fullWidth?: boolean;
+    badge?: boolean;
+    badgeVariant?: 'default' | 'secondary' | 'destructive' | 'success';
+  }) => {
+    const displayValue = value !== null && value !== undefined && value !== '' ? String(value) : '—';
+
+    return (
+      <div className={`space-y-1.5 ${fullWidth ? 'col-span-full' : ''}`}>
+        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+          {label}
+        </div>
+        {badge ? (
+          <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${
+            badgeVariant === 'success' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-100' :
+            badgeVariant === 'destructive' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-100' :
+            badgeVariant === 'secondary' ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-100' :
+            'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-100'
+          }`}>
+            {displayValue}
+          </span>
+        ) : (
+          <div className={`text-sm font-medium text-foreground ${fullWidth ? 'whitespace-pre-wrap' : ''}`}>
+            {displayValue}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const PreviewContent = () => {
      if (!previewType || !previewData) return null;
      const row = previewData as any;
-     // Removed unused label mapping to satisfy no-unused-vars
-     // const label = {
-     //   treatment: 'Tratamiento',
-     //   field: 'Movimiento de Campo',
-     //   disease: 'Enfermedad',
-     //   control: 'Control de Salud'
-     // }[previewType];
-     
+
      return (
-       <div className="space-y-3">
-         <div className="text-sm text-muted-foreground">{getAnimalLabel(animal)}</div>
-         <div className="rounded-md border overflow-hidden">
-           <Table>
-             <TableHeader>
-               <TableRow>
-                 <TableHead>Campo</TableHead>
-                 <TableHead>Valor</TableHead>
-               </TableRow>
-             </TableHeader>
-             <TableBody>
+       <div className="space-y-6">
+         <div className="text-sm text-muted-foreground font-medium border-b pb-3">
+           {getAnimalLabel(animal)}
+         </div>
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                {previewType === 'treatment' && (
                  <>
-                   <TableRow><TableCell className="font-medium">Fecha</TableCell><TableCell>{row.date ? formatDate(row.date) : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Tipo</TableCell><TableCell>{row.type || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Estado</TableCell><TableCell>{row.status || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Veterinario</TableCell><TableCell>{row.veterinarian || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Descripción</TableCell><TableCell>{row.description || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Dosis</TableCell><TableCell>{row.dose || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Frecuencia</TableCell><TableCell>{row.frequency || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Plan de tratamiento</TableCell><TableCell>{row.plan || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Próximo seguimiento</TableCell><TableCell>{row.follow_up_date ? formatDate(row.follow_up_date) : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Tipo de tratamiento</TableCell><TableCell>{row.treatment_type || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Costo</TableCell><TableCell>{row.cost !== '' ? row.cost : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Notas</TableCell><TableCell>{row.notes || '—'}</TableCell></TableRow>
+                   <InfoField label="Fecha" value={row.date ? formatDate(row.date) : '—'} />
+                   <InfoField label="Tipo" value={row.type} badge badgeVariant="default" />
+                   <InfoField label="Estado" value={row.status} badge badgeVariant={
+                     row.status?.toLowerCase().includes('complet') ? 'success' :
+                     row.status?.toLowerCase().includes('activ') || row.status?.toLowerCase().includes('progress') ? 'default' :
+                     'secondary'
+                   } />
+                   <InfoField label="Veterinario" value={row.veterinarian} />
+                   <InfoField label="Descripción" value={row.description} fullWidth />
+                   <InfoField label="Dosis" value={row.dose} />
+                   <InfoField label="Frecuencia" value={row.frequency} />
+                   {row.plan && <InfoField label="Plan de tratamiento" value={row.plan} fullWidth />}
+                   {row.follow_up_date && <InfoField label="Próximo seguimiento" value={formatDate(row.follow_up_date)} />}
+                   {row.treatment_type && <InfoField label="Tipo de tratamiento" value={row.treatment_type} />}
+                   {row.cost !== '' && <InfoField label="Costo" value={row.cost} />}
+                   {row.notes && <InfoField label="Notas" value={row.notes} fullWidth />}
                    {row.type === 'Vacunación' && (
                      <>
-                       <TableRow><TableCell className="font-medium">Vacuna</TableCell><TableCell>{row.vaccine_name || '—'}</TableCell></TableRow>
-                       <TableRow><TableCell className="font-medium">Lote</TableCell><TableCell>{row.batch_number || '—'}</TableCell></TableRow>
-                       <TableRow><TableCell className="font-medium">Vence</TableCell><TableCell>{row.expiry_date ? formatDate(row.expiry_date) : '—'}</TableCell></TableRow>
-                       <TableRow><TableCell className="font-medium">Vía administración</TableCell><TableCell>{row.administration_route || '—'}</TableCell></TableRow>
-                       <TableRow><TableCell className="font-medium">Reacciones adversas</TableCell><TableCell>{row.adverse_reactions || '—'}</TableCell></TableRow>
-                       <TableRow><TableCell className="font-medium">Siguiente vacunación</TableCell><TableCell>{row.next_vaccination_date ? formatDate(row.next_vaccination_date) : '—'}</TableCell></TableRow>
-                       <TableRow><TableCell className="font-medium">Próximo vencimiento</TableCell><TableCell>{row.next_due_date ? formatDate(row.next_due_date) : '—'}</TableCell></TableRow>
-                       <TableRow><TableCell className="font-medium">Volumen dosis</TableCell><TableCell>{row.dose_volume !== '' ? row.dose_volume : '—'}</TableCell></TableRow>
-                       <TableRow><TableCell className="font-medium">Aplicado por</TableCell><TableCell>{row.administered_by || '—'}</TableCell></TableRow>
+                       {row.vaccine_name && <InfoField label="Vacuna" value={row.vaccine_name} />}
+                       {row.batch_number && <InfoField label="Lote" value={row.batch_number} />}
+                       {row.expiry_date && <InfoField label="Vence" value={formatDate(row.expiry_date)} />}
+                       {row.administration_route && <InfoField label="Vía administración" value={row.administration_route} />}
+                       {row.adverse_reactions && <InfoField label="Reacciones adversas" value={row.adverse_reactions} fullWidth />}
+                       {row.next_vaccination_date && <InfoField label="Siguiente vacunación" value={formatDate(row.next_vaccination_date)} />}
+                       {row.next_due_date && <InfoField label="Próximo vencimiento" value={formatDate(row.next_due_date)} />}
+                       {row.dose_volume !== '' && <InfoField label="Volumen dosis" value={row.dose_volume} />}
+                       {row.administered_by && <InfoField label="Aplicado por" value={row.administered_by} />}
                      </>
                    )}
                  </>
                )}
                {previewType === 'field' && (
                  <>
-                   <TableRow><TableCell className="font-medium">Campo</TableCell><TableCell>{row.field || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Asignación</TableCell><TableCell>{row.assignment ? formatDate(row.assignment) : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Retiro</TableCell><TableCell>{row.removal ? formatDate(row.removal) : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Estado</TableCell><TableCell>{row.status || (row.removal ? 'Retirado' : 'Asignado')}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Duración (días)</TableCell><TableCell>{row.duration_days !== '' ? row.duration_days : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Notas</TableCell><TableCell>{row.notes || '—'}</TableCell></TableRow>
+                   <InfoField label="Campo" value={row.field} />
+                   <InfoField label="Fecha de Asignación" value={row.assignment ? formatDate(row.assignment) : '—'} />
+                   {row.removal && <InfoField label="Fecha de Retiro" value={formatDate(row.removal)} />}
+                   <InfoField label="Estado" value={row.status || (row.removal ? 'Retirado' : 'Asignado')} badge badgeVariant={
+                     row.removal ? 'secondary' : 'success'
+                   } />
+                   {row.duration_days !== '' && <InfoField label="Duración (días)" value={row.duration_days} />}
+                   {row.notes && row.notes !== '—' && <InfoField label="Notas" value={row.notes} fullWidth />}
                  </>
                )}
                {previewType === 'disease' && (
                  <>
-                   <TableRow><TableCell className="font-medium">Enfermedad</TableCell><TableCell>{row.disease || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Inicio</TableCell><TableCell>{row.start ? formatDate(row.start) : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Tratamiento</TableCell><TableCell>{row.treatment || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Estado</TableCell><TableCell>{row.status || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Severidad</TableCell><TableCell>{row.severity || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Notas</TableCell><TableCell>{row.notes || '—'}</TableCell></TableRow>
+                   <InfoField label="Enfermedad" value={row.disease} fullWidth />
+                   <InfoField label="Fecha de Inicio" value={row.start ? formatDate(row.start) : '—'} />
+                   <InfoField label="Estado" value={row.status} badge badgeVariant={
+                     row.status?.toLowerCase().includes('curado') || row.status?.toLowerCase().includes('recovered') ? 'success' :
+                     row.status?.toLowerCase().includes('activ') ? 'destructive' :
+                     'secondary'
+                   } />
+                   {row.severity && <InfoField label="Severidad" value={row.severity} badge badgeVariant={
+                     row.severity?.toLowerCase().includes('grave') || row.severity?.toLowerCase().includes('sever') ? 'destructive' :
+                     row.severity?.toLowerCase().includes('moderado') ? 'default' :
+                     'secondary'
+                   } />}
+                   {row.treatment && <InfoField label="Tratamiento" value={row.treatment} fullWidth />}
+                   {row.notes && <InfoField label="Notas" value={row.notes} fullWidth />}
                  </>
                )}
                {previewType === 'control' && (
                  <>
-                   <TableRow><TableCell className="font-medium">Fecha</TableCell><TableCell>{row.date ? formatDate(row.date) : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Estado</TableCell><TableCell>{row.status || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Peso (kg)</TableCell><TableCell>{row.weight !== '' ? row.weight : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Temperatura (°C)</TableCell><TableCell>{row.temperature !== '' ? row.temperature : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Frecuencia cardiaca</TableCell><TableCell>{row.heart_rate !== '' ? row.heart_rate : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Frecuencia respiratoria</TableCell><TableCell>{row.respiratory_rate !== '' ? row.respiratory_rate : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Altura</TableCell><TableCell>{row.height !== '' ? row.height : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Condición corporal</TableCell><TableCell>{row.body_condition !== '' ? row.body_condition : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Veterinario</TableCell><TableCell>{row.veterinarian || '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Próximo control</TableCell><TableCell>{row.next_control_date ? formatDate(row.next_control_date) : '—'}</TableCell></TableRow>
-                   <TableRow><TableCell className="font-medium">Notas</TableCell><TableCell>{row.notes || '—'}</TableCell></TableRow>
+                   <InfoField label="Fecha" value={row.date ? formatDate(row.date) : '—'} />
+                   <InfoField label="Estado de Salud" value={row.status} badge badgeVariant={
+                     row.status?.toLowerCase().includes('excelente') || row.status?.toLowerCase().includes('bueno') ? 'success' :
+                     row.status?.toLowerCase().includes('regular') ? 'default' :
+                     row.status?.toLowerCase().includes('malo') || row.status?.toLowerCase().includes('grave') ? 'destructive' :
+                     'secondary'
+                   } />
+                   {row.weight !== '' && <InfoField label="Peso (kg)" value={row.weight} />}
+                   {row.temperature !== '' && <InfoField label="Temperatura (°C)" value={row.temperature} />}
+                   {row.heart_rate !== '' && <InfoField label="Frecuencia Cardíaca (lpm)" value={row.heart_rate} />}
+                   {row.respiratory_rate !== '' && <InfoField label="Frecuencia Respiratoria (rpm)" value={row.respiratory_rate} />}
+                   {row.height !== '' && <InfoField label="Altura" value={row.height} />}
+                   {row.body_condition !== '' && <InfoField label="Condición Corporal" value={row.body_condition} />}
+                   {row.veterinarian && <InfoField label="Veterinario" value={row.veterinarian} />}
+                   {row.next_control_date && <InfoField label="Próximo Control" value={formatDate(row.next_control_date)} />}
+                   {row.notes && <InfoField label="Notas" value={row.notes} fullWidth />}
                  </>
                )}
-             </TableBody>
-           </Table>
          </div>
        </div>
      );
@@ -727,9 +770,9 @@ export const AnimalHistoryModal = ({ animal, onClose, refreshTrigger }: AnimalHi
                Historial - {getAnimalLabel(animal) || 'Sin registro'}
              </span>
            </ModalHeader>
-           <ModalContent>
-             <ModalBody>
-               <div className="flex flex-col h-full -m-4 -mb-4">
+           <ModalContent className="flex flex-col overflow-hidden">
+             <ModalBody className="flex-1 overflow-hidden p-0">
+               <div className="flex flex-col h-full">
                  {/* Manejo de loading y error */}
                  {historyLoading ? (
                    <div className="flex justify-center items-center py-8">
@@ -743,14 +786,14 @@ export const AnimalHistoryModal = ({ animal, onClose, refreshTrigger }: AnimalHi
                    // --- Tabs solicitadas: Tratamientos, Potreros y Enfermedades ---
                    <div className="flex flex-col h-full">
                      <Tabs defaultValue="treatments" className="flex flex-col h-full">
-                       <TabsList className="grid w-full grid-cols-5">
+                       <TabsList className="grid w-full grid-cols-5 shrink-0 mb-0">
                          <TabsTrigger value="timeline">Línea de tiempo</TabsTrigger>
                          <TabsTrigger value="treatments">Tratamientos</TabsTrigger>
                          <TabsTrigger value="fields">Potreros</TabsTrigger>
                          <TabsTrigger value="diseases">Enfermedades</TabsTrigger>
                          <TabsTrigger value="controls">Controles</TabsTrigger>
                        </TabsList>
-                       <TabsContent value="timeline" className="mt-3 flex-1 overflow-y-auto">
+                       <TabsContent value="timeline" className="flex-1 overflow-y-auto px-4 py-4 mt-0">
                          {timelineEvents.length === 0 ? (
                            <div className="text-center py-6 text-muted-foreground">
                              Sin eventos en la línea de tiempo para este animal.
@@ -795,147 +838,258 @@ export const AnimalHistoryModal = ({ animal, onClose, refreshTrigger }: AnimalHi
                          )}
                        </TabsContent>
 
-                       <TabsContent value="treatments" className="mt-3 flex-1 overflow-y-auto">
+                       <TabsContent value="treatments" className="flex-1 overflow-y-auto px-4 py-4 mt-0">
                          {treatmentRows.length === 0 ? (
-                           <div className="text-center py-6 text-muted-foreground">
+                           <div className="text-center py-12 text-muted-foreground">
                              Sin tratamientos para este animal.
                            </div>
                          ) : (
-                           <div className="w-full overflow-x-auto">
-                             <Table aria-label="Tabla de tratamientos">
-                               <TableCaption>Tratamientos y vacunaciones</TableCaption>
-                               <TableHeader>
-                                 <TableRow>
-                                   <TableHead>Fecha</TableHead>
-                                   <TableHead>Tipo</TableHead>
-                                   <TableHead>Descripción</TableHead>
-                                   <TableHead>Dosis</TableHead>
-                                   <TableHead>Frecuencia</TableHead>
-                                   <TableHead>Estado</TableHead>
-                                   <TableHead>Veterinario</TableHead>
-                                 </TableRow>
-                               </TableHeader>
-                               <TableBody>
-                                 {treatmentRows.map((r, idx) => (
-                                   <TableRow key={`tr-${idx}`} className="hover:bg-muted/50 cursor-pointer" onClick={() => openPreview('treatment', r)}>
-                                     <TableCell>{formatDate(r.date)}</TableCell>
-                                     <TableCell><TypeBadge type={r.type} /></TableCell>
-                                     <TableCell>{r.description}</TableCell>
-                                     <TableCell>{r.dose || '—'}</TableCell>
-                                     <TableCell>{r.frequency || '—'}</TableCell>
-                                     <TableCell>{r.status || '—'}</TableCell>
-                                     <TableCell>{r.veterinarian || '—'}</TableCell>
-                                   </TableRow>
-                                 ))}
-                               </TableBody>
-                             </Table>
+                           <div className="space-y-3">
+                             {treatmentRows.map((r, idx) => (
+                               <div
+                                 key={`tr-${idx}`}
+                                 className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow cursor-pointer"
+                                 onClick={() => openPreview('treatment', r)}
+                               >
+                                 <div className="flex items-start justify-between mb-3">
+                                   <div className="flex items-center gap-2">
+                                     <TypeBadge type={r.type} />
+                                     {r.status && (
+                                       <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${
+                                         r.status?.toLowerCase().includes('complet') ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-100' :
+                                         r.status?.toLowerCase().includes('activ') || r.status?.toLowerCase().includes('progress') ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-100' :
+                                         'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-100'
+                                       }`}>
+                                         {r.status}
+                                       </span>
+                                     )}
+                                   </div>
+                                   <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                     {formatDate(r.date)}
+                                   </span>
+                                 </div>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                   <div>
+                                     <span className="text-xs uppercase font-bold text-muted-foreground">Descripción</span>
+                                     <p className="font-medium text-foreground mt-0.5">{r.description}</p>
+                                   </div>
+                                   <div>
+                                     <span className="text-xs uppercase font-bold text-muted-foreground">Dosis</span>
+                                     <p className="font-medium text-foreground mt-0.5">{r.dose || '—'}</p>
+                                   </div>
+                                   <div>
+                                     <span className="text-xs uppercase font-bold text-muted-foreground">Frecuencia</span>
+                                     <p className="font-medium text-foreground mt-0.5">{r.frequency || '—'}</p>
+                                   </div>
+                                   {r.veterinarian && (
+                                     <div>
+                                       <span className="text-xs uppercase font-bold text-muted-foreground">Veterinario</span>
+                                       <p className="font-medium text-foreground mt-0.5">{r.veterinarian}</p>
+                                     </div>
+                                   )}
+                                 </div>
+                               </div>
+                             ))}
                            </div>
                          )}
                        </TabsContent>
 
-                       <TabsContent value="fields" className="mt-3 flex-1 overflow-y-auto">
+                       <TabsContent value="fields" className="flex-1 overflow-y-auto px-4 py-4 mt-0">
                          {fieldRows.length === 0 ? (
-                           <div className="text-center py-6 text-muted-foreground">
+                           <div className="text-center py-12 text-muted-foreground">
                              Sin movimientos de campo para este animal.
                            </div>
                          ) : (
-                           <div className="w-full overflow-x-auto">
-                             <Table aria-label="Tabla de movimientos de campo">
-                               <TableHeader>
-                                 <TableRow>
-                                   <TableHead>Campo</TableHead>
-                                   <TableHead>Asignación</TableHead>
-                                   <TableHead>Retiro</TableHead>
-                                   <TableHead>Estado</TableHead>
-                                   <TableHead>Duración (días)</TableHead>
-                                   <TableHead>Motivo/Notas</TableHead>
-                                 </TableRow>
-                               </TableHeader>
-                               <TableBody>
-                                 {fieldRows.map((r, idx) => (
-                                   <TableRow key={`fi-${idx}`} className="hover:bg-muted/50 cursor-pointer" onClick={() => openPreview('field', r)}>
-                                     <TableCell>{r.field}</TableCell>
-                                     <TableCell>{r.assignment ? formatDate(r.assignment) : '—'}</TableCell>
-                                     <TableCell>{r.removal ? formatDate(r.removal) : '—'}</TableCell>
-                                     <TableCell>{r.status || (r.removal ? 'Retirado' : 'Asignado')}</TableCell>
-                                     <TableCell>{r.duration_days !== '' ? r.duration_days : '—'}</TableCell>
-                                     <TableCell>{r.notes || '—'}</TableCell>
-                                   </TableRow>
-                                 ))}
-                               </TableBody>
-                             </Table>
+                           <div className="space-y-3">
+                             {fieldRows.map((r, idx) => (
+                               <div
+                                 key={`fi-${idx}`}
+                                 className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow cursor-pointer"
+                                 onClick={() => openPreview('field', r)}
+                               >
+                                 <div className="flex items-start justify-between mb-3">
+                                   <div className="flex items-center gap-2">
+                                     <MapPin className="h-5 w-5 text-amber-600" />
+                                     <h3 className="font-semibold text-foreground">{r.field}</h3>
+                                   </div>
+                                   <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${
+                                     r.removal ? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-100' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-100'
+                                   }`}>
+                                     {r.status || (r.removal ? 'Retirado' : 'Asignado')}
+                                   </span>
+                                 </div>
+                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                                   <div>
+                                     <span className="text-xs uppercase font-bold text-muted-foreground">Asignación</span>
+                                     <p className="font-medium text-foreground mt-0.5">{r.assignment ? formatDate(r.assignment) : '—'}</p>
+                                   </div>
+                                   {r.removal && (
+                                     <div>
+                                       <span className="text-xs uppercase font-bold text-muted-foreground">Retiro</span>
+                                       <p className="font-medium text-foreground mt-0.5">{formatDate(r.removal)}</p>
+                                     </div>
+                                   )}
+                                   {r.duration_days !== '' && (
+                                     <div>
+                                       <span className="text-xs uppercase font-bold text-muted-foreground">Duración</span>
+                                       <p className="font-medium text-foreground mt-0.5">{r.duration_days} días</p>
+                                     </div>
+                                   )}
+                                 </div>
+                                 {r.notes && r.notes !== '—' && (
+                                   <div className="mt-3 pt-3 border-t">
+                                     <span className="text-xs uppercase font-bold text-muted-foreground">Notas</span>
+                                     <p className="text-sm text-muted-foreground mt-1">{r.notes}</p>
+                                   </div>
+                                 )}
+                               </div>
+                             ))}
                            </div>
                          )}
                        </TabsContent>
 
-                       <TabsContent value="diseases" className="mt-3 flex-1 overflow-y-auto">
+                       <TabsContent value="diseases" className="flex-1 overflow-y-auto px-4 py-4 mt-0">
                          {diseaseRows.length === 0 ? (
-                           <div className="text-center py-6 text-muted-foreground">
+                           <div className="text-center py-12 text-muted-foreground">
                              Sin enfermedades registradas para este animal.
                            </div>
                          ) : (
-                           <div className="w-full overflow-x-auto">
-                             <Table aria-label="Tabla de enfermedades">
-                               <TableHeader>
-                                 <TableRow>
-                                   <TableHead>Enfermedad</TableHead>
-                                   <TableHead>Inicio</TableHead>
-                                   <TableHead>Tratamiento</TableHead>
-                                   <TableHead>Estado</TableHead>
-                                   <TableHead>Severidad</TableHead>
-                                   <TableHead>Notas</TableHead>
-                                 </TableRow>
-                               </TableHeader>
-                               <TableBody>
-                                 {diseaseRows.map((r, idx) => (
-                                   <TableRow key={`di-${idx}`} className="hover:bg-muted/50 cursor-pointer" onClick={() => openPreview('disease', r)}>
-                                     <TableCell>{r.disease}</TableCell>
-                                     <TableCell>{r.start ? formatDate(r.start) : '—'}</TableCell>
-                                     <TableCell>{r.treatment || '—'}</TableCell>
-                                     <TableCell>{r.status || '—'}</TableCell>
-                                     <TableCell>{r.severity || '—'}</TableCell>
-                                     <TableCell>{r.notes || '—'}</TableCell>
-                                   </TableRow>
-                                 ))}
-                               </TableBody>
-                             </Table>
+                           <div className="space-y-3">
+                             {diseaseRows.map((r, idx) => (
+                               <div
+                                 key={`di-${idx}`}
+                                 className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow cursor-pointer"
+                                 onClick={() => openPreview('disease', r)}
+                               >
+                                 <div className="flex items-start justify-between mb-3">
+                                   <div className="flex items-center gap-2">
+                                     <Stethoscope className="h-5 w-5 text-rose-600" />
+                                     <h3 className="font-semibold text-foreground">{r.disease}</h3>
+                                   </div>
+                                   <div className="flex items-center gap-2">
+                                     {r.severity && (
+                                       <span className={`inline-flex px-2 py-0.5 rounded-md text-xs font-medium ${
+                                         r.severity?.toLowerCase().includes('grave') || r.severity?.toLowerCase().includes('sever') ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-100' :
+                                         r.severity?.toLowerCase().includes('moderado') ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-100' :
+                                         'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-100'
+                                       }`}>
+                                         {r.severity}
+                                       </span>
+                                     )}
+                                     {r.status && (
+                                       <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${
+                                         r.status?.toLowerCase().includes('curado') || r.status?.toLowerCase().includes('recovered') ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-100' :
+                                         r.status?.toLowerCase().includes('activ') ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-100' :
+                                         'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-100'
+                                       }`}>
+                                         {r.status}
+                                       </span>
+                                     )}
+                                   </div>
+                                 </div>
+                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                   <div>
+                                     <span className="text-xs uppercase font-bold text-muted-foreground">Fecha de Inicio</span>
+                                     <p className="font-medium text-foreground mt-0.5">{r.start ? formatDate(r.start) : '—'}</p>
+                                   </div>
+                                   {r.treatment && (
+                                     <div className="md:col-span-2">
+                                       <span className="text-xs uppercase font-bold text-muted-foreground">Tratamiento</span>
+                                       <p className="font-medium text-foreground mt-0.5">{r.treatment}</p>
+                                     </div>
+                                   )}
+                                 </div>
+                                 {r.notes && (
+                                   <div className="mt-3 pt-3 border-t">
+                                     <span className="text-xs uppercase font-bold text-muted-foreground">Notas</span>
+                                     <p className="text-sm text-muted-foreground mt-1">{r.notes}</p>
+                                   </div>
+                                 )}
+                               </div>
+                             ))}
                            </div>
                          )}
                        </TabsContent>
 
-                       <TabsContent value="controls" className="mt-3 flex-1 overflow-y-auto">
+                       <TabsContent value="controls" className="flex-1 overflow-y-auto px-4 py-4 mt-0">
                          {controlRows.length === 0 ? (
-                           <div className="text-center py-6 text-muted-foreground">
+                           <div className="text-center py-12 text-muted-foreground">
                              Sin controles de salud para este animal.
                            </div>
                          ) : (
-                           <div className="w-full overflow-x-auto">
-                             <Table aria-label="Tabla de controles de salud">
-                               <TableHeader>
-                                 <TableRow>
-                                   <TableHead>Fecha</TableHead>
-                                   <TableHead>Estado</TableHead>
-                                   <TableHead>Peso (kg)</TableHead>
-                                   <TableHead>Temperatura (°C)</TableHead>
-                                   <TableHead>Veterinario</TableHead>
-                                   <TableHead>Próximo control</TableHead>
-                                   <TableHead>Notas</TableHead>
-                                 </TableRow>
-                               </TableHeader>
-                               <TableBody>
-                                 {controlRows.map((r, idx) => (
-                                   <TableRow key={`co-${idx}`} className="hover:bg-muted/50 cursor-pointer" onClick={() => openPreview('control', r)}>
-                                     <TableCell>{formatDate(r.date)}</TableCell>
-                                     <TableCell>{r.status || '—'}</TableCell>
-                                     <TableCell>{r.weight !== '' ? r.weight : '—'}</TableCell>
-                                     <TableCell>{r.temperature !== '' ? r.temperature : '—'}</TableCell>
-                                     <TableCell>{r.veterinarian || '—'}</TableCell>
-                                     <TableCell>{r.next_control_date ? formatDate(r.next_control_date) : '—'}</TableCell>
-                                     <TableCell>{r.notes || '—'}</TableCell>
-                                   </TableRow>
-                                 ))}
-                               </TableBody>
-                             </Table>
+                           <div className="space-y-3">
+                             {controlRows.map((r, idx) => (
+                               <div
+                                 key={`co-${idx}`}
+                                 className="p-4 rounded-lg border bg-card hover:shadow-md transition-shadow cursor-pointer"
+                                 onClick={() => openPreview('control', r)}
+                               >
+                                 <div className="flex items-start justify-between mb-3">
+                                   <div className="flex items-center gap-2">
+                                     <Activity className="h-5 w-5 text-emerald-600" />
+                                     <span className="text-xs text-muted-foreground">{formatDate(r.date)}</span>
+                                   </div>
+                                   {r.status && (
+                                     <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${
+                                       r.status?.toLowerCase().includes('excelente') || r.status?.toLowerCase().includes('bueno') ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-100' :
+                                       r.status?.toLowerCase().includes('regular') ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-100' :
+                                       r.status?.toLowerCase().includes('malo') || r.status?.toLowerCase().includes('grave') ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-100' :
+                                       'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-100'
+                                     }`}>
+                                       {r.status}
+                                     </span>
+                                   )}
+                                 </div>
+                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                   {r.weight !== '' && (
+                                     <div>
+                                       <span className="text-xs uppercase font-bold text-muted-foreground">Peso</span>
+                                       <p className="font-medium text-foreground mt-0.5">{r.weight} kg</p>
+                                     </div>
+                                   )}
+                                   {r.temperature !== '' && (
+                                     <div>
+                                       <span className="text-xs uppercase font-bold text-muted-foreground">Temp.</span>
+                                       <p className="font-medium text-foreground mt-0.5">{r.temperature} °C</p>
+                                     </div>
+                                   )}
+                                   {r.heart_rate !== '' && (
+                                     <div>
+                                       <span className="text-xs uppercase font-bold text-muted-foreground">FC</span>
+                                       <p className="font-medium text-foreground mt-0.5">{r.heart_rate} lpm</p>
+                                     </div>
+                                   )}
+                                   {r.respiratory_rate !== '' && (
+                                     <div>
+                                       <span className="text-xs uppercase font-bold text-muted-foreground">FR</span>
+                                       <p className="font-medium text-foreground mt-0.5">{r.respiratory_rate} rpm</p>
+                                     </div>
+                                   )}
+                                 </div>
+                                 {(r.veterinarian || r.next_control_date) && (
+                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mt-3">
+                                     {r.veterinarian && (
+                                       <div>
+                                         <span className="text-xs uppercase font-bold text-muted-foreground">Veterinario</span>
+                                         <p className="font-medium text-foreground mt-0.5">{r.veterinarian}</p>
+                                       </div>
+                                     )}
+                                     {r.next_control_date && (
+                                       <div>
+                                         <span className="text-xs uppercase font-bold text-muted-foreground">Próximo Control</span>
+                                         <p className="font-medium text-foreground mt-0.5">{formatDate(r.next_control_date)}</p>
+                                       </div>
+                                     )}
+                                   </div>
+                                 )}
+                                 {r.notes && (
+                                   <div className="mt-3 pt-3 border-t">
+                                     <span className="text-xs uppercase font-bold text-muted-foreground">Notas</span>
+                                     <p className="text-sm text-muted-foreground mt-1">{r.notes}</p>
+                                   </div>
+                                 )}
+                               </div>
+                             ))}
                            </div>
                          )}
                        </TabsContent>

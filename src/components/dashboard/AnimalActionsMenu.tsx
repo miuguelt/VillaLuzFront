@@ -35,6 +35,10 @@ interface AnimalActionsMenuProps {
   onOpenAncestorsTree?: () => void;
   onOpenDescendantsTree?: () => void;
   onRefresh?: () => void;
+  externalOpenModal?: ModalType;
+  externalModalMode?: ModalMode;
+  externalEditingItem?: any;
+  onModalClose?: () => void;
 }
 
 type ModalType =
@@ -48,9 +52,20 @@ type ModalType =
 
 type ModalMode = 'create' | 'list';
 
-export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, currentUserId, onOpenHistory, onOpenAncestorsTree, onOpenDescendantsTree, onRefresh }) => {
-  const [openModal, setOpenModal] = useState<ModalType>(null);
-  const [modalMode, setModalMode] = useState<ModalMode>('create');
+export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
+  animal,
+  currentUserId,
+  onOpenHistory,
+  onOpenAncestorsTree,
+  onOpenDescendantsTree,
+  onRefresh,
+  externalOpenModal,
+  externalModalMode,
+  externalEditingItem,
+  onModalClose
+}) => {
+  const [openModal, setOpenModal] = useState<ModalType>(externalOpenModal || null);
+  const [modalMode, setModalMode] = useState<ModalMode>(externalModalMode || 'create');
   const [formData, setFormData] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +79,18 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
   const [fieldOptions, setFieldOptions] = useState<Array<{ value: number; label: string }>>([]);
   const [vaccineOptions, setVaccineOptions] = useState<Array<{ value: number; label: string }>>([]);
   const [userOptions, setUserOptions] = useState<Array<{ value: number; label: string }>>([]);
+
+  // Sincronizar con props externos
+  useEffect(() => {
+    if (externalOpenModal) {
+      setOpenModal(externalOpenModal);
+      setModalMode(externalModalMode || 'create');
+      if (externalEditingItem) {
+        setEditingItem(externalEditingItem);
+        setFormData(externalEditingItem);
+      }
+    }
+  }, [externalOpenModal, externalModalMode, externalEditingItem]);
 
   // Cargar opciones cuando se abre un modal de creación
   useEffect(() => {
@@ -229,8 +256,11 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
             animal_id: animal.id,
             date: getTodayColombia(),
             improvement_type: '',
+            genetic_event_technique: '',
             description: '',
+            details: '',
             expected_result: '',
+            results: '',
           });
           break;
         case 'animal_disease':
@@ -266,8 +296,9 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
             animal_id: animal.id,
             treatment_date: getTodayColombia(),
             diagnosis: '',
-            description: '',
+            dosis: '',
             frequency: '',
+            description: '',
             observations: '',
           });
           break;
@@ -291,6 +322,9 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
     setError(null);
     setListData([]);
     setEditingItem(null);
+    if (onModalClose) {
+      onModalClose();
+    }
   };
 
   const handleSubmit = async () => {
@@ -300,38 +334,53 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
     try {
       const isEditing = !!editingItem;
 
+      // Asegurar que animal_id siempre esté presente
+      const dataToSend = {
+        ...formData,
+        animal_id: formData.animal_id || animal.id
+      };
+
+      console.log('[AnimalActionsMenu] Modal:', openModal, '| FormData:', formData);
+      console.log('[AnimalActionsMenu] DataToSend:', dataToSend);
+
       switch (openModal) {
         case 'genetic_improvement':
-          if (!formData.animal_id) {
+          if (!dataToSend.animal_id) {
             throw new Error('El ID del animal es requerido');
-          }
-          if (!formData.improvement_type?.trim()) {
-            throw new Error('El tipo de mejora genética es obligatorio');
           }
           if (!formData.date) {
             throw new Error('La fecha es obligatoria');
           }
+          if (!formData.genetic_event_technique?.trim()) {
+            throw new Error('La técnica de evento genético es obligatoria');
+          }
+          if (!formData.details?.trim()) {
+            throw new Error('Los detalles son obligatorios');
+          }
+          if (!formData.results?.trim()) {
+            throw new Error('Los resultados son obligatorios');
+          }
           if (isEditing) {
-            await geneticImprovementsService.updateGeneticImprovement(editingItem.id, formData);
+            await geneticImprovementsService.updateGeneticImprovement(editingItem.id, dataToSend);
           } else {
-            await geneticImprovementsService.createGeneticImprovement(formData);
+            await geneticImprovementsService.createGeneticImprovement(dataToSend);
           }
           break;
         case 'animal_disease':
-          if (!formData.animal_id) {
+          if (!dataToSend.animal_id) {
             throw new Error('El ID del animal es requerido');
           }
           if (!formData.disease_id || !formData.instructor_id) {
             throw new Error('Enfermedad e instructor son obligatorios');
           }
           if (isEditing) {
-            await animalDiseasesService.updateAnimalDisease(editingItem.id, formData);
+            await animalDiseasesService.updateAnimalDisease(editingItem.id, dataToSend);
           } else {
-            await animalDiseasesService.createAnimalDisease(formData);
+            await animalDiseasesService.createAnimalDisease(dataToSend);
           }
           break;
         case 'animal_field':
-          if (!formData.animal_id) {
+          if (!dataToSend.animal_id) {
             throw new Error('El ID del animal es requerido');
           }
           if (!formData.field_id) {
@@ -341,13 +390,13 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
             throw new Error('La fecha de asignación es obligatoria');
           }
           if (isEditing) {
-            await animalFieldsService.updateAnimalField(editingItem.id, formData);
+            await animalFieldsService.updateAnimalField(editingItem.id, dataToSend);
           } else {
-            await animalFieldsService.createAnimalField(formData);
+            await animalFieldsService.createAnimalField(dataToSend);
           }
           break;
         case 'vaccination':
-          if (!formData.animal_id) {
+          if (!dataToSend.animal_id) {
             throw new Error('El ID del animal es requerido');
           }
           if (!formData.vaccine_id) {
@@ -357,13 +406,13 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
             throw new Error('La fecha de vacunación es obligatoria');
           }
           if (isEditing) {
-            await vaccinationsService.updateVaccination(editingItem.id, formData);
+            await vaccinationsService.updateVaccination(editingItem.id, dataToSend);
           } else {
-            await vaccinationsService.createVaccination(formData);
+            await vaccinationsService.createVaccination(dataToSend);
           }
           break;
         case 'treatment':
-          if (!formData.animal_id) {
+          if (!dataToSend.animal_id) {
             throw new Error('El ID del animal es requerido');
           }
           if (!formData.diagnosis?.trim()) {
@@ -372,23 +421,41 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
           if (!formData.treatment_date) {
             throw new Error('La fecha del tratamiento es obligatoria');
           }
-          if (isEditing) {
-            await treatmentsService.updateTreatment(editingItem.id, formData);
-          } else {
-            await treatmentsService.createTreatment(formData);
+          if (!formData.dosis?.trim()) {
+            throw new Error('La dosis es obligatoria');
+          }
+          if (!formData.frequency?.trim()) {
+            throw new Error('La frecuencia es obligatoria');
+          }
+
+          // Log para debugging
+          console.log('[Treatment] Sending data:', dataToSend);
+
+          try {
+            if (isEditing) {
+              await treatmentsService.updateTreatment(editingItem.id, dataToSend);
+            } else {
+              await treatmentsService.createTreatment(dataToSend);
+            }
+          } catch (err: any) {
+            console.error('[Treatment] Full error object:', err);
+            console.error('[Treatment] Error response:', err.response);
+            console.error('[Treatment] Error response data:', err.response?.data);
+            console.error('[Treatment] Error response status:', err.response?.status);
+            throw new Error(err.response?.data?.message || err.message || 'Error al guardar el tratamiento');
           }
           break;
         case 'control':
-          if (!formData.animal_id) {
+          if (!dataToSend.animal_id) {
             throw new Error('El ID del animal es requerido');
           }
           if (!formData.checkup_date && !formData.control_date) {
             throw new Error('La fecha del control es obligatoria');
           }
           if (isEditing) {
-            await controlService.updateControl(editingItem.id, formData);
+            await controlService.updateControl(editingItem.id, dataToSend);
           } else {
-            await controlService.createControl(formData);
+            await controlService.createControl(dataToSend);
           }
           break;
       }
@@ -729,7 +796,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
               />
             </div>
             <div>
-              <label className={labelClass}>Tipo de Mejora Genética *</label>
+              <label className={labelClass}>Tipo de Mejora Genética</label>
               <input
                 type="text"
                 value={formData.improvement_type || ''}
@@ -739,12 +806,42 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
               />
             </div>
             <div>
+              <label className={labelClass}>Técnica de Evento Genético *</label>
+              <input
+                type="text"
+                value={formData.genetic_event_technique || ''}
+                onChange={(e) => setFormData({ ...formData, genetic_event_technique: e.target.value })}
+                placeholder="Ej: Inseminación artificial, Transferencia de embriones..."
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Detalles *</label>
+              <textarea
+                value={formData.details || ''}
+                onChange={(e) => setFormData({ ...formData, details: e.target.value })}
+                placeholder="Detalles del procedimiento genético"
+                rows={3}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Resultados *</label>
+              <textarea
+                value={formData.results || ''}
+                onChange={(e) => setFormData({ ...formData, results: e.target.value })}
+                placeholder="Resultados obtenidos o esperados"
+                rows={3}
+                className={inputClass}
+              />
+            </div>
+            <div>
               <label className={labelClass}>Descripción</label>
               <textarea
                 value={formData.description || ''}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Descripción de la mejora genética"
-                rows={3}
+                placeholder="Descripción general de la mejora genética"
+                rows={2}
                 className={inputClass}
               />
             </div>
@@ -753,8 +850,8 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
               <textarea
                 value={formData.expected_result || ''}
                 onChange={(e) => setFormData({ ...formData, expected_result: e.target.value })}
-                placeholder="Resultado esperado de la mejora"
-                rows={3}
+                placeholder="Resultado esperado a largo plazo"
+                rows={2}
                 className={inputClass}
               />
             </div>
@@ -958,22 +1055,32 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({ animal, cu
               />
             </div>
             <div>
+              <label className={labelClass}>Dosis *</label>
+              <input
+                type="text"
+                value={formData.dosis || ''}
+                onChange={(e) => setFormData({ ...formData, dosis: e.target.value })}
+                placeholder="Ej: 5ml, 2 tabletas..."
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Frecuencia *</label>
+              <input
+                type="text"
+                value={formData.frequency || ''}
+                onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+                placeholder="Ej: Una vez al día, cada 12 horas..."
+                className={inputClass}
+              />
+            </div>
+            <div>
               <label className={labelClass}>Descripción</label>
               <textarea
                 value={formData.description || ''}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Descripción del tratamiento"
                 rows={3}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Frecuencia</label>
-              <input
-                type="text"
-                value={formData.frequency || ''}
-                onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
-                placeholder="Ej: Una vez al día"
                 className={inputClass}
               />
             </div>

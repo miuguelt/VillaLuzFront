@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Image as ImageIcon, Upload as UploadIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AnimalImageUpload } from './AnimalImageUpload';
@@ -35,6 +35,21 @@ export function AnimalImageManager({
 }: AnimalImageManagerProps) {
   const [activeTab, setActiveTab] = useState<string>('gallery');
   const [galleryRefreshTrigger, setGalleryRefreshTrigger] = useState(0);
+
+  // Escuchar evento para abrir la pestaña de subida
+  useEffect(() => {
+    const handleOpenUploadTab = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { animalId?: number } | undefined;
+      if (!detail || detail.animalId === animalId) {
+        setActiveTab('upload');
+      }
+    };
+    
+    window.addEventListener('open-upload-tab', handleOpenUploadTab as EventListener);
+    return () => {
+      window.removeEventListener('open-upload-tab', handleOpenUploadTab as EventListener);
+    };
+  }, [animalId]);
 
   // Manejar éxito de subida
   const handleUploadSuccess = () => {

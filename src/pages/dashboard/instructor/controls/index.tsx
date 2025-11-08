@@ -1,11 +1,7 @@
-import React from 'react';
+import ControlsPage from './ControlsPage';
+
 const InstructorControlsPage = () => {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold">Manage Controls</h1>
-      {/* Instructor-specific control management UI will go here */}
-    </div>
-  );
+  return <ControlsPage />;
 };
 
 export default InstructorControlsPage;

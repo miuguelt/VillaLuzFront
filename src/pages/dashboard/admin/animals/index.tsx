@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Edit } from 'lucide-react';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { animalsService } from '@/services/animalService';
 import type { AnimalResponse, AnimalInput } from '@/types/swaggerTypes';
@@ -13,6 +14,7 @@ import DescendantsTreeModal from '@/components/dashboard/DescendantsTreeModal';
 import { useForeignKeySelect } from '@/hooks/useForeignKeySelect';
 import { ANIMAL_GENDERS, ANIMAL_STATES } from '@/constants/enums';
 import { useEffect, useState } from 'react';
+import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
 import { checkAnimalDependencies, clearAnimalDependencyCache } from '@/services/dependencyCheckService';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -111,19 +113,12 @@ function AdminAnimalsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [formData, setFormData] = useState<Partial<AnimalInput>>(initialFormData);
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
-    const saved = localStorage.getItem('adminAnimalsViewMode');
-    return saved === 'cards' ? 'cards' : 'table';
-  });
+  const [viewMode, setViewMode] = useGlobalViewMode();
 
   // Estado para imágenes pre-seleccionadas durante la creación
   const [pendingImages, setPendingImages] = useState<File[]>([]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('adminAnimalsViewMode', viewMode);
-    } catch {}
-  }, [viewMode]);
+  // Preferencia global ya persistida en el hook
 
   // Hook para razas - usar getPaginated con límite alto para obtener todas
   const {
@@ -681,6 +676,64 @@ function AdminAnimalsPage() {
             variant="compact"
             enableBackdropBlur
             className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
+            footer={(
+              <div className="border-t border-border/40 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/30 px-4 sm:px-6 py-3">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  {/* Navegación deshabilitada (estética igual al detalle principal) */}
+                  <div className="flex gap-2 sm:flex-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      disabled
+                      className="flex-1 sm:flex-initial transition-all duration-150"
+                    >
+                      <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Anterior</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      disabled
+                      className="flex-1 sm:flex-initial transition-all duration-150"
+                    >
+                      <span className="hidden sm:inline">Siguiente</span>
+                      <ChevronRight className="h-4 w-4 sm:ml-1" />
+                    </Button>
+                  </div>
+
+                  {/* Acciones principales */}
+                  <div className="flex gap-2 sm:justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={() => setIsAnimalDetailOpen(false)}
+                      className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                    >
+                      Cerrar
+                    </Button>
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={() => {
+                        // Disparar la edición usando el mecanismo de AdminCRUDPage (query param ?edit=ID)
+                        const search = new URLSearchParams(window.location.search);
+                        search.set('edit', String(selectedAnimal.id));
+                        const qs = `?${search.toString()}`;
+                        navigate(qs);
+                        setIsAnimalDetailOpen(false);
+                      }}
+                      className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                    >
+                      <Edit className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Editar</span>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           >
             <AnimalModalContent
               animal={selectedAnimal}

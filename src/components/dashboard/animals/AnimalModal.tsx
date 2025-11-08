@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,21 @@ export function AnimalModal({
 }: AnimalModalProps) {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showUpload, setShowUpload] = useState(false);
+
+  // Escuchar evento para abrir la pestaña de subida
+  useEffect(() => {
+    const handleOpenUploadTab = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { animalId?: number } | undefined;
+      if (!detail || detail.animalId === animal.id) {
+        setShowUpload(true);
+      }
+    };
+    
+    window.addEventListener('open-upload-tab', handleOpenUploadTab as EventListener);
+    return () => {
+      window.removeEventListener('open-upload-tab', handleOpenUploadTab as EventListener);
+    };
+  }, [animal.id]);
 
   const gender = animal.sex || animal.gender;
   const birthDate = animal.birth_date

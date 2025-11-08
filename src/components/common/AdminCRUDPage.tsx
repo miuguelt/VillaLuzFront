@@ -436,6 +436,16 @@ const {
     return arr;
   }, [searchedItems, sortKey, sortDir]);
 
+  // Actualizar detailItem cuando los datos cambien
+  useEffect(() => {
+    if (isDetailOpen && detailItem && visibleItems) {
+      const updatedItem = visibleItems.find(item => item.id === detailItem.id);
+      if (updatedItem) {
+        setDetailItem(updatedItem);
+      }
+    }
+  }, [items, isDetailOpen, detailItem?.id, visibleItems]);
+
   // Log de debugging para paginación (DEBE estar después de visibleItems)
   useEffect(() => {
     console.log('[AdminCRUDPage.Pagination] Estado de paginación:', {
@@ -1339,7 +1349,7 @@ const {
             }}
           >
                {config.viewMode === 'cards' ? (
-                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                 <div className="p-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
                    {visibleItems.map((item) => {
                      const isDeleting = deletingItems.has(String(item.id!));
                      const isNew = newItems.has(item.id!);
@@ -1352,13 +1362,13 @@ const {
                        <Card
                          key={item.id}
                          className={cn(
-                           'cursor-pointer transition-all duration-200 border-2 shadow-lg hover:shadow-xl flex flex-col',
+                           'cursor-pointer transition-all duration-200 border-0 shadow-lg hover:shadow-xl flex flex-col overflow-hidden',
                            'bg-gradient-to-br from-card via-card to-card/95',
                            'backdrop-blur-sm',
                            enhancedHover ? 'hover:border-primary/60 hover:bg-primary/5 hover:scale-[1.02] hover:-translate-y-1' : '',
-                           isDeleting ? 'ring-4 ring-red-400 bg-red-50 border-red-300 shadow-red-200' : '',
-                           isNew ? 'ring-4 ring-green-400 bg-green-50 border-green-300 shadow-green-200' : '',
-                           isUpdated ? 'ring-4 ring-amber-400 bg-amber-50/30 border-amber-300 shadow-amber-200' : '',
+                           isDeleting ? 'ring-4 ring-red-400 bg-red-50 shadow-red-200' : '',
+                           isNew ? 'ring-4 ring-green-400 bg-green-50 shadow-green-200' : '',
+                           isUpdated ? 'ring-4 ring-amber-400 bg-amber-50/30 shadow-amber-200' : '',
                            'dark:shadow-gray-800/20'
                          )}
                          onClick={() => { config.enableDetailModal !== false && openDetail(item); }}
@@ -1377,7 +1387,7 @@ const {
                             <CardTitle className="text-sm font-semibold truncate" title={titleText}>{titleText}</CardTitle>
                           </CardHeader>
                         )}
-                        <CardContent className={config.renderCard ? "p-0 flex-1 flex flex-col min-h-0 overflow-hidden" : "py-3 flex-1 flex flex-col min-h-0 overflow-hidden"}>
+                        <CardContent className={config.renderCard ? "p-0 !p-0 flex-1 flex flex-col min-h-0 overflow-hidden" : "py-3 flex-1 flex flex-col min-h-0 overflow-hidden"}>
                           {config.renderCard ? (
                             config.renderCard(item)
                           ) : (

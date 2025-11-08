@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { controlService } from '@/services/controlService';
 import { animalsService } from '@/services/animalService';
@@ -373,7 +374,7 @@ serviceAdapter.update = async (id: number | string, payload: ControlForm) => {
 const AdminControlPage: React.FC = () => {
   const [animalOptions, setAnimalOptions] = useState<{ value: number; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [viewMode, setViewMode] = useGlobalViewMode();
 
   useEffect(() => {
     let mounted = true;

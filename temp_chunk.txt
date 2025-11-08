@@ -1,0 +1,250 @@
+import React from 'react';
+import { ForeignKeyLink } from './ForeignKeyLink';
+import { animalsService } from '@/services/animalService';
+import { breedsService } from '@/services/breedsService';
+import { speciesService } from '@/services/speciesService';
+import { fieldService } from '@/services/fieldService';
+import { foodTypesService } from '@/services/foodTypesService';
+import { vaccinesService } from '@/services/vaccinesService';
+import { medicationsService } from '@/services/medicationsService';
+import { diseaseService } from '@/services/diseaseService';
+import { usersService } from '@/services/userService';
+import { Badge } from '@/components/ui/badge';
+import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalStyles';
+import { AnimalImageBanner } from '@/components/dashboard/animals/AnimalImageBanner';
+import { AnimalModalContent } from '@/components/dashboard/animals/AnimalModalContent';
+import { useAuth } from '@/hooks/useAuth';
+import { AnimalHistoryModal } from '@/components/dashboard/AnimalHistoryModal';
+import GeneticTreeModal from '@/components/dashboard/GeneticTreeModal';
+import DescendantsTreeModal from '@/components/dashboard/DescendantsTreeModal';
+import { useAnimalTreeApi, graphToAncestorLevels, graphToDescendantLevels } from '@/hooks/animal/useAnimalTreeApi';
+
+// Helper para Animal con renderizado personalizado
+export const AnimalLink: React.FC<{ id: number | string; label: string }> = ({ id, label }) => {
+  const renderAnimalContent = (initialAnimal: any) => {
+    const Wrapper: React.FC<{ initial: any }> = ({ initial }) => {
+      const [animal, setAnimal] = React.useState<any>(initial);
+      const { user } = useAuth();
+
+      // Modales auxiliares (historial y árboles) para replicar el detalle completo
+      const [isHistoryOpen, setIsHistoryOpen] = React.useState(false);
+      const [historyAnimal, setHistoryAnimal] = React.useState<any | null>(null);
+
+      const ancestorsApi = useAnimalTreeApi();
+      const descendantsApi = useAnimalTreeApi();
+      const [isTreeOpen, setIsTreeOpen] = React.useState(false);
+      const [treeAnimal, setTreeAnimal] = React.useState<any | null>(null);
+      const [treeLevels, setTreeLevels] = React.useState<any[][]>([]);
+      const [ancestorCounts, setAncestorCounts] = React.useState<any>();
+      const [ancestorSummary, setAncestorSummary] = React.useState<any>();
+      const [ancestorEdgeExamples, setAncestorEdgeExamples] = React.useState<any>();
+      const [treeRootId, setTreeRootId] = React.useState<number | null>(null);
+
+      const [isDescOpen, setIsDescOpen] = React.useState(false);
+      const [descAnimal, setDescAnimal] = React.useState<any | null>(null);
+      const [descLevels, setDescLevels] = React.useState<any[][]>([]);
+      const [descCounts, setDescCounts] = React.useState<any>();
+      const [descSummary, setDescSummary] = React.useState<any>();
+      const [descEdgeExamples, setDescEdgeExamples] = React.useState<any>();
+      const [descRootId, setDescRootId] = React.useState<number | null>(null);
+
+      const loadAnimal = async (animalId: number) => {
+        const next = await animalsService.getById(animalId);
+        setAnimal(next);
+      };
+
+      const computeBreedLabel = (a: any) =>
+        a?.breed?.name || (a?.breeds_id || a?.breed_id ? `ID ${a.breeds_id ?? a.breed_id}` : '-');
+      const computeParentLabel = (parentId?: number | null) => (parentId ? `ID ${parentId}` : '-');
+
+      const breedLabel = computeBreedLabel(animal);
+      const fatherId = animal?.idFather || animal?.father_id;
+      const motherId = animal?.idMother || animal?.mother_id;
+      const fatherLabel = computeParentLabel(fatherId ?? null);
+      const motherLabel = computeParentLabel(motherId ?? null);
+
+      const openHistory = (record: any) => {
+        const payload = {
+          idAnimal: Number(record?.id ?? 0),
+          record: record?.record || '',
+          breed: record?.breed,
+          birth_date: record?.birth_date,
+          sex: record?.sex || record?.gender,
+          status: record?.status,
+        };
+        setHistoryAnimal(payload);
+        setIsHistoryOpen(true);
+      };
+
+      const openAncestorsTree = async (record: any) => {
+        const idNum = Number(record?.id ?? 0);
+        if (!idNum) return;
+        const resp = await ancestorsApi.fetchAncestors(idNum, 3, 'id,record,sex,breeds_id,idFather,idMother');
+        if (!resp) {
+          setTreeAnimal(record);
+          setTreeLevels([]);
+          setAncestorCounts(undefined);
+          setAncestorSummary(undefined);
+          setAncestorEdgeExamples(undefined);
+          setTreeRootId(idNum);
+          setIsTreeOpen(true);
+          return;
+        }
+        setTreeRootId(resp.rootId);
+        setTreeAnimal(resp.nodes[resp.rootId]);
+        setTreeLevels(graphToAncestorLevels(resp));
+        setAncestorCounts(resp.counts);
+        setAncestorSummary(resp.summary);
+        setAncestorEdgeExamples(resp.edge_examples);
+        setIsTreeOpen(true);
+      };
+
+      const openDescendantsTree = async (record: any) => {
+        const idNum = Number(record?.id ?? 0);
+        if (!idNum) return;
+        const resp = await descendantsApi.fetchDescendants(idNum, 3, 'id,record,sex,breeds_id,idFather,idMother');
+        if (!resp) {
+          setDescAnimal(record);
+          setDescLevels([]);
+          setDescCounts(undefined);
+          setDescSummary(undefined);
+          setDescEdgeExamples(undefined);
+          setDescRootId(idNum);
+          setIsDescOpen(true);
+          return;
+        }
+        setDescRootId(resp.rootId);
+        setDescAnimal(resp.nodes[resp.rootId]);
+        setDescLevels(graphToDescendantLevels(resp));
+        setDescCounts(resp.counts);
+        setDescSummary(resp.summary);
+        setDescEdgeExamples(resp.edge_examples);
+        setIsDescOpen(true);
+      };
+
+      return (
+        <>
+          <AnimalModalContent
+            animal={animal}
+            breedLabel={breedLabel}
+            fatherLabel={fatherLabel}
+            motherLabel={motherLabel}
+            onFatherClick={fatherId ? (id: number) => loadAnimal(id) : undefined}
+            onMotherClick={motherId ? (id: number) => loadAnimal(id) : undefined}
+            currentUserId={user?.id}
+            onOpenHistory={() => openHistory(animal)}
+            onOpenAncestorsTree={() => openAncestorsTree(animal)}
+            onOpenDescendantsTree={() => openDescendantsTree(animal)}
+          />
+
+          {isHistoryOpen && historyAnimal && (
+            <AnimalHistoryModal
+              animal={historyAnimal}
+              onClose={() => {
+                setIsHistoryOpen(false);
+                setHistoryAnimal(null);
+              }}
+            />
+          )}
+
+          <GeneticTreeModal
+            isOpen={isTreeOpen}
+            onClose={() => {
+              setIsTreeOpen(false);
+              setTreeAnimal(null);
+              setTreeLevels([]);
+              ancestorsApi.clearError();
+            }}
+            animal={treeAnimal}
+            levels={treeLevels}
+            counts={ancestorCounts}
+            summary={ancestorSummary}
+            edgeExamples={ancestorEdgeExamples}
+            dependencyInfo={ancestorsApi.dependencyInfo}
+            treeError={ancestorsApi.error}
+            loadingMore={ancestorsApi.loading}
+            onLoadMore={async () => {
+              if (!treeRootId || !ancestorsApi.graph) return;
+              const merged = await ancestorsApi.loadMore('ancestors', treeRootId, ancestorsApi.graph, {
+                increment: 2,
+                fields: 'id,record,sex,breeds_id,idFather,idMother',
+              });
+              setTreeAnimal(merged.nodes[merged.rootId]);
+              setTreeLevels(graphToAncestorLevels(merged));
+              setAncestorCounts(merged.counts);
+              setAncestorSummary(merged.summary);
+              setAncestorEdgeExamples(merged.edge_examples);
+            }}
+          />
+
+          <DescendantsTreeModal
+            isOpen={isDescOpen}
+            onClose={() => {
+              setIsDescOpen(false);
+              setDescAnimal(null);
+              setDescLevels([]);
+              descendantsApi.clearError();
+            }}
+            animal={descAnimal}
+            levels={descLevels}
+            counts={descCounts}
+            summary={descSummary}
+            edgeExamples={descEdgeExamples}
+            dependencyInfo={descendantsApi.dependencyInfo}
+            treeError={descendantsApi.error}
+            loadingMore={descendantsApi.loading}
+            onLoadMore={async () => {
+              if (!descRootId || !descendantsApi.graph) return;
+              const merged = await descendantsApi.loadMore('descendants', descRootId, descendantsApi.graph, {
+                increment: 2,
+                fields: 'id,record,sex,breeds_id,idFather,idMother',
+              });
+              setDescAnimal(merged.nodes[merged.rootId]);
+              setDescLevels(graphToDescendantLevels(merged));
+              setDescCounts(merged.counts);
+              setDescSummary(merged.summary);
+              setDescEdgeExamples(merged.edge_examples);
+            }}
+          />
+        </>
+      );
+    };
+
+    return <Wrapper initial={initialAnimal} />;
+  };
+
+  return (
+    <ForeignKeyLink
+      id={id}
+      label={label}
+      service={animalsService}
+      modalTitle="Detalle del Animal"
+      renderContent={renderAnimalContent}
+      size="full"
+      enableFullScreenToggle
+    />
+  );
+};
+
+// Helper para Breed (Raza) con renderizado personalizado
+export const BreedLink: React.FC<{ id: number | string; label: string }> = ({ id, label }) => {
+  const renderBreedContent = (item: any) => {
+    return (
+      <div className={modalStyles.spacing.section}>
+        <div className={modalStyles.twoColGrid}>
+          {/* Columna izquierda */}
+          <div className={modalStyles.spacing.section}>
+            <SectionCard title="Información Básica">
+              <div className={modalStyles.spacing.sectionSmall}>
+                <InfoField label="ID" value={`#${item.id}`} />
+                <InfoField label="Nombre" value={item.name || '-'} valueSize="xlarge" />
+              </div>
+            </SectionCard>
+
+            {item.description && (
+              <SectionCard title="Descripción">
+                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+                  {item.description}
+                </p>
+              </SectionCard>
+            )}

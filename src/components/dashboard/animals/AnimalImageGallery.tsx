@@ -40,6 +40,11 @@ interface AnimalImageGalleryProps {
   showControls?: boolean;
   /** Trigger externo para recargar las imágenes */
   refreshTrigger?: number;
+  /**
+   * Solicitud para abrir la UI de subida desde el estado vacío
+   * Si no se provee, se emitirá el evento global usado por `AnimalImageManager`
+   */
+  onRequestUpload?: () => void;
 }
 
 export function AnimalImageGallery({
@@ -47,6 +52,7 @@ export function AnimalImageGallery({
   onGalleryUpdate,
   showControls = true,
   refreshTrigger = 0,
+  onRequestUpload,
 }: AnimalImageGalleryProps) {
   const [images, setImages] = useState<AnimalImage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,12 +222,30 @@ export function AnimalImageGallery({
   // Empty state
   if (images.length === 0) {
     return (
-      <div className="text-center py-12 border-2 border-dashed rounded-xl">
-        <ImageIcon className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
-        <p className="text-lg font-medium mb-1">No hay imágenes</p>
-        <p className="text-sm text-muted-foreground">
-          Sube algunas imágenes para comenzar
-        </p>
+      <div className="flex flex-col items-center gap-3 py-6 text-center text-muted-foreground">
+        <div className="flex flex-col items-center gap-1.5">
+          <ImageIcon className="w-8 h-8 text-muted-foreground/70" />
+          <p className="text-sm">Aún no hay imágenes para este animal</p>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (onRequestUpload) {
+              onRequestUpload();
+            } else {
+              const uploadTabEvent = new CustomEvent('open-upload-tab', {
+                detail: { animalId }
+              });
+              window.dispatchEvent(uploadTabEvent);
+            }
+          }}
+          className="gap-1.5 rounded-full border border-dashed border-primary/40 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/5"
+        >
+          <ImageIcon className="w-4 h-4" />
+          Subir imagen
+        </Button>
       </div>
     );
   }
@@ -266,7 +290,7 @@ export function AnimalImageGallery({
                 onClick={() => setSelectedImage(image)}
                 loading="lazy"
                 style={{
-                  imageRendering: 'high-quality',
+                  imageRendering: 'auto',
                 }}
                 onError={() => {
                   setImageErrors(prev => new Set(prev).add(image.id));
@@ -443,7 +467,7 @@ export function AnimalImageGallery({
                     height: 'auto',
                   }}
                   decoding="async"
-                  fetchpriority="high"
+                  fetchPriority="high"
                   onError={() => {
                     setImageErrors(prev => new Set(prev).add(selectedImage.id));
                   }}

@@ -9,9 +9,15 @@ import {
   setIndexedDBCache,
   invalidateIndexedDBCacheByPrefix
 } from '@/utils/indexedDBCache';
+import { offlineQueue } from '@/utils/offlineQueue';
+import { getApiBaseURL } from '@/utils/envConfig';
 
 // Compatible flag for dev mode (avoids use of import.meta in Jest/CommonJS)
 const __DEV__ = (typeof (globalThis as any).process !== 'undefined' && (globalThis as any).process.env && (globalThis as any).process.env.NODE_ENV === 'development');
+const ENV: Record<string, any> = ((globalThis as any)?.['import']?.['meta']?.['env'])
+  ?? ((typeof (globalThis as any).process !== 'undefined' ? ((globalThis as any).process as any).env : undefined) as any)
+  ?? {};
+const AUTH_STORAGE_KEY = ENV.VITE_AUTH_STORAGE_KEY || 'finca_access_token';
 
 interface ServiceOptions {
   enableCache?: boolean;
@@ -31,6 +37,45 @@ interface OfflineWriteItem {
   path?: string; // soporte para customRequest
   payload?: any;
   timestamp: number;
+}
+
+function buildOfflineUrl(item: OfflineWriteItem): string {
+  const base = (api?.defaults?.baseURL || getApiBaseURL() || '').replace(/\/$/, '');
+
+  if (/^https?:\/\//i.test(item.endpoint)) {
+    return item.endpoint;
+  }
+
+  const trimSegment = (value: string | number | undefined | null): string | null => {
+    if (value === undefined || value === null) return null;
+    const str = String(value).trim();
+    if (!str) return null;
+    return str.replace(/^\/+/, '').replace(/\/$/, '');
+  };
+
+  const endpointSegment = trimSegment(item.endpoint) || '';
+  let resource = endpointSegment;
+
+  if (item.path) {
+    const pathSegment = trimSegment(item.path) || '';
+    resource = pathSegment ? `${endpointSegment}/${pathSegment}` : endpointSegment;
+  } else if (item.id !== undefined && item.id !== null) {
+    const idSegment = trimSegment(String(item.id));
+    resource = idSegment ? `${endpointSegment}/${idSegment}` : endpointSegment;
+  }
+
+  if (/^https?:\/\//i.test(resource)) {
+    return resource;
+  }
+
+  const normalizedResource = resource.startsWith('/') ? resource : `/${resource}`;
+
+  if (/^https?:\/\//i.test(base)) {
+    const normalizedBase = base.endsWith('/') ? base : `${base}/`;
+    return new URL(normalizedResource.replace(/^\//, ''), normalizedBase).toString();
+  }
+
+  return `${base}${normalizedResource}`;
 }
 
 export class BaseService<T> {
@@ -141,16 +186,38 @@ export class BaseService<T> {
     return typeof navigator === 'undefined' ? true : navigator.onLine;
   }
 
-  // ------- Cola offline eliminada -------
-  // private static readQueue() { ... }
-  // private static writeQueue(items: OfflineWriteItem[]) { ... }
+  // ------- Cola offline con offlineQueue utility -------
   public static enqueue(item: OfflineWriteItem): void {
-    // No-op stub to satisfy references when offline queue is disabled
+    const fullUrl = buildOfflineUrl(item);
+
+    let token: string | null = null;
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        token = window.localStorage.getItem(AUTH_STORAGE_KEY);
+      }
+    } catch {
+      token = null;
+    }
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    offlineQueue.enqueue(
+      item.method,
+      fullUrl,
+      item.payload,
+      headers
+    );
+
     if (__DEV__) {
-      console.warn('[OfflineQueue] enqueue (noop):', item);
+      console.log('[BaseService] Operación encolada:', item.method, fullUrl);
     }
   }
-  // public static async flushOfflineQueue() { ... }
 
   async getAll(params?: Record<string, any>): Promise<T[]> {
     const normalizedParams = BaseService.buildListParams(params || {});
@@ -302,6 +369,7 @@ export class BaseService<T> {
   async update(id: number | string, data: Partial<T>): Promise<T> {
     if (!BaseService.isOnline()) {
       BaseService.enqueue({ endpoint: this.endpoint, method: 'PUT', id, payload: data, timestamp: Date.now() });
+      return ({ ...(data as any), id, __offlineQueued: true } as unknown) as T;
     }
     const response = await api.put(`${this.endpoint}/${id}`, data);
     this.clearCache();
@@ -311,6 +379,7 @@ export class BaseService<T> {
   async patch(id: number | string, data: Partial<T>): Promise<T> {
     if (!BaseService.isOnline()) {
       BaseService.enqueue({ endpoint: this.endpoint, method: 'PATCH', id, payload: data, timestamp: Date.now() });
+      return ({ ...(data as any), id, __offlineQueued: true } as unknown) as T;
     }
     const response = await api.patch(`${this.endpoint}/${id}`, data);
     this.clearCache();

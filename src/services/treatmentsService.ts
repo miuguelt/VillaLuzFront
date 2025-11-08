@@ -39,15 +39,22 @@ export class TreatmentsService extends BaseService<TreatmentResponse> {
    * - Removes undefined/null and strips unsupported keys
    */
   private buildApiPayload(data: Partial<TreatmentInput> & { [k: string]: any }): Record<string, any> {
+    console.log('[TreatmentService] buildApiPayload input data:', data);
+
     const startDateRaw = data.treatment_date ?? (data as any).startDate ?? data.treatment_date ?? (data as any).date;
     const startDate = this.normalizeDate(startDateRaw);
+
+    console.log('[TreatmentService] startDateRaw:', startDateRaw, '| normalized:', startDate);
 
     const payload: Record<string, any> = {
       animal_id: data.animal_id,
       // Prefer explicit treatment_date if present, otherwise map from treatment_date
       treatment_date: startDate,
       // Use description or fall back to diagnosis (UI label "Diagnóstico")
-      description: data.description ?? (data as any).diagnosis,
+      // Check if description has actual content, otherwise use diagnosis
+      description: (data.description && data.description.trim())
+        ? data.description
+        : ((data as any).diagnosis ?? data.description),
       // Optional fields commonly used in current UI
       dosis: (data as any).dosis,
       frequency: (data as any).frequency,
@@ -77,6 +84,7 @@ export class TreatmentsService extends BaseService<TreatmentResponse> {
       }
     });
 
+    console.log('[TreatmentService] Final payload after cleanup:', payload);
     return payload;
   }
 

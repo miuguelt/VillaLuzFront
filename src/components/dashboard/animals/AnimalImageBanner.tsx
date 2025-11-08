@@ -308,7 +308,7 @@ export function AnimalImageBanner({
                   <img
                     src={image.url}
                     alt={image.filename}
-                    className={`w-full h-full ${
+                    className={`block w-full h-full ${
                       objectFit === 'cover' ? 'object-cover' : 'object-contain'
                     } transition-transform duration-700 ease-out`}
                     loading={index === 0 ? 'eager' : 'lazy'}

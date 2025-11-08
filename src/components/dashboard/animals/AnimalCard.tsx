@@ -34,9 +34,9 @@ export function AnimalCard({
   const isAdult = animal.is_adult === true ? 'Sí' : animal.is_adult === false ? 'No' : '-';
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Banner de imágenes - LO PRIMERO, sin padding, llega al borde */}
-      <div className="relative flex-shrink-0">
+    <div className="h-full w-full flex flex-col overflow-hidden">
+      {/* Banner de imágenes - LO PRIMERO, sin padding, ocupa 100% del ancho de la card */}
+      <div className="relative w-full flex-shrink-0">
         <AnimalImageBanner
           animalId={animal.id}
           height="220px"
@@ -63,10 +63,10 @@ export function AnimalCard({
         )}
       </div>
 
-      {/* Contenido de la tarjeta - MÁXIMO APROVECHAMIENTO DEL ESPACIO */}
-      <div className="flex-1 flex flex-col px-2.5 py-2.5 space-y-2 min-h-0">
+      {/* Contenido de la tarjeta - con márgenes internos pero respetando el carrusel */}
+      <div className="flex-1 flex flex-col px-3 sm:px-4 py-3 sm:py-4 space-y-3 min-h-0">
         {/* Registro del animal e identificación - Ocupa todo el ancho */}
-        <div className="flex items-center justify-between gap-2 -mx-0.5">
+        <div className="flex items-center justify-between gap-2">
           <h3 className="text-base font-bold text-foreground truncate flex-1 min-w-0">
             {animal.record || `#${animal.id}`}
           </h3>
@@ -83,7 +83,7 @@ export function AnimalCard({
         </div>
 
         {/* Grid de información - 2 columnas optimizado para máximo ancho */}
-        <div className="grid grid-cols-2 gap-x-2 gap-y-2">
+        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
           <InfoField label="Raza" value={breedLabel} truncate />
           <InfoField label="Peso" value={`${weight} kg`} />
           <InfoField label="Nacimiento" value={birthDate} small />
@@ -93,8 +93,8 @@ export function AnimalCard({
         {/* Genealogía - si existe - Ocupa todo el ancho */}
         {(fatherLabel !== '-' || motherLabel !== '-') && (
           <>
-            <div className="border-t border-border/30 -mx-0.5" />
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+            <div className="border-t border-border/30" />
+            <div className="grid grid-cols-2 gap-x-1.5 gap-y-1">
               {fatherLabel !== '-' && (
                 <div className="min-w-0">
                   <div className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/70 mb-0.5">

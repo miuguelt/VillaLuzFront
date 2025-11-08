@@ -8,6 +8,7 @@ const LandingPage = React.lazy(() => import('../landing'));
 import { useAuth } from '@/hooks/useAuth';
 import { I18nProvider } from '@/i18n';
 import { ToastProvider } from '@/context/ToastContext';
+import { OnlineStatusIndicator } from '@/components/common/OnlineStatusIndicator';
 
 // Component to protect routes
 const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
@@ -39,6 +40,8 @@ function App() {
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
+          {/* Indicador de estado de conexión y sincronización offline */}
+          <OnlineStatusIndicator />
         </AuthProvider>
       </ToastProvider>
     </I18nProvider>

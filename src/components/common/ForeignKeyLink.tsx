@@ -4,6 +4,13 @@ import { GenericModal } from './GenericModal';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
+export interface ForeignKeyLinkHelpers {
+  closeModal: () => void;
+  reload: () => Promise<void>;
+  setData: (data: any) => void;
+}
+
+
 interface ForeignKeyLinkProps {
   /**
    * ID de la entidad referenciada
@@ -31,7 +38,7 @@ interface ForeignKeyLinkProps {
    * Función para renderizar el contenido del modal
    * Si no se proporciona, se usa un renderizado genérico
    */
-  renderContent?: (data: any) => React.ReactNode;
+  renderContent?: (data: any, helpers?: ForeignKeyLinkHelpers) => React.ReactNode;
 
   /**
    * Campos a mostrar en el renderizado genérico
@@ -154,6 +161,12 @@ export const ForeignKeyLink: React.FC<ForeignKeyLinkProps> = ({
   };
 
   const renderModalContent = () => {
+    const helpers: ForeignKeyLinkHelpers = {
+      closeModal: () => setShowModal(false),
+      reload: async () => { await loadData(); },
+      setData: (value: any) => setData(value),
+    };
+
     if (loading) {
       return (
         <div className="py-10 text-center">
@@ -183,7 +196,7 @@ export const ForeignKeyLink: React.FC<ForeignKeyLinkProps> = ({
     }
 
     if (renderContent) {
-      return renderContent(data);
+      return renderContent(data, helpers);
     }
 
     return defaultRenderContent(data);

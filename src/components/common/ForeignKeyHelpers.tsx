@@ -11,126 +11,205 @@ import { diseaseService } from '@/services/diseaseService';
 import { usersService } from '@/services/userService';
 import { Badge } from '@/components/ui/badge';
 import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalStyles';
-import { AnimalImageBanner } from '@/components/dashboard/animals/AnimalImageBanner';
+import { AnimalModalContent } from '@/components/dashboard/animals/AnimalModalContent';
+import { useAuth } from '@/hooks/useAuth';
+import { AnimalHistoryModal } from '@/components/dashboard/AnimalHistoryModal';
+import GeneticTreeModal from '@/components/dashboard/GeneticTreeModal';
+import DescendantsTreeModal from '@/components/dashboard/DescendantsTreeModal';
+import { useAnimalTreeApi, graphToAncestorLevels, graphToDescendantLevels } from '@/hooks/animal/useAnimalTreeApi';
 
 // Helper para Animal con renderizado personalizado
 export const AnimalLink: React.FC<{ id: number | string; label: string }> = ({ id, label }) => {
-  const renderAnimalContent = (item: any) => {
-    const gender = item.sex || item.gender;
-    const birthDate = item.birth_date ? new Date(item.birth_date).toLocaleDateString('es-ES') : '-';
-    const status = item.status || item.state || 'Vivo';
+  const renderAnimalContent = (initialAnimal: any) => {
+    const Wrapper: React.FC<{ initial: any }> = ({ initial }) => {
+      const [animal, setAnimal] = React.useState<any>(initial);
+      const { user } = useAuth();
 
-    // Calcular edad
-    const ageDisplay = () => {
-      if (item.age_in_months !== undefined && item.age_in_months !== null) {
-        if (item.age_in_months < 12) {
-          return `${item.age_in_months} ${item.age_in_months === 1 ? 'mes' : 'meses'}`;
-        } else {
-          const years = Math.floor(item.age_in_months / 12);
-          const months = item.age_in_months % 12;
-          return months > 0
-            ? `${years} ${years === 1 ? 'año' : 'años'} y ${months} ${months === 1 ? 'mes' : 'meses'}`
-            : `${years} ${years === 1 ? 'año' : 'años'}`;
-        }
-      }
-      if (item.age_in_days !== undefined && item.age_in_days !== null) {
-        return `${item.age_in_days} ${item.age_in_days === 1 ? 'día' : 'días'}`;
-      }
-      return '-';
-    };
+      // Modales auxiliares (historial y árboles) para replicar el detalle completo
+      const [isHistoryOpen, setIsHistoryOpen] = React.useState(false);
+      const [historyAnimal, setHistoryAnimal] = React.useState<any | null>(null);
 
-    const getStatusColor = (status: string) => {
-      const colors: Record<string, string> = {
-        'Vivo': 'bg-green-500/90 hover:bg-green-600 text-white',
-        'Muerto': 'bg-red-500/90 hover:bg-red-600 text-white',
-        'Vendido': 'bg-blue-500/90 hover:bg-blue-600 text-white',
+      const ancestorsApi = useAnimalTreeApi();
+      const descendantsApi = useAnimalTreeApi();
+      const [isTreeOpen, setIsTreeOpen] = React.useState(false);
+      const [treeAnimal, setTreeAnimal] = React.useState<any | null>(null);
+      const [treeLevels, setTreeLevels] = React.useState<any[][]>([]);
+      const [ancestorCounts, setAncestorCounts] = React.useState<any>();
+      const [ancestorSummary, setAncestorSummary] = React.useState<any>();
+      const [ancestorEdgeExamples, setAncestorEdgeExamples] = React.useState<any>();
+      const [treeRootId, setTreeRootId] = React.useState<number | null>(null);
+
+      const [isDescOpen, setIsDescOpen] = React.useState(false);
+      const [descAnimal, setDescAnimal] = React.useState<any | null>(null);
+      const [descLevels, setDescLevels] = React.useState<any[][]>([]);
+      const [descCounts, setDescCounts] = React.useState<any>();
+      const [descSummary, setDescSummary] = React.useState<any>();
+      const [descEdgeExamples, setDescEdgeExamples] = React.useState<any>();
+      const [descRootId, setDescRootId] = React.useState<number | null>(null);
+
+      const loadAnimal = async (animalId: number) => {
+        const next = await animalsService.getById(animalId);
+        setAnimal(next);
       };
-      return colors[status] || 'bg-gray-500/90 hover:bg-gray-600 text-white';
+
+      const computeBreedLabel = (a: any) =>
+        a?.breed?.name || (a?.breeds_id || a?.breed_id ? `ID ${a.breeds_id ?? a.breed_id}` : '-');
+      const computeParentLabel = (parentId?: number | null) => (parentId ? `ID ${parentId}` : '-');
+
+      const breedLabel = computeBreedLabel(animal);
+      const fatherId = animal?.idFather || animal?.father_id;
+      const motherId = animal?.idMother || animal?.mother_id;
+      const fatherLabel = computeParentLabel(fatherId ?? null);
+      const motherLabel = computeParentLabel(motherId ?? null);
+
+      const openHistory = (record: any) => {
+        const payload = {
+          idAnimal: Number(record?.id ?? 0),
+          record: record?.record || '',
+          breed: record?.breed,
+          birth_date: record?.birth_date,
+          sex: record?.sex || record?.gender,
+          status: record?.status,
+        };
+        setHistoryAnimal(payload);
+        setIsHistoryOpen(true);
+      };
+
+      const openAncestorsTree = async (record: any) => {
+        const idNum = Number(record?.id ?? 0);
+        if (!idNum) return;
+        const resp = await ancestorsApi.fetchAncestors(idNum, 3, 'id,record,sex,breeds_id,idFather,idMother');
+        if (!resp) {
+          setTreeAnimal(record);
+          setTreeLevels([]);
+          setAncestorCounts(undefined);
+          setAncestorSummary(undefined);
+          setAncestorEdgeExamples(undefined);
+          setTreeRootId(idNum);
+          setIsTreeOpen(true);
+          return;
+        }
+        setTreeRootId(resp.rootId);
+        setTreeAnimal(resp.nodes[resp.rootId]);
+        setTreeLevels(graphToAncestorLevels(resp));
+        setAncestorCounts(resp.counts);
+        setAncestorSummary(resp.summary);
+        setAncestorEdgeExamples(resp.edge_examples);
+        setIsTreeOpen(true);
+      };
+
+      const openDescendantsTree = async (record: any) => {
+        const idNum = Number(record?.id ?? 0);
+        if (!idNum) return;
+        const resp = await descendantsApi.fetchDescendants(idNum, 3, 'id,record,sex,breeds_id,idFather,idMother');
+        if (!resp) {
+          setDescAnimal(record);
+          setDescLevels([]);
+          setDescCounts(undefined);
+          setDescSummary(undefined);
+          setDescEdgeExamples(undefined);
+          setDescRootId(idNum);
+          setIsDescOpen(true);
+          return;
+        }
+        setDescRootId(resp.rootId);
+        setDescAnimal(resp.nodes[resp.rootId]);
+        setDescLevels(graphToDescendantLevels(resp));
+        setDescCounts(resp.counts);
+        setDescSummary(resp.summary);
+        setDescEdgeExamples(resp.edge_examples);
+        setIsDescOpen(true);
+      };
+
+      return (
+        <>
+          <AnimalModalContent
+            animal={animal}
+            breedLabel={breedLabel}
+            fatherLabel={fatherLabel}
+            motherLabel={motherLabel}
+            onFatherClick={fatherId ? (id: number) => loadAnimal(id) : undefined}
+            onMotherClick={motherId ? (id: number) => loadAnimal(id) : undefined}
+            currentUserId={user?.id}
+            onOpenHistory={() => openHistory(animal)}
+            onOpenAncestorsTree={() => openAncestorsTree(animal)}
+            onOpenDescendantsTree={() => openDescendantsTree(animal)}
+          />
+
+          {isHistoryOpen && historyAnimal && (
+            <AnimalHistoryModal
+              animal={historyAnimal}
+              onClose={() => {
+                setIsHistoryOpen(false);
+                setHistoryAnimal(null);
+              }}
+            />
+          )}
+
+          <GeneticTreeModal
+            isOpen={isTreeOpen}
+            onClose={() => {
+              setIsTreeOpen(false);
+              setTreeAnimal(null);
+              setTreeLevels([]);
+              ancestorsApi.clearError();
+            }}
+            animal={treeAnimal}
+            levels={treeLevels}
+            counts={ancestorCounts}
+            summary={ancestorSummary}
+            edgeExamples={ancestorEdgeExamples}
+            dependencyInfo={ancestorsApi.dependencyInfo}
+            treeError={ancestorsApi.error}
+            loadingMore={ancestorsApi.loading}
+            onLoadMore={async () => {
+              if (!treeRootId || !ancestorsApi.graph) return;
+              const merged = await ancestorsApi.loadMore('ancestors', treeRootId, ancestorsApi.graph, {
+                increment: 2,
+                fields: 'id,record,sex,breeds_id,idFather,idMother',
+              });
+              setTreeAnimal(merged.nodes[merged.rootId]);
+              setTreeLevels(graphToAncestorLevels(merged));
+              setAncestorCounts(merged.counts);
+              setAncestorSummary(merged.summary);
+              setAncestorEdgeExamples(merged.edge_examples);
+            }}
+          />
+
+          <DescendantsTreeModal
+            isOpen={isDescOpen}
+            onClose={() => {
+              setIsDescOpen(false);
+              setDescAnimal(null);
+              setDescLevels([]);
+              descendantsApi.clearError();
+            }}
+            animal={descAnimal}
+            levels={descLevels}
+            counts={descCounts}
+            summary={descSummary}
+            edgeExamples={descEdgeExamples}
+            dependencyInfo={descendantsApi.dependencyInfo}
+            treeError={descendantsApi.error}
+            loadingMore={descendantsApi.loading}
+            onLoadMore={async () => {
+              if (!descRootId || !descendantsApi.graph) return;
+              const merged = await descendantsApi.loadMore('descendants', descRootId, descendantsApi.graph, {
+                increment: 2,
+                fields: 'id,record,sex,breeds_id,idFather,idMother',
+              });
+              setDescAnimal(merged.nodes[merged.rootId]);
+              setDescLevels(graphToDescendantLevels(merged));
+              setDescCounts(merged.counts);
+              setDescSummary(merged.summary);
+              setDescEdgeExamples(merged.edge_examples);
+            }}
+          />
+        </>
+      );
     };
 
-    return (
-      <div className="flex flex-col h-full min-h-0 -m-4 -mb-4 sm:-m-5 sm:-mb-4">
-        {/* Banner de Imágenes - altura optimizada */}
-        <div className="flex-shrink-0">
-          <AnimalImageBanner
-            animalId={item.id}
-            height="220px"
-            showControls={true}
-            autoPlayInterval={5000}
-            hideWhenEmpty={true}
-          />
-        </div>
-
-        {/* Contenido en dos columnas con scroll */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-2 sm:px-6">
-          <div className={modalStyles.twoColGrid}>
-            {/* Columna izquierda */}
-            <div className={modalStyles.spacing.section}>
-              <SectionCard title="Información Básica">
-                <div className="grid grid-cols-2 gap-2 items-start">
-                  <InfoField label="ID" value={`#${item.id}`} />
-                  <div className="col-span-2">
-                    <InfoField label="Registro" value={item.record || item.name || '-'} valueSize="large" />
-                  </div>
-                  <InfoField label="Sexo" value={gender || '-'} />
-                  <div>
-                    <div className={modalStyles.fieldLabel}>Estado</div>
-                    <Badge className={`text-xs px-2 py-0.5 ${getStatusColor(status)}`}>
-                      {status}
-                    </Badge>
-                  </div>
-                </div>
-              </SectionCard>
-
-              <SectionCard title="Información Física">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="col-span-2">
-                    <InfoField label="Fecha de Nacimiento" value={birthDate} />
-                  </div>
-                  <InfoField label="Edad" value={ageDisplay()} />
-                  <InfoField label="Peso" value={item.weight ? `${item.weight} kg` : '-'} />
-                  <InfoField label="Adulto" value={item.is_adult ? 'Sí' : 'No'} />
-                </div>
-              </SectionCard>
-
-              {item.notes && (
-                <SectionCard title="Notas">
-                  <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap line-clamp-4 hover:line-clamp-none transition-all">
-                    {item.notes}
-                  </p>
-                </SectionCard>
-              )}
-            </div>
-
-            {/* Columna derecha */}
-            <div className={modalStyles.spacing.section}>
-              <SectionCard title="Información Genética">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="col-span-2">
-                    <InfoField label="Raza" value={item.breed?.name || item.breed_id ? `ID ${item.breed_id}` : '-'} />
-                  </div>
-                  <InfoField label="Padre" value={item.father_id ? `REC${String(item.father_id).padStart(4, '0')}` : '-'} />
-                  <InfoField label="Madre" value={item.mother_id ? `REC${String(item.mother_id).padStart(4, '0')}` : '-'} />
-                </div>
-              </SectionCard>
-
-              <SectionCard title="Información del Sistema">
-                <div className="grid grid-cols-2 gap-2">
-                  <InfoField
-                    label="Creado"
-                    value={item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES') : '-'}
-                  />
-                  <InfoField
-                    label="Actualizado"
-                    value={item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-ES') : '-'}
-                  />
-                </div>
-              </SectionCard>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <Wrapper initial={initialAnimal} />;
   };
 
   return (
@@ -140,7 +219,7 @@ export const AnimalLink: React.FC<{ id: number | string; label: string }> = ({ i
       service={animalsService}
       modalTitle="Detalle del Animal"
       renderContent={renderAnimalContent}
-      size="6xl"
+      size="full"
       enableFullScreenToggle
     />
   );

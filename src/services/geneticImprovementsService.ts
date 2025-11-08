@@ -34,12 +34,35 @@ export class GeneticImprovementsService extends BaseService<GeneticImprovementRe
   }
 
   /**
+   * Helper para filtrar campos válidos del backend
+   */
+  private buildBackendPayload(data: any): Record<string, any> {
+    const payload: Record<string, any> = {
+      animal_id: data.animal_id,
+      genetic_event_technique: data.genetic_event_technique,
+      details: data.details,
+      results: data.results,
+      date: data.date
+    };
+
+    // Eliminar campos undefined o null
+    Object.keys(payload).forEach(key => {
+      if (payload[key] === undefined || payload[key] === null) {
+        delete payload[key];
+      }
+    });
+
+    return payload;
+  }
+
+  /**
    * Creates a new genetic improvement.
    * @param {GeneticImprovementInput} geneticImprovementData - The data for the new genetic improvement.
    * @returns {Promise<GeneticImprovementResponse>} A promise that resolves to the created genetic improvement.
    */
-  public async createGeneticImprovement(geneticImprovementData: GeneticImprovementInput): Promise<GeneticImprovementResponse> {
-    return this.create(geneticImprovementData);
+  public async createGeneticImprovement(geneticImprovementData: any): Promise<GeneticImprovementResponse> {
+    const payload = this.buildBackendPayload(geneticImprovementData);
+    return this.create(payload);
   }
 
   /**
@@ -48,8 +71,9 @@ export class GeneticImprovementsService extends BaseService<GeneticImprovementRe
    * @param {Partial<GeneticImprovementInput>} geneticImprovementData - The data to update the genetic improvement with.
    * @returns {Promise<GeneticImprovementResponse>} A promise that resolves to the updated genetic improvement.
    */
-  public async updateGeneticImprovement(id: string, geneticImprovementData: Partial<GeneticImprovementInput>): Promise<GeneticImprovementResponse> {
-    return this.update(id, geneticImprovementData);
+  public async updateGeneticImprovement(id: string, geneticImprovementData: any): Promise<GeneticImprovementResponse> {
+    const payload = this.buildBackendPayload(geneticImprovementData);
+    return this.update(id, payload);
   }
 
   /**

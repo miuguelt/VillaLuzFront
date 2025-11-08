@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { usersService } from '@/services/userService';
 import type { UserResponse } from '@/types/swaggerTypes';
@@ -227,7 +228,7 @@ const renderUserCard = (user: UserResponse & { [k: string]: any }) => {
 
 // Página principal con estado para toggle de vista
 const AdminUsersPageWrapper = () => {
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [viewMode, setViewMode] = useGlobalViewMode();
 
   // Acciones personalizadas para la tabla usando UserActionsMenu
   const customActions = (item: UserResponse & { [k: string]: any }) => (

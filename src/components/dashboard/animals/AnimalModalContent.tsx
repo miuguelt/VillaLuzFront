@@ -3,9 +3,8 @@ import { X, MoreVertical, Activity, Syringe, MapPin, Pill, ClipboardList, Trendi
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AnimalResponse } from '@/types/swaggerTypes';
+import { ImageManager } from '@/components/common/ImageManager';
 import { AnimalImageBanner } from './AnimalImageBanner';
-import { AnimalImageGallery } from './AnimalImageGallery';
-import { AnimalImageUpload } from './AnimalImageUpload';
 import { AnimalActionsMenu } from '@/components/dashboard/AnimalActionsMenu';
 import { ParentMiniCard } from './ParentMiniCard';
 import { geneticImprovementsService } from '@/services/geneticImprovementsService';
@@ -26,6 +25,8 @@ interface AnimalModalContentProps {
   onOpenHistory?: () => void;
   onOpenAncestorsTree?: () => void;
   onOpenDescendantsTree?: () => void;
+  // Contenedor con scroll para preservar posición al refrescar
+  scrollContainerRef?: React.RefObject<HTMLDivElement>;
 }
 
 export function AnimalModalContent({
@@ -38,10 +39,40 @@ export function AnimalModalContent({
   currentUserId,
   onOpenHistory,
   onOpenAncestorsTree,
-  onOpenDescendantsTree
+  onOpenDescendantsTree,
+  scrollContainerRef
 }: AnimalModalContentProps) {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [showUpload, setShowUpload] = useState(false);
+  const savedScrollTopRef = React.useRef(0);
+
+  const preserveScroll = React.useCallback(() => {
+    const node = scrollContainerRef?.current;
+    if (node) savedScrollTopRef.current = node.scrollTop;
+  }, [scrollContainerRef]);
+
+  const restoreScroll = React.useCallback(() => {
+    const node = scrollContainerRef?.current;
+    if (!node) return;
+    requestAnimationFrame(() => {
+      node.scrollTop = savedScrollTopRef.current;
+    });
+  }, [scrollContainerRef]);
+
+  // Escuchar evento para abrir la pestaña de subida
+  useEffect(() => {
+    const handleOpenUploadTab = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { animalId?: number } | undefined;
+      if (!detail || detail.animalId === animal.id) {
+        setShowUpload(true);
+      }
+    };
+    
+    window.addEventListener('open-upload-tab', handleOpenUploadTab as EventListener);
+    return () => {
+      window.removeEventListener('open-upload-tab', handleOpenUploadTab as EventListener);
+    };
+  }, [animal.id]);
 
   // Estados para datos relacionados
   const [geneticImprovements, setGeneticImprovements] = useState<any[]>([]);
@@ -52,6 +83,43 @@ export function AnimalModalContent({
   const [controls, setControls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataRefreshTrigger, setDataRefreshTrigger] = useState(0);
+
+  // Estado para controlar qué tipo de modal abrir y en qué modo
+  const [actionModalType, setActionModalType] = useState<
+    'genetic_improvement' | 'animal_disease' | 'animal_field' | 'vaccination' | 'treatment' | 'control' | null
+  >(null);
+  const [actionModalMode, setActionModalMode] = useState<'create' | 'list' | 'view' | 'edit'>('create');
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+
+  // Funciones para abrir modales
+  const openCreateModal = (type: typeof actionModalType) => {
+    setActionModalType(type);
+    setActionModalMode('create');
+    setSelectedItem(null);
+  };
+
+  const openListModal = (type: typeof actionModalType) => {
+    setActionModalType(type);
+    setActionModalMode('list');
+    setSelectedItem(null);
+  };
+
+  const openViewModal = (type: typeof actionModalType, item: any) => {
+    setActionModalType(type);
+    setActionModalMode('view');
+    setSelectedItem(item);
+  };
+
+  const openEditModal = (type: typeof actionModalType, item: any) => {
+    setActionModalType(type);
+    setActionModalMode('edit');
+    setSelectedItem(item);
+  };
+
+  const closeActionModal = () => {
+    setActionModalType(null);
+    setSelectedItem(null);
+  };
 
   const gender = animal.sex || animal.gender;
   const birthDate = animal.birth_date
@@ -81,20 +149,52 @@ export function AnimalModalContent({
           treatmentsData,
           controlsData
         ] = await Promise.allSettled([
-          geneticImprovementsService.getGeneticImprovementsPaginated({ animal_id: animal.id, limit: 1000 }),
-          animalDiseasesService.getAnimalDiseasesPaginated({ animal_id: animal.id, limit: 1000 }),
-          animalFieldsService.getAnimalFieldsPaginated({ animal_id: animal.id, limit: 1000 }),
-          vaccinationsService.getVaccinationsPaginated({ animal_id: animal.id, limit: 1000 }),
-          treatmentsService.getTreatmentsPaginated({ animal_id: animal.id, limit: 1000 }),
-          controlService.getControlsPaginated({ animal_id: animal.id, limit: 1000 })
+          geneticImprovementsService.getGeneticImprovements({ page: 1, limit: 1000 }),
+          animalDiseasesService.getAnimalDiseases({ page: 1, limit: 1000 }),
+          animalFieldsService.getAnimalFields({ page: 1, limit: 1000 }),
+          vaccinationsService.getVaccinations({ page: 1, limit: 1000 }),
+          treatmentsService.getTreatments({ page: 1, limit: 1000 }),
+          controlService.getControls({ page: 1, limit: 1000 })
         ]);
 
-        if (geneticData.status === 'fulfilled') setGeneticImprovements(geneticData.value.data || []);
-        if (diseasesData.status === 'fulfilled') setDiseases(diseasesData.value.data || []);
-        if (fieldsData.status === 'fulfilled') setFields(fieldsData.value.data || []);
-        if (vaccinationsData.status === 'fulfilled') setVaccinations(vaccinationsData.value.data || []);
-        if (treatmentsData.status === 'fulfilled') setTreatments(treatmentsData.value.data || []);
-        if (controlsData.status === 'fulfilled') setControls(controlsData.value.data || []);
+        if (geneticData.status === 'fulfilled') {
+          const allData = geneticData.value.data || geneticData.value || [];
+          const filtered = Array.isArray(allData) ? allData.filter((item: any) => item.animal_id === animal.id) : [];
+          console.log('[AnimalModalContent] Genetic Improvements for animal', animal.id, ':', filtered.length, 'items');
+          setGeneticImprovements(filtered);
+        }
+        if (diseasesData.status === 'fulfilled') {
+          const allData = diseasesData.value.data || diseasesData.value || [];
+          const filtered = Array.isArray(allData) ? allData.filter((item: any) => item.animal_id === animal.id) : [];
+          console.log('[AnimalModalContent] Diseases for animal', animal.id, ':', filtered.length, 'items');
+          setDiseases(filtered);
+        }
+        if (fieldsData.status === 'fulfilled') {
+          const allData = fieldsData.value.data || fieldsData.value || [];
+          const filtered = Array.isArray(allData) ? allData.filter((item: any) => item.animal_id === animal.id) : [];
+          console.log('[AnimalModalContent] Fields for animal', animal.id, ':', filtered.length, 'items');
+          console.log('[AnimalModalContent] All fields data:', allData);
+          console.log('[AnimalModalContent] Filtered fields:', filtered);
+          setFields(filtered);
+        }
+        if (vaccinationsData.status === 'fulfilled') {
+          const allData = vaccinationsData.value.data || vaccinationsData.value || [];
+          const filtered = Array.isArray(allData) ? allData.filter((item: any) => item.animal_id === animal.id) : [];
+          console.log('[AnimalModalContent] Vaccinations for animal', animal.id, ':', filtered.length, 'items');
+          setVaccinations(filtered);
+        }
+        if (treatmentsData.status === 'fulfilled') {
+          const allData = treatmentsData.value.data || treatmentsData.value || [];
+          const filtered = Array.isArray(allData) ? allData.filter((item: any) => item.animal_id === animal.id) : [];
+          console.log('[AnimalModalContent] Treatments for animal', animal.id, ':', filtered.length, 'items');
+          setTreatments(filtered);
+        }
+        if (controlsData.status === 'fulfilled') {
+          const allData = controlsData.value.data || controlsData.value || [];
+          const filtered = Array.isArray(allData) ? allData.filter((item: any) => item.animal_id === animal.id) : [];
+          console.log('[AnimalModalContent] Controls for animal', animal.id, ':', filtered.length, 'items');
+          setControls(filtered);
+        }
       } catch (error) {
         console.error('Error loading related data:', error);
       } finally {
@@ -138,6 +238,7 @@ export function AnimalModalContent({
             onOpenHistory={onOpenHistory}
             onOpenAncestorsTree={onOpenAncestorsTree}
             onOpenDescendantsTree={onOpenDescendantsTree}
+            onRefresh={() => setDataRefreshTrigger(prev => prev + 1)}
           />
         </div>
       </div>
@@ -250,13 +351,18 @@ export function AnimalModalContent({
                 )}
               </div>
             )}
-            onAdd={() => {/* TODO: Abrir modal de crear mejora genética */}}
-            onViewAll={() => {/* TODO: Abrir lista completa */}}
-            onEdit={async (item) => {/* TODO: Editar */}}
+            onAdd={() => openCreateModal('genetic_improvement')}
+            onViewAll={() => openListModal('genetic_improvement')}
+            onView={(item) => openViewModal('genetic_improvement', item)}
+            onEdit={(item) => openEditModal('genetic_improvement', item)}
             onDelete={async (item) => {
-              if (confirm('¿Eliminar esta mejora genética?')) {
-                await geneticImprovementsService.deleteGeneticImprovement(item.id);
-                setDataRefreshTrigger(prev => prev + 1);
+              if (confirm('¿Está seguro de eliminar esta mejora genética?')) {
+                try {
+                  await geneticImprovementsService.deleteGeneticImprovement(item.id);
+                  setDataRefreshTrigger(prev => prev + 1);
+                } catch (error: any) {
+                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
+                }
               }
             }}
           />
@@ -280,13 +386,18 @@ export function AnimalModalContent({
                 </Badge>
               </div>
             )}
-            onAdd={() => {/* TODO */}}
-            onViewAll={() => {/* TODO */}}
-            onEdit={async (item) => {/* TODO */}}
+            onAdd={() => openCreateModal('animal_disease')}
+            onViewAll={() => openListModal('animal_disease')}
+            onView={(item) => openViewModal('animal_disease', item)}
+            onEdit={(item) => openEditModal('animal_disease', item)}
             onDelete={async (item) => {
-              if (confirm('¿Eliminar esta enfermedad?')) {
-                await animalDiseasesService.deleteAnimalDisease(item.id);
-                setDataRefreshTrigger(prev => prev + 1);
+              if (confirm('¿Está seguro de eliminar este registro de enfermedad?')) {
+                try {
+                  await animalDiseasesService.deleteAnimalDisease(item.id);
+                  setDataRefreshTrigger(prev => prev + 1);
+                } catch (error: any) {
+                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
+                }
               }
             }}
           />
@@ -303,22 +414,28 @@ export function AnimalModalContent({
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                   <span className="text-xs font-medium text-foreground/90">Campo ID: {item.field_id}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(item.assignment_date).toLocaleDateString('es-ES')}</span>
+                  <span className="text-xs text-muted-foreground">Asignado: {new Date(item.assignment_date).toLocaleDateString('es-ES')}</span>
+                  {item.removal_date && (
+                    <span className="text-xs text-muted-foreground">Retirado: {new Date(item.removal_date).toLocaleDateString('es-ES')}</span>
+                  )}
                 </div>
-                {item.status && (
-                  <Badge variant={item.status === 'Actualmente asignado' ? 'default' : 'secondary'}>
-                    {item.status}
-                  </Badge>
-                )}
+                <Badge variant={item.removal_date ? 'secondary' : 'default'} className={!item.removal_date ? 'bg-green-600 text-white' : ''}>
+                  {item.removal_date ? 'Retirado' : 'Actualmente asignado'}
+                </Badge>
               </div>
             )}
-            onAdd={() => {/* TODO */}}
-            onViewAll={() => {/* TODO */}}
-            onEdit={async (item) => {/* TODO */}}
+            onAdd={() => openCreateModal('animal_field')}
+            onViewAll={() => openListModal('animal_field')}
+            onView={(item) => openViewModal('animal_field', item)}
+            onEdit={(item) => openEditModal('animal_field', item)}
             onDelete={async (item) => {
-              if (confirm('¿Eliminar asignación de campo?')) {
-                await animalFieldsService.deleteAnimalField(item.id);
-                setDataRefreshTrigger(prev => prev + 1);
+              if (confirm('¿Está seguro de eliminar esta asignación de campo?')) {
+                try {
+                  await animalFieldsService.deleteAnimalField(item.id);
+                  setDataRefreshTrigger(prev => prev + 1);
+                } catch (error: any) {
+                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
+                }
               }
             }}
           />
@@ -342,13 +459,18 @@ export function AnimalModalContent({
                 )}
               </div>
             )}
-            onAdd={() => {/* TODO */}}
-            onViewAll={() => {/* TODO */}}
-            onEdit={async (item) => {/* TODO */}}
+            onAdd={() => openCreateModal('vaccination')}
+            onViewAll={() => openListModal('vaccination')}
+            onView={(item) => openViewModal('vaccination', item)}
+            onEdit={(item) => openEditModal('vaccination', item)}
             onDelete={async (item) => {
-              if (confirm('¿Eliminar vacunación?')) {
-                await vaccinationsService.deleteVaccination(item.id);
-                setDataRefreshTrigger(prev => prev + 1);
+              if (confirm('¿Está seguro de eliminar esta vacunación?')) {
+                try {
+                  await vaccinationsService.deleteVaccination(item.id);
+                  setDataRefreshTrigger(prev => prev + 1);
+                } catch (error: any) {
+                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
+                }
               }
             }}
           />
@@ -364,21 +486,26 @@ export function AnimalModalContent({
             renderItem={(item) => (
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-foreground/90">{item.disease_description || `Tratamiento ${item.id}`}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(item.start_date).toLocaleDateString('es-ES')}</span>
+                  <span className="text-xs font-medium text-foreground/90">{item.diagnosis || item.description || `Tratamiento ${item.id}`}</span>
+                  <span className="text-xs text-muted-foreground">{item.treatment_date ? new Date(item.treatment_date).toLocaleDateString('es-ES') : '-'}</span>
                 </div>
-                {item.end_date && (
-                  <span className="text-xs text-muted-foreground">Hasta: {new Date(item.end_date).toLocaleDateString('es-ES')}</span>
+                {item.frequency && (
+                  <span className="text-xs text-muted-foreground">Frecuencia: {item.frequency}</span>
                 )}
               </div>
             )}
-            onAdd={() => {/* TODO */}}
-            onViewAll={() => {/* TODO */}}
-            onEdit={async (item) => {/* TODO */}}
+            onAdd={() => openCreateModal('treatment')}
+            onViewAll={() => openListModal('treatment')}
+            onEdit={(item) => openEditModal('treatment', item)}
+            onView={(item) => openViewModal('treatment', item)}
             onDelete={async (item) => {
-              if (confirm('¿Eliminar tratamiento?')) {
-                await treatmentsService.deleteTreatment(item.id);
-                setDataRefreshTrigger(prev => prev + 1);
+              if (confirm('¿Está seguro de eliminar este tratamiento?')) {
+                try {
+                  await treatmentsService.deleteTreatment(item.id);
+                  setDataRefreshTrigger(prev => prev + 1);
+                } catch (error: any) {
+                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
+                }
               }
             }}
           />
@@ -394,21 +521,31 @@ export function AnimalModalContent({
             renderItem={(item) => (
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs font-medium text-foreground/90">{item.control_type || 'Control'}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(item.control_date).toLocaleDateString('es-ES')}</span>
+                  <span className="text-xs font-medium text-foreground/90">{item.health_status || item.healt_status || 'Control'}</span>
+                  <span className="text-xs text-muted-foreground">{item.checkup_date ? new Date(item.checkup_date).toLocaleDateString('es-ES') : '-'}</span>
                 </div>
-                {item.weight && (
-                  <span className="text-xs font-semibold text-foreground/80">{item.weight} kg</span>
-                )}
+                <div className="flex flex-col gap-0.5 items-end">
+                  {item.weight && (
+                    <span className="text-xs font-semibold text-foreground/80">{item.weight} kg</span>
+                  )}
+                  {item.height && (
+                    <span className="text-xs text-muted-foreground">{item.height} m</span>
+                  )}
+                </div>
               </div>
             )}
-            onAdd={() => {/* TODO */}}
-            onViewAll={() => {/* TODO */}}
-            onEdit={async (item) => {/* TODO */}}
+            onAdd={() => openCreateModal('control')}
+            onViewAll={() => openListModal('control')}
+            onView={(item) => openViewModal('control', item)}
+            onEdit={(item) => openEditModal('control', item)}
             onDelete={async (item) => {
-              if (confirm('¿Eliminar control?')) {
-                await controlService.deleteControl(item.id);
-                setDataRefreshTrigger(prev => prev + 1);
+              if (confirm('¿Está seguro de eliminar este control?')) {
+                try {
+                  await controlService.deleteControl(item.id);
+                  setDataRefreshTrigger(prev => prev + 1);
+                } catch (error: any) {
+                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
+                }
               }
             }}
           />
@@ -418,56 +555,262 @@ export function AnimalModalContent({
       {/* Galería e imágenes - Al final */}
       <div className="bg-gradient-to-br from-accent/50 to-accent/20 rounded-xl p-5 shadow-lg border border-border/50">
         <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-4">
-          Galería
+          Galería de Imágenes
         </h3>
 
-        {/* Galería con controles de eliminación siempre habilitados */}
-        <AnimalImageGallery
+        {/* Componente unificado de gestión de imágenes */}
+        <ImageManager
           animalId={animal.id}
+          title="Imágenes del Animal"
+          onGalleryUpdate={() => {
+            preserveScroll();
+            setRefreshTrigger(prev => prev + 1);
+            setTimeout(restoreScroll, 0);
+          }}
           showControls={true}
           refreshTrigger={refreshTrigger}
-          onGalleryUpdate={() => setRefreshTrigger(prev => prev + 1)}
+          compact={true}
         />
-
-        {/* Botón para cargar imágenes - siempre disponible */}
-        {!showUpload && (
-          <div className="mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShowUpload(true)}
-              className="w-full"
-            >
-              Cargar nuevas imágenes
-            </Button>
-          </div>
-        )}
-
-        {/* Sistema de carga de imágenes */}
-        {showUpload && (
-          <div className="mt-4 bg-card rounded-lg p-4 border shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-foreground/80">
-                Cargar imágenes
-              </h4>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowUpload(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <AnimalImageUpload
-              animalId={animal.id}
-              onUploadSuccess={handleUploadSuccess}
-              maxFiles={10}
-            />
-          </div>
-        )}
       </div>
+
+      {/* Modal de detalle para VER */}
+      {actionModalType && selectedItem && actionModalMode === 'view' && (
+        <ItemDetailModal
+          type={actionModalType}
+          item={selectedItem}
+          onClose={closeActionModal}
+          onEdit={() => {
+            setActionModalMode('edit');
+          }}
+        />
+      )}
+
+      {/* AnimalActionsMenu controlado externamente para CREAR/EDITAR/LISTAR */}
+      {actionModalType && (actionModalMode === 'create' || actionModalMode === 'list' || actionModalMode === 'edit') && (
+        <AnimalActionsMenu
+          animal={animal as AnimalResponse}
+          currentUserId={currentUserId}
+          externalOpenModal={actionModalType}
+          externalModalMode={actionModalMode === 'edit' ? 'create' : actionModalMode}
+          externalEditingItem={selectedItem}
+          onRefresh={() => {
+            setDataRefreshTrigger(prev => prev + 1);
+          }}
+          onModalClose={closeActionModal}
+        />
+      )}
+    </div>
+  );
+}
+
+function ItemDetailModal({
+  type,
+  item,
+  onClose,
+  onEdit
+}: {
+  type: string;
+  item: any;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const getTitle = () => {
+    switch (type) {
+      case 'genetic_improvement': return 'Detalle de Mejora Genética';
+      case 'animal_disease': return 'Detalle de Enfermedad';
+      case 'animal_field': return 'Detalle de Asignación de Campo';
+      case 'vaccination': return 'Detalle de Vacunación';
+      case 'treatment': return 'Detalle de Tratamiento';
+      case 'control': return 'Detalle de Control';
+      default: return 'Detalle';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-background rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b">
+          <h2 className="text-xl font-bold">{getTitle()}</h2>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="h-8 w-8 p-0"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Renderizar campos según el tipo */}
+          {type === 'genetic_improvement' && (
+            <>
+              <InfoField label="ID" value={item.id} />
+              <InfoField label="Tipo de Mejora" value={item.improvement_type || item.genetic_event_technique || '-'} />
+              <InfoField label="Fecha" value={item.date ? new Date(item.date).toLocaleDateString('es-ES') : '-'} />
+              {item.description && <InfoField label="Descripción" value={item.description} fullWidth />}
+              {item.details && <InfoField label="Detalles" value={item.details} fullWidth />}
+              {item.genetic_material_used && <InfoField label="Material Genético" value={item.genetic_material_used} />}
+              {item.expected_outcome && <InfoField label="Resultado Esperado" value={item.expected_outcome} fullWidth />}
+              {item.actual_outcome && <InfoField label="Resultado Actual" value={item.actual_outcome} fullWidth />}
+              {item.success_rate !== undefined && <InfoField label="Tasa de Éxito" value={`${item.success_rate}%`} />}
+              {item.cost !== undefined && <InfoField label="Costo" value={`$${item.cost.toLocaleString()}`} />}
+              {item.instructor_id && <InfoField label="ID Instructor" value={item.instructor_id} />}
+              {item.created_at && <InfoField label="Creado" value={new Date(item.created_at).toLocaleString('es-ES')} />}
+              {item.updated_at && <InfoField label="Actualizado" value={new Date(item.updated_at).toLocaleString('es-ES')} />}
+            </>
+          )}
+
+          {type === 'animal_disease' && (
+            <>
+              <InfoField label="ID Registro" value={item.id} />
+              <InfoField label="ID Enfermedad" value={item.disease_id || '-'} />
+              <InfoField label="Fecha de Diagnóstico" value={item.diagnosis_date ? new Date(item.diagnosis_date).toLocaleDateString('es-ES') : '-'} />
+              <InfoField label="Estado" value={item.status || '-'} badge badgeVariant={item.status === 'Activo' ? 'destructive' : item.status === 'Curado' ? 'success' : 'default'} />
+              {item.severity && <InfoField label="Severidad" value={item.severity} />}
+              {item.treatment_status && <InfoField label="Estado del Tratamiento" value={item.treatment_status} />}
+              {item.recovery_date && <InfoField label="Fecha de Recuperación" value={new Date(item.recovery_date).toLocaleDateString('es-ES')} />}
+              {item.veterinarian && <InfoField label="Veterinario" value={item.veterinarian} />}
+              {item.diagnosis_method && <InfoField label="Método de Diagnóstico" value={item.diagnosis_method} />}
+              {item.notes && <InfoField label="Notas" value={item.notes} fullWidth />}
+              {item.instructor_id && <InfoField label="ID Instructor" value={item.instructor_id} />}
+              {item.created_at && <InfoField label="Creado" value={new Date(item.created_at).toLocaleString('es-ES')} />}
+              {item.updated_at && <InfoField label="Actualizado" value={new Date(item.updated_at).toLocaleString('es-ES')} />}
+            </>
+          )}
+
+          {type === 'animal_field' && (
+            <>
+              <InfoField label="ID Registro" value={item.id} />
+              <InfoField label="ID Campo" value={item.field_id || '-'} />
+              <InfoField label="Fecha de Asignación" value={item.assignment_date ? new Date(item.assignment_date).toLocaleDateString('es-ES') : '-'} />
+              {item.removal_date && <InfoField label="Fecha de Retiro" value={new Date(item.removal_date).toLocaleDateString('es-ES')} />}
+              <InfoField label="Estado" value={item.removal_date ? 'Retirado' : 'Actualmente asignado'} badge badgeVariant={item.removal_date ? 'secondary' : 'success'} />
+              {item.purpose && <InfoField label="Propósito" value={item.purpose} />}
+              {item.pasture_quality && <InfoField label="Calidad del Pasto" value={item.pasture_quality} />}
+              {item.area_size && <InfoField label="Tamaño del Área" value={`${item.area_size} ha`} />}
+              {item.removal_reason && <InfoField label="Razón de Retiro" value={item.removal_reason} fullWidth />}
+              {item.notes && <InfoField label="Notas" value={item.notes} fullWidth />}
+              {item.created_at && <InfoField label="Creado" value={new Date(item.created_at).toLocaleString('es-ES')} />}
+              {item.updated_at && <InfoField label="Actualizado" value={new Date(item.updated_at).toLocaleString('es-ES')} />}
+            </>
+          )}
+
+          {type === 'vaccination' && (
+            <>
+              <InfoField label="ID Registro" value={item.id} />
+              <InfoField label="ID Vacuna" value={item.vaccine_id || '-'} />
+              <InfoField label="Fecha de Vacunación" value={item.vaccination_date ? new Date(item.vaccination_date).toLocaleDateString('es-ES') : '-'} />
+              {item.next_dose_date && <InfoField label="Próxima Dosis" value={new Date(item.next_dose_date).toLocaleDateString('es-ES')} />}
+              {item.dose_number && <InfoField label="Número de Dosis" value={item.dose_number} />}
+              {item.batch_number && <InfoField label="Lote" value={item.batch_number} />}
+              {item.manufacturer && <InfoField label="Fabricante" value={item.manufacturer} />}
+              {item.expiry_date && <InfoField label="Fecha de Vencimiento" value={new Date(item.expiry_date).toLocaleDateString('es-ES')} />}
+              {item.administered_by && <InfoField label="Administrado por" value={item.administered_by} />}
+              {item.site_of_injection && <InfoField label="Sitio de Inyección" value={item.site_of_injection} />}
+              {item.route_of_administration && <InfoField label="Vía de Administración" value={item.route_of_administration} />}
+              {item.adverse_reaction && <InfoField label="Reacción Adversa" value={item.adverse_reaction} fullWidth />}
+              {item.observations && <InfoField label="Observaciones" value={item.observations} fullWidth />}
+              {item.created_at && <InfoField label="Creado" value={new Date(item.created_at).toLocaleString('es-ES')} />}
+              {item.updated_at && <InfoField label="Actualizado" value={new Date(item.updated_at).toLocaleString('es-ES')} />}
+            </>
+          )}
+
+          {type === 'treatment' && (
+            <>
+              <InfoField label="ID Registro" value={item.id} />
+              <InfoField label="Diagnóstico" value={item.diagnosis || '-'} fullWidth />
+              <InfoField label="Fecha de Tratamiento" value={item.treatment_date ? new Date(item.treatment_date).toLocaleDateString('es-ES') : '-'} />
+              {item.dosis && <InfoField label="Dosis" value={item.dosis} />}
+              <InfoField label="Frecuencia" value={item.frequency || '-'} />
+              {item.description && <InfoField label="Descripción" value={item.description} fullWidth />}
+              {item.treatment_type && <InfoField label="Tipo de Tratamiento" value={item.treatment_type} />}
+              {item.veterinarian && <InfoField label="Veterinario" value={item.veterinarian} />}
+              {item.symptoms && <InfoField label="Síntomas" value={item.symptoms} fullWidth />}
+              {item.treatment_plan && <InfoField label="Plan de Tratamiento" value={item.treatment_plan} fullWidth />}
+              {item.follow_up_date && <InfoField label="Fecha de Seguimiento" value={new Date(item.follow_up_date).toLocaleDateString('es-ES')} />}
+              {item.cost !== undefined && <InfoField label="Costo" value={`$${item.cost.toLocaleString()}`} />}
+              {item.status && <InfoField label="Estado" value={item.status} badge badgeVariant={item.status === 'Completado' ? 'success' : 'default'} />}
+              {item.end_date && <InfoField label="Fecha de Finalización" value={new Date(item.end_date).toLocaleDateString('es-ES')} />}
+              {item.observations && <InfoField label="Observaciones" value={item.observations} fullWidth />}
+              {item.notes && <InfoField label="Notas" value={item.notes} fullWidth />}
+              {item.created_at && <InfoField label="Creado" value={new Date(item.created_at).toLocaleString('es-ES')} />}
+              {item.updated_at && <InfoField label="Actualizado" value={new Date(item.updated_at).toLocaleString('es-ES')} />}
+            </>
+          )}
+
+          {type === 'control' && (
+            <>
+              <InfoField label="ID Registro" value={item.id} />
+              <InfoField label="Fecha de Control" value={item.checkup_date ? new Date(item.checkup_date).toLocaleDateString('es-ES') : '-'} />
+              <InfoField label="Estado de Salud" value={item.health_status || item.healt_status || '-'} badge badgeVariant={item.health_status === 'Excelente' || item.health_status === 'Bueno' ? 'success' : item.health_status === 'Regular' ? 'default' : 'destructive'} />
+              {item.weight && <InfoField label="Peso" value={`${item.weight} kg`} />}
+              {item.height && <InfoField label="Altura" value={`${item.height} m`} />}
+              {item.body_condition_score && <InfoField label="Condición Corporal" value={item.body_condition_score} />}
+              {item.temperature && <InfoField label="Temperatura" value={`${item.temperature} °C`} />}
+              {item.heart_rate && <InfoField label="Frecuencia Cardíaca" value={`${item.heart_rate} lpm`} />}
+              {item.respiratory_rate && <InfoField label="Frecuencia Respiratoria" value={`${item.respiratory_rate} rpm`} />}
+              {item.blood_pressure && <InfoField label="Presión Arterial" value={item.blood_pressure} />}
+              {item.physical_exam_findings && <InfoField label="Hallazgos del Examen Físico" value={item.physical_exam_findings} fullWidth />}
+              {item.lab_results && <InfoField label="Resultados de Laboratorio" value={item.lab_results} fullWidth />}
+              {item.recommendations && <InfoField label="Recomendaciones" value={item.recommendations} fullWidth />}
+              {item.next_checkup_date && <InfoField label="Próximo Control" value={new Date(item.next_checkup_date).toLocaleDateString('es-ES')} />}
+              {item.veterinarian && <InfoField label="Veterinario" value={item.veterinarian} />}
+              {item.description && <InfoField label="Descripción" value={item.description} fullWidth />}
+              {item.notes && <InfoField label="Notas" value={item.notes} fullWidth />}
+              {item.created_at && <InfoField label="Creado" value={new Date(item.created_at).toLocaleString('es-ES')} />}
+              {item.updated_at && <InfoField label="Actualizado" value={new Date(item.updated_at).toLocaleString('es-ES')} />}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 p-6 border-t">
+          <Button variant="outline" onClick={onClose}>
+            Cerrar
+          </Button>
+          <Button onClick={onEdit}>
+            <Edit className="h-4 w-4 mr-2" />
+            Editar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoField({
+  label,
+  value,
+  fullWidth = false,
+  badge = false,
+  badgeVariant = 'default'
+}: {
+  label: string;
+  value: any;
+  fullWidth?: boolean;
+  badge?: boolean;
+  badgeVariant?: 'default' | 'secondary' | 'destructive' | 'success' | 'outline';
+}) {
+  const displayValue = value !== null && value !== undefined ? String(value) : '-';
+
+  return (
+    <div className={`space-y-1.5 ${fullWidth ? 'col-span-full' : ''}`}>
+      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      {badge ? (
+        <Badge variant={badgeVariant as any} className={badgeVariant === 'success' ? 'bg-green-600 text-white' : ''}>
+          {displayValue}
+        </Badge>
+      ) : (
+        <div className={`text-sm ${fullWidth ? 'whitespace-pre-wrap' : ''}`}>
+          {displayValue}
+        </div>
+      )}
     </div>
   );
 }
@@ -503,6 +846,7 @@ function RelatedDataSection<T>({
   colorClass,
   onAdd,
   onViewAll,
+  onView,
   onEdit,
   onDelete
 }: {
@@ -513,6 +857,7 @@ function RelatedDataSection<T>({
   colorClass?: string;
   onAdd?: () => void;
   onViewAll?: () => void;
+  onView?: (item: T) => void;
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
 }) {
@@ -573,8 +918,20 @@ function RelatedDataSection<T>({
                 </div>
 
                 {/* Botones de acción por item */}
-                {(onEdit || onDelete) && (
+                {(onView || onEdit || onDelete) && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {onView && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => onView(item)}
+                        className="h-6 w-6 p-0 hover:bg-green-500/20 hover:text-green-600"
+                        title="Ver detalle"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                    )}
                     {onEdit && (
                       <Button
                         type="button"
