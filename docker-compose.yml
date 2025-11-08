@@ -6,3 +6,11 @@ services:
     ports:
       - "80:80"
     restart: unless-stopped
+    networks:
+      - coolify
+      - redbd
+networks:
+  coolify:
+    external: true
+  redbd:
+    external: true
