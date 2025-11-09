@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { fieldService } from '@/services/fieldService';
@@ -8,6 +9,14 @@ import type { FieldResponse } from '@/types/swaggerTypes';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FieldActionsMenu } from '@/components/dashboard/FieldActionsMenu';
+import { GenericModal } from '@/components/common/GenericModal';
+import { animalsService } from '@/services/animalService';
+import { animalFieldsService } from '@/services/animalFieldsService';
+import type { AnimalResponse } from '@/types/swaggerTypes';
+import { AnimalCard } from '@/components/dashboard/animals/AnimalCard';
+import { AnimalModalContent } from '@/components/dashboard/animals/AnimalModalContent';
+import { AnimalActionsMenu } from '@/components/dashboard/AnimalActionsMenu';
+import { Eye, Edit } from 'lucide-react';
 import { FoodTypeLink } from '@/components/common/ForeignKeyHelpers';
 
 // Tipo de formulario alineado al JSON real del backend
@@ -38,10 +47,20 @@ const getOccupancyColor = (percentage: number): string => {
   return 'bg-green-500'; // Muy bajo (0-24%)
 };
 
+// Color al hacer hover (más intenso) según el porcentaje
+const getHoverOccupancyColor = (percentage: number): string => {
+  if (percentage >= 90) return 'group-hover:bg-red-600 hover:bg-red-600';
+  if (percentage >= 75) return 'group-hover:bg-orange-600 hover:bg-orange-600';
+  if (percentage >= 50) return 'group-hover:bg-yellow-600 hover:bg-yellow-600';
+  if (percentage >= 25) return 'group-hover:bg-blue-600 hover:bg-blue-600';
+  return 'group-hover:bg-green-600 hover:bg-green-600';
+};
+
 // Componente de barra de progreso de ocupación
 const FieldOccupancyBar: React.FC<{ animalCount: number; capacity: string }> = ({ animalCount, capacity }) => {
   const percentage = calculateOccupancy(animalCount, capacity);
   const colorClass = getOccupancyColor(percentage);
+  const hoverColorClass = getHoverOccupancyColor(percentage);
   const capacityNum = parseInt(capacity) || 0;
 
   return (
@@ -52,9 +71,9 @@ const FieldOccupancyBar: React.FC<{ animalCount: number; capacity: string }> = (
         </span>
         <span className="font-medium">{percentage}%</span>
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+      <div className="w-full bg-gray-200/80 rounded-full h-2 overflow-hidden ring-1 ring-gray-200/70 transition-all duration-300 group-hover:h-3 hover:h-3">
         <div
-          className={`h-full ${colorClass} transition-all duration-300`}
+          className={`h-full ${colorClass} ${hoverColorClass} transition-all duration-300 group-hover:brightness-110 group-hover:saturate-125 hover:brightness-110 hover:saturate-125`}
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -64,8 +83,122 @@ const FieldOccupancyBar: React.FC<{ animalCount: number; capacity: string }> = (
 
 // Página principal
 function AdminFieldsPage() {
+  const navigate = useNavigate();
   const [foodTypeOptions, setFoodTypeOptions] = useState<Array<{ value: number; label: string }>>([]);
   const [viewMode, setViewMode] = useGlobalViewMode();
+
+  // Modal: Animales por potrero
+  const [isAnimalsOpen, setIsAnimalsOpen] = useState(false);
+  const [modalField, setModalField] = useState<FieldResponse | null>(null);
+  const [animalsLoading, setAnimalsLoading] = useState(false);
+  const [fieldAnimals, setFieldAnimals] = useState<AnimalResponse[]>([]);
+  const [detailAnimal, setDetailAnimal] = useState<AnimalResponse | null>(null);
+
+  const matchesField = (animal: AnimalResponse & { [k: string]: any }, fieldId: number): boolean => {
+    if (!animal || !fieldId) return false;
+    const candidates = [
+      animal.field_id,
+      (animal as any).fieldId,
+      (animal as any).fields_id,
+      (animal as any).id_field,
+      (animal as any).current_field_id,
+      (animal as any).field?.id,
+      (animal as any).latest_field_assignment?.field_id,
+    ];
+    return candidates.some((value) => value != null && Number(value) === fieldId);
+  };
+
+  const dedupeAnimals = (items: AnimalResponse[]): AnimalResponse[] => {
+    const seen = new Set<number>();
+    const result: AnimalResponse[] = [];
+    items.forEach((item) => {
+      if (!item) return;
+      const idNum = Number(item.id);
+      if (!Number.isFinite(idNum)) return;
+      if (!seen.has(idNum)) {
+        seen.add(idNum);
+        result.push(item);
+      }
+    });
+    return result;
+  };
+
+  const fetchAnimalsByIds = async (ids: number[]): Promise<AnimalResponse[]> => {
+    const uniqueIds = Array.from(new Set(ids.filter((id) => Number.isFinite(Number(id)) && Number(id) > 0)));
+    if (!uniqueIds.length) return [];
+    const responses = await Promise.all(uniqueIds.map(async (id) => {
+      try {
+        if (typeof (animalsService as any).getAnimalById === 'function') {
+          return await (animalsService as any).getAnimalById(id);
+        }
+        return await animalsService.getById(id);
+      } catch (error) {
+        console.warn(`[fields] No se pudo cargar el animal ${id}`, error);
+        return null;
+      }
+    }));
+    return responses.filter(Boolean) as AnimalResponse[];
+  };
+
+  // Abrir modal y asegurar listado de animales del potrero
+  const openAnimalsForField = async (field: FieldResponse & { [k: string]: any }) => {
+    setModalField(field);
+    setIsAnimalsOpen(true);
+    setAnimalsLoading(true);
+    const fieldIdNum = Number(field.id);
+    try {
+      // 1) Obtener asignaciones activas del potrero
+      const assignmentsResp = await animalFieldsService.getPaginated({
+        field_id: field.id,
+        limit: 1000,
+        page: 1,
+        cache_bust: Date.now(),
+        include_relations: 1,
+      });
+      const assignmentIds = (assignmentsResp?.data || [])
+        .filter((assignment: any) => {
+          const matches = Number(assignment.field_id) === fieldIdNum;
+          const notRemoved = !assignment.removal_date;
+          const notDisabled = assignment.is_active !== false;
+          return matches && notRemoved && notDisabled;
+        })
+        .map((assignment: any) => Number(assignment.animal_id))
+        .filter((id: number) => Number.isFinite(id));
+
+      let animals: AnimalResponse[] = [];
+      if (assignmentIds.length > 0) {
+        animals = await fetchAnimalsByIds(assignmentIds);
+      } else {
+        // 2) Fallback directo desde servicio de animales filtrando por field_id
+        const direct = await animalsService.getAnimalsPaginated({
+          field_id: field.id,
+          limit: 1000,
+          include_relations: 1,
+          cache_bust: Date.now(),
+        });
+        animals = (direct?.data || []) as AnimalResponse[];
+      }
+
+      let normalized = (animals || []).filter((animal) => matchesField(animal, fieldIdNum));
+
+      // 3) Último recurso: filtrar una lista general
+      if (!normalized.length) {
+        const fallback = await animalsService.getAnimalsPaginated({
+          limit: 1000,
+          include_relations: 1,
+          cache_bust: Date.now(),
+        });
+        normalized = ((fallback?.data || []) as AnimalResponse[]).filter((animal) => matchesField(animal, fieldIdNum));
+      }
+
+      setFieldAnimals(dedupeAnimals(normalized));
+    } catch (e) {
+      console.warn('[fields] Error cargando animales del potrero', e);
+      setFieldAnimals([]);
+    } finally {
+      setAnimalsLoading(false);
+    }
+  };
 
   // Crear mapa de búsqueda optimizado para tipos de alimento
   const foodTypeMap = useMemo(() => {
@@ -112,9 +245,14 @@ function AdminFieldsPage() {
         const animalCount = item.animal_count ?? 0;
         const capacity = item.capacity || '';
         return (
-          <div className="min-w-[180px]">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation?.(); openAnimalsForField(item as any); }}
+            className="min-w-[180px] group text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-md"
+            title="Ver animales en este potrero"
+          >
             <FieldOccupancyBar animalCount={animalCount} capacity={capacity} />
-          </div>
+          </button>
         );
       }
     },
@@ -226,6 +364,8 @@ const initialFormData: FieldFormInput = {
     const animalCount = item.animal_count ?? 0;
     const capacity = item.capacity || '';
 
+    const openAnimalsModal = openAnimalsForField;
+
     return (
       <div className="flex flex-col h-full px-3 sm:px-4 py-3 sm:py-4">
         <div className="grid grid-cols-2 gap-3 text-xs flex-1">
@@ -241,7 +381,16 @@ const initialFormData: FieldFormInput = {
         {/* Barra de ocupación */}
         <div className="col-span-2 min-w-0">
           <div className="text-muted-foreground text-[10px] mb-1">Ocupación del Potrero</div>
-          <FieldOccupancyBar animalCount={animalCount} capacity={capacity} />
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); openAnimalsModal(item); }}
+            className="w-full group cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-md"
+            title="Ver animales en este potrero"
+          >
+            <div className="transition-transform duration-150 group-hover:scale-[1.01]">
+              <FieldOccupancyBar animalCount={animalCount} capacity={capacity} />
+            </div>
+          </button>
         </div>
 
         <div className="min-w-0 overflow-hidden">
@@ -333,18 +482,86 @@ const initialFormData: FieldFormInput = {
   };
 
   return (
-    <AdminCRUDPage
-      config={crudConfigLocal}
-      service={fieldService}
-      initialFormData={initialFormData}
-      mapResponseToForm={mapResponseToForm}
-      validateForm={validateForm}
-      realtime={true}
-      pollIntervalMs={8000}
-      refetchOnFocus={true}
-      refetchOnReconnect={true}
-      enhancedHover={true}
-    />
+    <>
+      <AdminCRUDPage
+        config={crudConfigLocal}
+        service={fieldService}
+        initialFormData={initialFormData}
+        mapResponseToForm={mapResponseToForm}
+        validateForm={validateForm}
+        realtime={true}
+        pollIntervalMs={8000}
+        refetchOnFocus={true}
+        refetchOnReconnect={true}
+        enhancedHover={true}
+      />
+
+      {/* Modal con tarjetas de animales del potrero */}
+      {isAnimalsOpen && (
+        <GenericModal
+          isOpen={isAnimalsOpen}
+          onOpenChange={setIsAnimalsOpen}
+          title={`Animales en ${modalField?.name ?? 'Potrero'} (${fieldAnimals.length})`}
+          description={modalField ? `Ubicación: ${modalField.ubication || modalField.location || '-'}` : undefined}
+          size="5xl"
+          enableBackdropBlur
+        >
+          {animalsLoading ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">Cargando animales...</div>
+          ) : fieldAnimals.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">No hay animales en este potrero.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {fieldAnimals.map((a) => {
+                const breedLabel = (a as any).breed?.name || (a as any).breed_name || `ID ${(a as any).breed_id ?? (a as any).breeds_id ?? '-'}`;
+                const fatherLabel = (a as any).father?.record || (a as any).father_record || `${(a as any).idFather ?? (a as any).father_id ?? '-'}`;
+                const motherLabel = (a as any).mother?.record || (a as any).mother_record || `${(a as any).idMother ?? (a as any).mother_id ?? '-'}`;
+                return (
+                  <div key={a.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <AnimalCard
+                      animal={a}
+                      breedLabel={breedLabel}
+                      fatherLabel={fatherLabel}
+                      motherLabel={motherLabel}
+                      onCardClick={() => setDetailAnimal(a)}
+                      actions={
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setDetailAnimal(a)} title="Ver detalle">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => navigate(`/admin/animals?edit=${a.id}`)} title="Editar">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <AnimalActionsMenu animal={a} />
+                        </div>
+                      }
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </GenericModal>
+      )}
+
+      {/* Modal de detalle de animal */}
+      {detailAnimal && (
+        <GenericModal
+          isOpen={!!detailAnimal}
+          onOpenChange={(open) => !open && setDetailAnimal(null)}
+          title={`Detalle del Animal: ${detailAnimal.record || detailAnimal.id}`}
+          size="5xl"
+          enableBackdropBlur
+        >
+          <AnimalModalContent
+            animal={detailAnimal as any}
+            breedLabel={(detailAnimal as any).breed?.name || (detailAnimal as any).breed_name || `ID ${(detailAnimal as any).breed_id ?? (detailAnimal as any).breeds_id ?? '-'}`}
+            fatherLabel={(detailAnimal as any).father?.record || (detailAnimal as any).father_record || `${(detailAnimal as any).idFather ?? (detailAnimal as any).father_id ?? '-'}`}
+            motherLabel={(detailAnimal as any).mother?.record || (detailAnimal as any).mother_record || `${(detailAnimal as any).idMother ?? (detailAnimal as any).mother_id ?? '-'}`}
+          />
+        </GenericModal>
+      )}
+    </>
   );
 }
 

@@ -183,44 +183,51 @@ const renderUserCard = (user: UserResponse & { [k: string]: any }) => {
   const isActive = typeof user.status === 'boolean' ? user.status : user.status === '1';
 
   return (
-    <div className="grid grid-cols-2 gap-3 text-xs h-full">
+    <div className="p-3 sm:p-4 rounded-xl bg-gradient-to-br from-background/80 via-card/90 to-card/80 ring-1 ring-border/40 shadow-inner text-xs h-full">
+      <div className="grid grid-cols-2 gap-3 h-full">
       {/* Estado y Rol en la misma fila */}
       <div className="col-span-2 flex items-center justify-between mb-2 gap-2">
-        <Badge variant={isActive ? "default" : "secondary"} className="text-xs px-2 py-0.5 flex-shrink-0">
+        <Badge
+          variant={isActive ? "default" : "secondary"}
+          className={isActive
+            ? "text-[11px] px-2 py-0.5 flex-shrink-0 rounded-full bg-primary/90 text-primary-foreground shadow-sm ring-1 ring-primary/20"
+            : "text-[11px] px-2 py-0.5 flex-shrink-0 rounded-full bg-muted/70 text-foreground/80 ring-1 ring-border/40 shadow-sm"}
+        >
           {isActive ? 'Activo' : 'Inactivo'}
         </Badge>
-        <Badge variant="outline" className="text-xs px-2 py-0.5 flex-shrink-0">{user.role}</Badge>
+        <Badge variant="outline" className="text-[11px] px-2 py-0.5 flex-shrink-0 rounded-full bg-background/60 ring-1 ring-border/40 shadow-sm">{user.role}</Badge>
       </div>
       
       {/* Identificación en fila completa */}
       <div className="col-span-2 mb-2">
-        <div className="text-muted-foreground text-[10px] mb-0.5">Identificación</div>
+        <div className="text-muted-foreground/80 text-[10px] mb-0.5">Identificación</div>
         <div className="font-medium text-[14px] break-all" title={user.identification}>{user.identification}</div>
       </div>
 
       <div className="min-w-0 overflow-hidden">
-        <div className="text-muted-foreground text-[10px] mb-0.5">Nombre</div>
+        <div className="text-muted-foreground/80 text-[10px] mb-0.5">Nombre</div>
         <div className="truncate font-medium text-[13px]" title={user.fullname || '-'}>{user.fullname || '-'}</div>
       </div>
       <div className="min-w-0 overflow-hidden">
-        <div className="text-muted-foreground text-[10px] mb-0.5">Email</div>
+        <div className="text-muted-foreground/80 text-[10px] mb-0.5">Email</div>
         <div className="truncate font-medium text-[13px]" title={user.email || '-'}>{user.email || '-'}</div>
       </div>
       <div className="min-w-0 overflow-hidden">
-        <div className="text-muted-foreground text-[10px] mb-0.5">Teléfono</div>
+        <div className="text-muted-foreground/80 text-[10px] mb-0.5">Teléfono</div>
         <div className="truncate font-medium text-[13px]" title={user.phone || '-'}>{user.phone || '-'}</div>
       </div>
       <div className="min-w-0 overflow-hidden">
-        <div className="text-muted-foreground text-[10px] mb-0.5">Dirección</div>
+        <div className="text-muted-foreground/80 text-[10px] mb-0.5">Dirección</div>
         <div className="truncate font-medium text-[13px]" title={user.address || '-'}>{user.address || '-'}</div>
       </div>
       <div className="min-w-0 overflow-hidden">
-        <div className="text-muted-foreground text-[10px] mb-0.5">Creado</div>
+        <div className="text-muted-foreground/80 text-[10px] mb-0.5">Creado</div>
         <div className="truncate text-[12px]">{user.created_at ? new Date(user.created_at).toLocaleDateString('es-ES') : '-'}</div>
       </div>
       <div className="min-w-0 overflow-hidden">
-        <div className="text-muted-foreground text-[10px] mb-0.5">Actualizado</div>
+        <div className="text-muted-foreground/80 text-[10px] mb-0.5">Actualizado</div>
         <div className="truncate text-[12px]">{user.updated_at ? new Date(user.updated_at).toLocaleDateString('es-ES') : '-'}</div>
+      </div>
       </div>
     </div>
   );
