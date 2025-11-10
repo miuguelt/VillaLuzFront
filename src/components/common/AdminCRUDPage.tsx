@@ -1367,13 +1367,18 @@ const {
         <div className="bg-card/95 backdrop-blur-sm border-2 border-border/50 rounded-xl shadow-2xl shadow-primary/10 overflow-hidden flex-1 flex flex-col min-h-0 mt-1">
           <div
             ref={tableWrapperRef}
-            className="overflow-x-auto overflow-y-auto flex-1 bg-muted/40"
+            className={cn(
+              'overflow-x-auto overflow-y-auto flex-1 transition-colors',
+              config.viewMode === 'cards'
+                ? 'bg-gradient-to-br from-muted/60 via-background/80 to-muted/50 dark:from-slate-950/80 dark:via-slate-900/70 dark:to-slate-950/80'
+                : 'bg-muted/40'
+            )}
             style={{
               maxHeight: wrapperMaxHeight != null ? `${wrapperMaxHeight}px` : undefined,
             }}
           >
                {config.viewMode === 'cards' ? (
-                 <div className="p-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+                 <div className="p-3 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
                    {visibleItems.map((item) => {
                      const isDeleting = deletingItems.has(String(item.id!));
                      const isNew = newItems.has(item.id!);
@@ -1386,9 +1391,11 @@ const {
                        <Card
                          key={item.id}
                          className={cn(
-                           'cursor-pointer transition-all duration-200 border-0 shadow-lg hover:shadow-xl flex flex-col overflow-hidden',
-                           'bg-gradient-to-br from-card via-card to-card/95',
-                           'backdrop-blur-sm',
+                           'cursor-pointer transition-all duration-300 flex flex-col overflow-hidden rounded-2xl',
+                           'border border-border/40 dark:border-slate-800/70',
+                           'bg-gradient-to-b from-white via-card to-slate-50/80 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950',
+                           'shadow-[0_20px_55px_rgba(15,23,42,0.12)] hover:shadow-[0_25px_65px_rgba(15,23,42,0.18)] dark:shadow-[0_25px_65px_rgba(0,0,0,0.65)]',
+                           'backdrop-blur-[2px]',
                            enhancedHover ? 'hover:border-primary/60 hover:bg-primary/5 hover:scale-[1.02] hover:-translate-y-1' : '',
                            isDeleting ? 'ring-4 ring-red-400 bg-red-50 shadow-red-200' : '',
                            isNew ? 'ring-4 ring-green-400 bg-green-50 shadow-green-200' : '',
@@ -1411,7 +1418,7 @@ const {
                             <CardTitle className="text-sm font-semibold truncate" title={titleText}>{titleText}</CardTitle>
                           </CardHeader>
                         )}
-                        <CardContent className={config.renderCard ? "p-0 !p-0 flex-1 flex flex-col min-h-0 overflow-hidden" : "py-3 flex-1 flex flex-col min-h-0 overflow-hidden"}>
+                        <CardContent className={config.renderCard ? "p-0 !p-0 pb-4 sm:pb-5 flex-1 flex flex-col min-h-0 overflow-hidden" : "py-3 flex-1 flex flex-col min-h-0 overflow-hidden"}>
                           {config.renderCard ? (
                             config.renderCard(item)
                           ) : (
@@ -1429,7 +1436,7 @@ const {
                             </div>
                           )}
                           {(config.enableDetailModal !== false || config.enableEditModal !== false || config.enableDelete || config.customActions) && (
-                            <div className="mt-4 pt-3 border-t border-border/30 w-full flex-shrink-0 flex flex-nowrap items-center justify-center gap-3" onClick={(e) => e.stopPropagation()}>
+                            <div className="mt-4 pt-3 border-t border-border/30 w-full flex-shrink-0 flex flex-nowrap items-center justify-center gap-3 px-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
                               {config.enableDetailModal !== false && (
                                 <Button
                                   variant="ghost"
