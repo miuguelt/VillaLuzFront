@@ -16,6 +16,7 @@ const FORCE_ABSOLUTE = String(env.VITE_FORCE_ABSOLUTE_BASE_URL ?? '').toLowerCas
 const DEBUG_LOG = String(env.VITE_DEBUG_MODE ?? '').toLowerCase() === 'true';
 const AUTH_STORAGE_KEY = env.VITE_AUTH_STORAGE_KEY || 'finca_access_token';
 const HTTP_CACHE_TTL = Number(env.VITE_HTTP_CACHE_TTL ?? 20000); // TTL por defecto 20s
+const LOGIN_REDIRECT_PATH = env.VITE_LOGIN_PATH || '/login';
 
 // Bases de URL: usar helper que decide según entorno y variables
 const baseURL = getApiBaseURL();
@@ -265,12 +266,84 @@ refreshClient.interceptors.request.use(
 
 // --- Mutex global para refresh y detectores de error ---
 let refreshPromise: Promise<void> | null = null;
+let forceLogoutPromise: Promise<void> | null = null;
 
 function isTokenExpired(err: any): boolean {
   const status = err?.response?.status ?? err?.status;
   const data = err?.response?.data ?? err?.data;
   const code = (data?.code || data?.error || data?.detail || data?.message || '').toString().toUpperCase();
   return status === 401 && (code.includes('TOKEN_EXPIRED') || code.includes('EXPIRED'));
+}
+
+function extractAuthErrorDetails(err: any) {
+  const payload = err?.response?.data;
+  const errorBlock = payload?.error || payload || {};
+  const details = errorBlock?.details || errorBlock?.detail || {};
+  const code = (errorBlock?.code || errorBlock?.error || payload?.code || '').toString().toUpperCase();
+  const exceptionClass = (details?.exception_class || details?.exceptionClass || '').toString();
+  const clientAction = (details?.client_action || details?.clientAction || '').toString();
+  const logoutUrl = details?.logout_url || details?.logoutUrl;
+  const loginUrl = details?.login_url || details?.loginUrl;
+  return { code, exceptionClass, clientAction, logoutUrl, loginUrl, rawDetails: details };
+}
+
+function shouldForceLogout(err: any) {
+  const { code, exceptionClass, clientAction, logoutUrl, loginUrl, rawDetails } = extractAuthErrorDetails(err);
+  const exceptionIsExpired = exceptionClass.toLowerCase().includes('expired');
+  const needsClear = clientAction === 'CLEAR_AUTH_AND_RELOGIN';
+  const codeIndicatesExpiry = code === 'TOKEN_EXPIRED' || code === 'TOKEN_EXPIRED_ERROR';
+  return {
+    shouldForce: codeIndicatesExpiry || exceptionIsExpired || needsClear,
+    logoutUrl,
+    loginUrl,
+    details: rawDetails,
+  };
+}
+
+async function callBackendLogout(logoutUrl?: string) {
+  const target = logoutUrl && /^https?:\/\//i.test(logoutUrl)
+    ? logoutUrl
+    : `${baseURL?.replace(/\/$/, '') || ''}${logoutUrl
+        ? logoutUrl.startsWith('/') ? logoutUrl : `/${logoutUrl}`
+        : '/auth/logout'}`;
+  try {
+    await fetch(target, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Accept': 'application/json' },
+    });
+  } catch (err) {
+    if (DEBUG_LOG) console.warn('[api] Logout fetch falló:', err);
+  }
+}
+
+function clearClientTokens() {
+  const keys = [AUTH_STORAGE_KEY, 'access_token'];
+  for (const key of keys) {
+    try { if (typeof localStorage !== 'undefined') localStorage.removeItem(key); } catch {}
+    try { if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(key); } catch {}
+  }
+}
+
+async function forceClientLogout(reason = 'expired', options?: { logoutUrl?: string; loginUrl?: string }) {
+  if (forceLogoutPromise) return forceLogoutPromise;
+  forceLogoutPromise = (async () => {
+    clearClientTokens();
+    await callBackendLogout(options?.logoutUrl);
+    if (typeof window !== 'undefined') {
+      const loginPath = options?.loginUrl || LOGIN_REDIRECT_PATH || '/login';
+      const hasQuery = loginPath.includes('?');
+      const separator = hasQuery ? '&' : '?';
+      const target = `${loginPath}${separator}reason=${encodeURIComponent(reason)}`;
+      window.location.assign(target);
+    }
+  })().finally(() => {
+    // En tests o entornos sin navegación, permitir reintentos manuales
+    if (typeof window === 'undefined') {
+      forceLogoutPromise = null;
+    }
+  });
+  return forceLogoutPromise;
 }
 
 function isCsrfError(err: any): boolean {
@@ -395,6 +468,11 @@ api.interceptors.response.use(
     }
 
     if (status === 401) {
+      const tokenStatus = shouldForceLogout(error);
+      if (tokenStatus.shouldForce) {
+        await forceClientLogout('expired', { logoutUrl: tokenStatus.logoutUrl, loginUrl: tokenStatus.loginUrl });
+        return Promise.reject(error);
+      }
       try {
         if (DEBUG_LOG) {
           const hasAccess = !!getCookie('csrf_access_token');
