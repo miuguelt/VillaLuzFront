@@ -82,6 +82,20 @@ import { addTombstone, getTombstoneIds, clearExpired } from '@/utils/tombstones'
 import { globalSearch, createSearchCache } from '@/utils/globalSearch';
 import { getTodayColombia } from '@/utils/dateUtils';
 
+const isDevEnv = (() => {
+  try {
+    if (typeof import.meta !== 'undefined') {
+      return Boolean(import.meta.env?.DEV);
+    }
+  } catch {
+    // ignore
+  }
+  if (typeof process !== 'undefined' && process.env?.NODE_ENV) {
+    return process.env.NODE_ENV !== 'production';
+  }
+  return false;
+})();
+
 // Interfaces para configuración del componente
 export interface CRUDColumn<T> {
   key: keyof T;
@@ -370,7 +384,17 @@ const {
       }
       return !isTombstone;
     });
-    console.log('[AdminCRUDPage] Filtrado completo - Items originales:', currentItems?.length, 'Filtrados:', filtered.length, 'Tombstones:', Array.from(tombstoneIds));
+    const originalLength = currentItems?.length ?? 0;
+    if (isDevEnv && (filtered.length !== originalLength || tombstoneIds.size > 0)) {
+      console.debug(
+        '[AdminCRUDPage] Filtrado completo - Items originales:',
+        originalLength,
+        'Filtrados:',
+        filtered.length,
+        'Tombstones:',
+        Array.from(tombstoneIds)
+      );
+    }
     return filtered;
   }, [currentItems, entityKey, tombstoneVersion]);
 

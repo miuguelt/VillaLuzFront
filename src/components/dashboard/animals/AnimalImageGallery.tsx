@@ -78,25 +78,22 @@ export function AnimalImageGallery({
 
       if (response.success) {
         setImages(response.data.images || []);
-      } else {
-        // No mostrar como error si simplemente no hay imágenes
-        setImages([]);
-      }
-    } catch (err: any) {
-      const status = err.response?.status;
-
-      // 404 significa que no hay imágenes para este animal (no es un error)
-      if (status === 404) {
+        setError(null);
+      } else if (response.errorCode === 'NOT_FOUND') {
+        // El backend indica que el recurso no existe: mostrar vacío sin marcar error
         setImages([]);
         setError(null);
       } else {
-        // Otros errores sí son problemáticos
-        const errorMessage =
-          err.response?.data?.message ||
-          err.message ||
-          'Error al cargar imágenes';
-        setError(errorMessage);
+        setImages([]);
+        setError(response.message || 'Error al cargar imágenes');
       }
+    } catch (err: any) {
+      const errorMessage =
+        err.response?.data?.message ||
+        err.message ||
+        'Error al cargar imágenes';
+      setImages([]);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -167,18 +164,28 @@ export function AnimalImageGallery({
       try {
         await animalImageService.deleteImage(imageId);
 
-        // Actualizar estado local
+        // Actualizar estado local (aunque el backend ya no tenga la imagen)
         setImages((prev) => prev.filter((img) => img.id !== imageId));
 
         if (onGalleryUpdate) {
           onGalleryUpdate();
         }
       } catch (err: any) {
-        const errorMessage =
-          err.response?.data?.message ||
-          err.message ||
-          'Error al eliminar imagen';
-        setError(errorMessage);
+        const status = err?.response?.status;
+        const defaultMessage = 'No se pudo eliminar la imagen. Intenta nuevamente.';
+        const errorMessage = err?.message || err?.response?.data?.message || defaultMessage;
+
+        if (err?.code === 'AUTH_REQUIRED') {
+          setError(
+            errorMessage || 'Tu sesión expiró. Vuelve a iniciar sesión para administrar las imágenes.'
+          );
+        } else {
+          setError(errorMessage);
+        }
+
+        if (status && status >= 500) {
+          console.warn('[AnimalImageGallery] Error 5xx al eliminar imagen:', status);
+        }
       } finally {
         setDeletingId(null);
       }

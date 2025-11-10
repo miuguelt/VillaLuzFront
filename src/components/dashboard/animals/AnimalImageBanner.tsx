@@ -51,6 +51,8 @@ export function AnimalImageBanner({
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [brokenImages, setBrokenImages] = useState(0);
+  const [brokenNotice, setBrokenNotice] = useState<string | null>(null);
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -65,6 +67,10 @@ export function AnimalImageBanner({
 
     setLoading(true);
     setFetchError(null);
+    setImageErrors(new Set<number>());
+    setBrokenImages(0);
+    setBrokenNotice(null);
+    setCurrentIndex(0);
 
     try {
       const response = await animalImageService.getAnimalImages(animalId);
@@ -81,6 +87,12 @@ export function AnimalImageBanner({
       } else {
         setImages([]);
         setFetchError(null);
+        if (response.errorCode === 'NOT_FOUND') {
+          const traceSuffix = response.traceId ? ` (Trace ID: ${response.traceId})` : '';
+          setBrokenNotice(
+            (response.message || 'El recurso de imágenes no existe.') + traceSuffix
+          );
+        }
       }
     } catch (err: any) {
       const status = err.response?.status;
@@ -133,6 +145,25 @@ export function AnimalImageBanner({
 
     return () => clearInterval(interval);
   }, [images.length, isPaused, autoPlayInterval]);
+
+  const handleBrokenImage = useCallback((image: AnimalImage) => {
+    setImageErrors((prev) => {
+      if (prev.has(image.id)) return prev;
+      const next = new Set(prev);
+      next.add(image.id);
+      return next;
+    });
+    setBrokenImages((prev) => prev + 1);
+    setBrokenNotice((prev) => prev ?? 'Algunas imágenes no están disponibles en el servidor. Mostramos solo las que sí cargaron.');
+    setImages((prev) => {
+      const filtered = prev.filter((img) => img.id !== image.id);
+      setCurrentIndex((idx) => {
+        if (!filtered.length) return 0;
+        return Math.min(idx, filtered.length - 1);
+      });
+      return filtered;
+    });
+  }, []);
 
   // Navegación con transiciones suaves
   const goToPrevious = useCallback(() => {
@@ -261,6 +292,11 @@ export function AnimalImageBanner({
           <p className="text-sm text-muted-foreground">
             Este animal aún no tiene imágenes
           </p>
+          {brokenImages > 0 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              No pudimos mostrar {brokenImages} imagen(es) porque el archivo no está disponible.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -318,9 +354,7 @@ export function AnimalImageBanner({
                       maxWidth: '100%',
                       maxHeight: '100%',
                     }}
-                    onError={() => {
-                      setImageErrors((prev) => new Set(prev).add(image.id));
-                    }}
+                    onError={() => handleBrokenImage(image)}
                   />
                   {/* Overlay gradient sutil - solo si no es fullscreen */}
                   {!fullscreen && (
@@ -430,6 +464,27 @@ export function AnimalImageBanner({
           <div className="hidden md:block absolute top-3 left-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <div className="bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-medium shadow-xl border border-white/10">
               {currentIndex + 1} / {images.length}
+            </div>
+          </div>
+        )}
+
+        {brokenNotice && images.length > 0 && (
+          <div className="absolute bottom-3 right-3 z-30 max-w-xs rounded-xl bg-background/90 text-foreground shadow-lg border border-border/60 px-3 py-2 text-xs flex items-start gap-2 pointer-events-auto">
+            <div className="mt-0.5 text-primary">
+              <ImageIcon className="w-4 h-4" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold leading-none">Imágenes omitidas</p>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {brokenNotice} {brokenImages > 0 ? `(${brokenImages})` : ''}
+              </p>
+              <button
+                type="button"
+                className="text-[11px] font-semibold text-primary hover:text-primary/80"
+                onClick={() => setBrokenNotice(null)}
+              >
+                Entendido
+              </button>
             </div>
           </div>
         )}

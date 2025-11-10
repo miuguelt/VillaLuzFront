@@ -47,6 +47,8 @@ export interface AnimalImagesResponse {
     total: number;
     images: AnimalImage[];
   };
+  errorCode?: string;
+  traceId?: string;
 }
 
 /**
@@ -170,7 +172,7 @@ class AnimalImageService extends BaseService<AnimalImage> {
       const response = await api.get<AnimalImagesResponse>(
         ANIMAL_IMAGES_ENDPOINTS.GET_BY_ANIMAL(animalId)
       );
-      
+
       // Asegurar que las URLs de las imágenes sean absolutas y evitar contenido mixto en dev
       if (response.data && response.data.data && response.data.data.images) {
         const backendBaseURL = getBackendBaseURL();
@@ -192,6 +194,14 @@ class AnimalImageService extends BaseService<AnimalImage> {
           } catch {
             return url;
           }
+        };
+
+        const buildAbsoluteStaticUrl = (path: string) => {
+          const cleanPath = path.startsWith('/') ? path : `/${path}`;
+          const backendBase = backendBaseURL.endsWith('/')
+            ? backendBaseURL.slice(0, -1)
+            : backendBaseURL;
+          return `${backendBase}${cleanPath}`;
         };
 
         response.data.data.images = response.data.data.images.map((image: AnimalImage) => {
@@ -220,7 +230,10 @@ class AnimalImageService extends BaseService<AnimalImage> {
             // En desarrollo, enviar rutas estáticas conocidas sin prefijo /api/v1
             if (isDevelopment()) {
               if (imageUrl.startsWith('/public/images') || imageUrl.startsWith('/static/uploads')) {
-                return { ...image, url: addVersionParam(imageUrl, image.updated_at) };
+                return {
+                  ...image,
+                  url: addVersionParam(buildAbsoluteStaticUrl(imageUrl), image.updated_at),
+                };
               }
               // Para otras rutas relativas de API, construir con /api/v1
               if (apiBaseURL.startsWith('/')) {
@@ -240,6 +253,23 @@ class AnimalImageService extends BaseService<AnimalImage> {
       
       return response.data;
     } catch (error: any) {
+      const status = error?.response?.status;
+      const apiError = error?.response?.data?.error;
+
+      if (status === 404 || apiError?.code === 'NOT_FOUND') {
+        return {
+          success: false,
+          message: apiError?.message || 'Las imágenes solicitadas no existen o fueron eliminadas.',
+          errorCode: apiError?.code || 'NOT_FOUND',
+          traceId: apiError?.trace_id,
+          data: {
+            animal_id: animalId,
+            total: 0,
+            images: [],
+          },
+        };
+      }
+
       console.error('[AnimalImageService] Error fetching images:', error);
       throw error;
     }
@@ -257,6 +287,32 @@ class AnimalImageService extends BaseService<AnimalImage> {
     try {
       await api.delete(ANIMAL_IMAGES_ENDPOINTS.DELETE(imageId));
     } catch (error: any) {
+      const status = error?.response?.status;
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Error al eliminar imagen';
+
+      // Si la imagen ya no existe en el servidor, considerar la operación exitosa
+      if (status === 404 || status === 410) {
+        console.warn('[AnimalImageService] Imagen ya no existe, se omite el error');
+        return;
+      }
+
+      // Si la sesión expiró o el refresh falló, lanzar error controlado
+      const isAuthError =
+        status === 401 ||
+        status === 403 ||
+        (status === 500 && typeof error?.config?.url === 'string' && error.config.url.includes('/auth/refresh'));
+
+      if (isAuthError) {
+        const authError = new Error(
+          message || 'La sesión expiró. Inicia sesión nuevamente para administrar imágenes.'
+        );
+        (authError as any).code = 'AUTH_REQUIRED';
+        throw authError;
+      }
+
       console.error('[AnimalImageService] Error deleting image:', error);
       throw error;
     }

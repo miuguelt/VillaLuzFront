@@ -106,6 +106,9 @@ export function ImageManager({
         setImages(response.data.images || []);
       } else {
         setImages([]);
+        if (response.errorCode !== 'NOT_FOUND') {
+          setError(response.message || 'Error al cargar imágenes');
+        }
       }
     } catch (err: any) {
       const status = err.response?.status;
@@ -310,7 +313,7 @@ export function ImageManager({
       try {
         await animalImageService.deleteImage(imageId);
 
-        // Actualizar estado local
+        // Actualizar estado local (aunque el backend ya no tenga la imagen)
         setImages((prev) => prev.filter((img) => img.id !== imageId));
 
         if (onGalleryUpdate) {
@@ -319,12 +322,25 @@ export function ImageManager({
 
         showToast('Imagen eliminada correctamente', 'success');
       } catch (err: any) {
-        const errorMessage =
-          err.response?.data?.message ||
-          err.message ||
-          'Error al eliminar imagen';
-        setError(errorMessage);
-        showToast(errorMessage, 'error');
+        const status = err?.response?.status;
+        const defaultMessage = 'No se pudo eliminar la imagen. Intenta nuevamente.';
+        const errorMessage = err?.message || err?.response?.data?.message || defaultMessage;
+
+        if (err?.code === 'AUTH_REQUIRED') {
+          const authMessage =
+            errorMessage ||
+            'Tu sesión expiró. Vuelve a iniciar sesión para administrar las imágenes.';
+          setError(authMessage);
+          showToast(authMessage, 'error');
+        } else {
+          setError(errorMessage);
+          // Si el backend respondió con 5xx o 401 (sin código custom), mostrar mensaje amigable
+          if (status && status >= 500) {
+            showToast('El servidor no pudo eliminar la imagen en este momento.', 'error');
+          } else {
+            showToast(errorMessage, 'error');
+          }
+        }
       } finally {
         setDeletingId(null);
       }

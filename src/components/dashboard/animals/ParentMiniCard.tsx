@@ -36,6 +36,8 @@ export function ParentMiniCard({ parentId, parentLabel, gender, onClick }: Paren
           return 0;
         });
         setImages(sorted);
+      } else if (response.errorCode === 'NOT_FOUND') {
+        setImages([]);
       } else {
         setImages([]);
       }
