@@ -224,15 +224,23 @@ refreshClient.interceptors.request.use(
         if (!isFormData) {
           (config as any).headers['Content-Type'] = 'application/json';
         }
-        // Añadir Authorization para /auth/refresh y /auth/me si hay token
+        // Añadir Authorization si no es /auth/refresh; este endpoint usa solo cookies
         try {
           if (typeof localStorage !== 'undefined') {
             const tok = localStorage.getItem(AUTH_STORAGE_KEY);
             if (tok && tok.length) {
-              (config as any).headers['Authorization'] = `Bearer ${tok}`;
+              const shouldAttachAuth = !path.startsWith('auth/refresh');
+              if (shouldAttachAuth) {
+                (config as any).headers['Authorization'] = `Bearer ${tok}`;
+              } else if ((config as any).headers['Authorization']) {
+                delete (config as any).headers['Authorization'];
+              }
             }
           }
         } catch {}
+        if (path.startsWith('auth/refresh') && (config as any).headers['Authorization']) {
+          delete (config as any).headers['Authorization'];
+        }
         if (path.startsWith('auth/refresh')) {
           const csrfRefresh = getCookie('csrf_refresh_token');
           if (csrfRefresh) {
