@@ -1436,7 +1436,7 @@ const {
                             </div>
                           )}
                           {(config.enableDetailModal !== false || config.enableEditModal !== false || config.enableDelete || config.customActions) && (
-                            <div className="mt-4 pt-3 border-t border-border/30 w-full flex-shrink-0 flex flex-nowrap items-center justify-center gap-3 px-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
+                            <div className="mt-4 pt-3 pb-3 sm:pb-4 border-t border-border/30 w-full flex-shrink-0 flex flex-nowrap items-center justify-center gap-3 px-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
                               {config.enableDetailModal !== false && (
                                 <Button
                                   variant="ghost"

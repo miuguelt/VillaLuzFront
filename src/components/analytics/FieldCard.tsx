@@ -40,82 +40,93 @@ const FieldCardComponent: React.FC<FieldCardProps> = ({
   );
 
   // OPTIMIZACIÓN: Memoizar todos los colores en un solo useMemo
-  const colors = useMemo(() => {
-    if (occupationRate > 100) {
+  const palette = useMemo(() => {
+    if (occupationRate > 110) {
       return {
-        text: 'text-red-600',
-        progress: 'bg-red-600',
-        bg: 'bg-red-50',
+        text: 'text-rose-600 dark:text-rose-300',
+        progress: 'from-rose-500 via-red-500 to-red-700',
+        track: 'bg-rose-100/70 dark:bg-rose-900/40',
+        border: 'border border-rose-200/70 dark:border-rose-500/40',
+        cardBg:
+          'bg-gradient-to-br from-rose-50/95 via-white to-orange-50/80 dark:from-rose-950/70 dark:via-slate-900 dark:to-slate-950',
+        badge: 'bg-rose-100 text-rose-900 dark:bg-rose-900/60 dark:text-rose-100',
+        ring: 'hover:ring-2 hover:ring-rose-300/80 dark:hover:ring-rose-400/50',
       };
     }
     if (occupationRate > 80) {
       return {
-        text: 'text-yellow-600',
-        progress: 'bg-yellow-500',
-        bg: 'bg-yellow-50',
+        text: 'text-amber-700 dark:text-amber-300',
+        progress: 'from-amber-400 via-orange-400 to-orange-500',
+        track: 'bg-amber-100/70 dark:bg-amber-900/40',
+        border: 'border border-amber-200/70 dark:border-amber-500/30',
+        cardBg:
+          'bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:from-amber-950/50 dark:via-slate-900 dark:to-slate-950',
+        badge: 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-100',
+        ring: 'hover:ring-2 hover:ring-amber-300/70 dark:hover:ring-amber-400/50',
       };
     }
-    if (occupationRate > 50) {
+    if (occupationRate > 60) {
       return {
-        text: 'text-green-600',
-        progress: 'bg-green-500',
-        bg: 'bg-green-50',
+        text: 'text-emerald-700 dark:text-emerald-200',
+        progress: 'from-emerald-400 via-green-500 to-lime-500',
+        track: 'bg-emerald-100/60 dark:bg-emerald-900/40',
+        border: 'border border-emerald-200/60 dark:border-emerald-500/30',
+        cardBg:
+          'bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-950',
+        badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-100',
+        ring: 'hover:ring-2 hover:ring-emerald-300/70 dark:hover:ring-emerald-400/50',
+      };
+    }
+    if (occupationRate > 30) {
+      return {
+        text: 'text-cyan-700 dark:text-cyan-200',
+        progress: 'from-cyan-400 via-blue-400 to-sky-500',
+        track: 'bg-cyan-100/60 dark:bg-cyan-900/40',
+        border: 'border border-cyan-200/60 dark:border-sky-600/30',
+        cardBg:
+          'bg-gradient-to-br from-cyan-50 via-white to-blue-50 dark:from-sky-950/50 dark:via-slate-900 dark:to-slate-950',
+        badge: 'bg-cyan-100 text-cyan-800 dark:bg-sky-900/60 dark:text-sky-100',
+        ring: 'hover:ring-2 hover:ring-sky-300/70 dark:hover:ring-sky-500/50',
       };
     }
     return {
-      text: 'text-gray-600',
-      progress: 'bg-gray-400',
-      bg: 'bg-gray-50',
+      text: 'text-indigo-700 dark:text-indigo-200',
+      progress: 'from-indigo-400 via-blue-500 to-purple-500',
+      track: 'bg-indigo-100/60 dark:bg-indigo-900/40',
+      border: 'border border-indigo-100/70 dark:border-indigo-500/30',
+      cardBg:
+        'bg-gradient-to-br from-indigo-50 via-white to-violet-50 dark:from-slate-950 dark:via-slate-900/80 dark:to-slate-950',
+      badge: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-100',
+      ring: 'hover:ring-2 hover:ring-indigo-300/70 dark:hover:ring-indigo-400/50',
     };
   }, [occupationRate]);
 
   // OPTIMIZACIÓN: Memoizar className del card
-  const cardClassName = useMemo(() => {
-    let baseColor = 'border-l-4 border-transparent';
-
-    if (occupationRate > 100) {
-      baseColor = 'border-l-4 border-red-500 hover:border-l-8';
-    } else if (occupationRate > 80) {
-      baseColor = 'border-l-4 border-yellow-500 hover:border-l-8';
-    } else if (occupationRate > 50) {
-      baseColor = 'border-l-4 border-green-500 hover:border-l-8';
-    } else {
-      baseColor = 'border-l-4 border-blue-500 hover:border-l-8';
-    }
-
-    return `bg-white rounded-lg shadow hover:shadow-2xl transition-all duration-300 p-6
-            ${baseColor}
-            hover:scale-[1.02] transform will-change-transform
-            cursor-pointer group`;
-  }, [occupationRate]);
+  const cardClassName = useMemo(
+    () =>
+      `rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer group
+       ${palette.cardBg} ${palette.border} ${palette.ring} hover:scale-[1.015] dark:text-gray-100`,
+    [palette]
+  );
 
   return (
     <div className={cardClassName}>
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-300 transition-colors">
             {field.name}
           </h3>
           {field.ubication && (
-            <div className="flex items-center mt-1 text-sm text-gray-500 group-hover:text-gray-700 transition-colors">
-              <MapPinIcon className="w-4 h-4 mr-1 group-hover:text-blue-500" />
+            <div className="flex items-center mt-1 text-sm text-gray-500 dark:text-gray-300 group-hover:text-gray-700 dark:group-hover:text-gray-100 transition-colors">
+              <MapPinIcon className="w-4 h-4 mr-1 group-hover:text-blue-500 dark:group-hover:text-blue-300" />
               {field.ubication}
             </div>
           )}
         </div>
         {field.state && (
           <span
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200
-                      group-hover:scale-110 ${
-              field.state === 'Disponible'
-                ? 'bg-green-100 text-green-800 group-hover:bg-green-200'
-                : field.state === 'Ocupado'
-                ? 'bg-blue-100 text-blue-800 group-hover:bg-blue-200'
-                : field.state === 'Mantenimiento'
-                ? 'bg-yellow-100 text-yellow-800 group-hover:bg-yellow-200'
-                : 'bg-gray-100 text-gray-800 group-hover:bg-gray-200'
-            }`}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 group-hover:scale-110 ${palette.badge}`}
           >
             {field.state}
           </span>
@@ -128,22 +139,22 @@ const FieldCardComponent: React.FC<FieldCardProps> = ({
           <span className="text-sm font-medium text-gray-600">
             Ocupación del Potrero
           </span>
-          <span className={`text-lg font-bold ${colors.text}`}>
+          <span className={`text-lg font-bold ${palette.text}`}>
             {occupied} / {capacity}
           </span>
         </div>
 
         {/* Barra de progreso - OPTIMIZADO: GPU-accelerated con will-change */}
-        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+        <div className={`w-full ${palette.track} rounded-full h-3 overflow-hidden`}>
           <div
-            className={`h-3 rounded-full transition-[width] duration-500 ${colors.progress} will-change-[width]`}
+            className={`h-3 rounded-full transition-[width] duration-500 bg-gradient-to-r ${palette.progress} will-change-[width]`}
             style={{ width: `${Math.min(occupationRate, 100)}%` }}
           />
         </div>
 
         <div className="flex items-center justify-between mt-1">
           <span className="text-xs text-gray-500">0%</span>
-          <span className={`text-xs font-semibold ${colors.text}`}>
+          <span className={`text-xs font-semibold ${palette.text}`}>
             {occupationRate.toFixed(0)}%
           </span>
           <span className="text-xs text-gray-500">100%</span>
@@ -152,33 +163,33 @@ const FieldCardComponent: React.FC<FieldCardProps> = ({
 
       {/* Alertas */}
       {occupationRate > 100 && (
-        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-xs text-red-800 font-medium">
+        <div className="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-md dark:bg-rose-900/30 dark:border-rose-500/40">
+          <p className="text-xs text-rose-800 dark:text-rose-200 font-medium">
             ⚠️ Potrero sobrecargado ({(occupationRate - 100).toFixed(0)}% sobre capacidad)
           </p>
         </div>
       )}
 
       {occupationRate > 80 && occupationRate <= 100 && (
-        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-          <p className="text-xs text-yellow-800 font-medium">
+        <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-md dark:bg-amber-900/20 dark:border-amber-500/30">
+          <p className="text-xs text-amber-800 dark:text-amber-100 font-medium">
             ⚡ Potrero cerca de su capacidad máxima
           </p>
         </div>
       )}
 
       {/* Información adicional */}
-      <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-4 text-sm">
+      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-slate-700 grid grid-cols-2 gap-4 text-sm">
         {field.area && (
           <div>
-            <span className="text-gray-600">Área:</span>
-            <span className="ml-2 font-medium text-gray-900">{field.area}</span>
+            <span className="text-gray-600 dark:text-gray-300">Área:</span>
+            <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">{field.area}</span>
           </div>
         )}
         {field.food_types?.name && (
           <div>
-            <span className="text-gray-600">Alimento:</span>
-            <span className="ml-2 font-medium text-gray-900">
+            <span className="text-gray-600 dark:text-gray-300">Alimento:</span>
+            <span className="ml-2 font-medium text-gray-900 dark:text-gray-100">
               {field.food_types.name}
             </span>
           </div>
@@ -193,12 +204,12 @@ const FieldCardComponent: React.FC<FieldCardProps> = ({
               e.stopPropagation();
               onViewDetails(field);
             }}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md
-                     hover:bg-blue-700 transition-all duration-200
+            className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white text-sm font-medium rounded-md
+                     hover:from-blue-500 hover:to-indigo-500 transition-all duration-200
                      hover:shadow-lg hover:-translate-y-0.5
                      active:translate-y-0 active:shadow-sm
                      transform will-change-transform
-                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
           >
             <span className="inline-block hover:scale-105 transition-transform">
               Ver Detalles
@@ -211,12 +222,12 @@ const FieldCardComponent: React.FC<FieldCardProps> = ({
               e.stopPropagation();
               onViewAnalytics(field);
             }}
-            className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md
-                     hover:bg-gray-50 hover:border-gray-400 transition-all duration-200
+            className="px-4 py-2 border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-md
+                     hover:bg-gray-50 dark:hover:bg-slate-800 hover:border-gray-400 dark:hover:border-slate-500 transition-all duration-200
                      hover:shadow-lg hover:-translate-y-0.5
                      active:translate-y-0 active:shadow-sm
                      transform will-change-transform
-                     focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+                     focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
             title="Ver Analytics"
           >
             <ChartBarIcon className="w-5 h-5 hover:scale-110 transition-transform" />

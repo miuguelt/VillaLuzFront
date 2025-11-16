@@ -184,6 +184,20 @@ class OfflineQueue {
 
     this.isSyncing = false;
     console.log('[OfflineQueue] Sincronización completada');
+
+    // Notificar a la aplicación que la cola fue procesada
+    const remaining = this.getPendingCount();
+    try {
+      if (typeof window !== 'undefined' && 'dispatchEvent' in window) {
+        const detail = {
+          remaining,
+          status: this.getSyncStatus(),
+        };
+        window.dispatchEvent(new CustomEvent('offline-queue-flushed', { detail }));
+      }
+    } catch (error) {
+      console.error('[OfflineQueue] Error al despachar evento offline-queue-flushed:', error);
+    }
   }
 
   /**

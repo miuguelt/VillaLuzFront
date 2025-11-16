@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React, { useContext } from 'react';
 
-import { AuthProvider, AuthContext } from '../context/AuthenticationContext';
+import { AuthProvider, AuthContext } from '../AuthenticationContext';
 import * as authServiceModule from '@/services/authService'
 
 // Use spyOn to override only getUserProfile while keeping other exports (like normalizeRole)
@@ -41,7 +41,7 @@ describe('AuthProvider (smoke)', () => {
 
   it('renders children and sets role from /auth/me', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <div>child</div>
@@ -78,7 +78,7 @@ describe('AuthProvider', () => {
 
   it('renders children and sets role from /auth/me', async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <div>child</div>
@@ -96,3 +96,4 @@ describe('AuthProvider', () => {
     });
   });
 });
+

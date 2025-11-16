@@ -92,6 +92,8 @@ describe('AnimalImageService URL normalization', () => {
     },
   };
 
+  const versionParam = new Date(baseResponse.data.images[0].updated_at).getTime().toString();
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -104,18 +106,18 @@ describe('AnimalImageService URL normalization', () => {
     jest.spyOn(api, 'get').mockResolvedValue({ data: baseResponse } as any);
 
     const result = await animalImageService.getAnimalImages(1);
-    expect(result.data.images[0].url).toBe('/api/v1/uploads/a.jpg');
+    expect(result.data.images[0].url).toBe(`/api/v1/uploads/a.jpg?v=${versionParam}`);
   });
 
   it('makes URL absolute in prod using backend base (absolute API base)', async () => {
-    jest.spyOn(envConfig, 'isDevelopment').mockReturnValue(true);
+    jest.spyOn(envConfig, 'isDevelopment').mockReturnValue(false);
     jest.spyOn(envConfig, 'getApiBaseURL').mockReturnValue('https://backend.example/api/v1');
     jest.spyOn(envConfig, 'getBackendBaseURL').mockReturnValue('https://backend.example');
 
     jest.spyOn(api, 'get').mockResolvedValue({ data: baseResponse } as any);
 
     const result = await animalImageService.getAnimalImages(1);
-    expect(result.data.images[0].url).toBe('https://backend.example/uploads/a.jpg');
+    expect(result.data.images[0].url).toBe(`https://backend.example/api/v1/uploads/a.jpg?v=${versionParam}`);
   });
 
   it('leaves absolute image URLs unchanged', async () => {
@@ -139,6 +141,6 @@ describe('AnimalImageService URL normalization', () => {
     jest.spyOn(api, 'get').mockResolvedValue({ data: absoluteResponse } as any);
 
     const result = await animalImageService.getAnimalImages(1);
-    expect(result.data.images[0].url).toBe('https://cdn.other.com/u/a.jpg');
+    expect(result.data.images[0].url).toBe(`https://cdn.other.com/u/a.jpg?v=${versionParam}`);
   });
 });

@@ -4,6 +4,34 @@
 
 Frontend de la aplicación de gestión de finca desarrollado con React, TypeScript y Vite.
 
+## 🧱 Estructura de carpetas (frontend)
+
+- `src/main.tsx`: punto de entrada. Registra el Service Worker PWA, configura React Query (modo `offlineFirst`) y monta los *providers* globales (router, contextos de tema, caché, toasts y autenticación).
+- `src/components/`
+  - `components/ui/`: librería de UI basada en Radix/Heroui (botones, tablas, formularios, toasts, etc.).
+  - `components/common/`: piezas reutilizables de negocio (modales genéricos, indicadores PWA/offline, manejo de errores, formularios base).
+  - `components/dashboard/`: layout y widgets del dashboard por rol (tarjetas, estadísticas, sidebars, menús de acciones).
+  - `components/routes/`: routing de alto nivel (`AppRoutes`, `ProtectedRoute`).
+- `src/pages/`: páginas de la app organizadas por dominio (`landing`, `login`, `dashboard/admin/*`, `dashboard/apprentice/*`, `dashboard/instructor/*`, `analytics/*`, etc.).
+- `src/context/`: contextos globales (`AuthenticationContext`, `CacheContext`, `ThemeContext`, `ToastContext`, etc.) y tests en `src/context/__tests__`.
+- `src/services/`
+  - `services/api.ts`: cliente HTTP central (axios + interceptores, caché HTTP + IndexedDB, manejo de rate limit y refresh).
+  - `services/baseService.ts`: clase base con CRUD, búsqueda, paginación, caché y soporte offline (cola de escrituras).
+  - `services/*Service.ts`: servicios por recurso (`animals`, `vaccines`, `fields`, `users`, etc.).
+  - `services/pwaApiClient.ts`: cliente PWA avanzado con ETags, `/metadata` y sincronización incremental.
+- `src/utils/`: utilidades transversales (IndexedDB cache, cola offline, JWT, fechas, paginación, logging, viewport, etags, etc.).
+- `src/hooks/`
+  - Hooks transversales (`useAuth`, `useOnlineStatus`, `useResource`, `usePWASync`, etc.).
+  - Subcarpetas por dominio (`hooks/animal`, `hooks/vaccination`, `hooks/field`, etc.) para lógica específica.
+- `src/config/`, `src/constants/`, `src/types/`: configuración de endpoints/API, enums, tipos compartidos y contratos de datos.
+
+La app está pensada para escalar por **dominio funcional**. Para añadir un nuevo recurso del backend (por ejemplo `cattle_groups`), el patrón recomendado es:
+
+1. Crear un servicio que extienda `BaseService` en `src/services/cattleGroupsService.ts`.
+2. Añadir hooks específicos en `src/hooks/cattleGroup` (por ejemplo `useCattleGroups`, `useCattleGroupForm`).
+3. Implementar componentes/páginas bajo `src/components/dashboard/admin/cattleGroups` y `src/pages/dashboard/admin/cattleGroups`.
+4. Registrar las rutas y menús correspondientes en `src/components/routes/AppRoutes.tsx` y en los menús de `src/components/dashboard`.
+
 ## 🚀 Inicio Rápido
 
 ### Prerrequisitos

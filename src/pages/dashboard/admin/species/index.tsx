@@ -8,6 +8,7 @@ import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalSt
 
 // Columnas de la tabla
 const columns: CRUDColumn<SpeciesResponse & { [k: string]: any }>[] = [
+  { key: 'id', label: 'ID', render: (v) => `#${v}` },
   { key: 'name', label: 'Nombre' },
   {
     key: 'description',
@@ -15,6 +16,7 @@ const columns: CRUDColumn<SpeciesResponse & { [k: string]: any }>[] = [
     render: (v) => v ? (v as string).substring(0, 100) + (((v as string).length > 100) ? '...' : '') : '-'
   },
   { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
+  { key: 'updated_at', label: 'Actualizado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
 ];
 
 // Secciones del formulario (sin cambios funcionales)

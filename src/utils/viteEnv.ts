@@ -1,17 +1,33 @@
 // Unified access to Vite (import.meta.env) and Jest/Node (process.env) environments
-// Works in browser/Vite build, and Jest tests where we polyfill import.meta in setupTests.
+// Works in browser/Vite build, and Jest tests where we polyfill import meta replacements.
+
+declare const __VITE_IMPORT_META_ENV__: Record<string, any> | undefined;
+
+const resolveImportMetaEnv = (): Record<string, any> | undefined => {
+  try {
+    if (typeof __VITE_IMPORT_META_ENV__ !== 'undefined') {
+      return __VITE_IMPORT_META_ENV__;
+    }
+  } catch {
+    // __VITE_IMPORT_META_ENV__ no disponible (entornos Node/jest)
+  }
+  return undefined;
+};
 
 export const VITE_ENV: Record<string, any> = (() => {
-  // Prefer direct import.meta.env so Vite statically injects values at build time
-  try {
-    const viteEnv = (import.meta as any)?.env;
-    if (viteEnv) return viteEnv;
-  } catch {}
-  // Jest polyfill support (setupTests assigns globalThis.import.meta.env)
+  // Preferir la constante definida por Vite (reemplazada por import.meta.env en build).
+  const fromDefine = resolveImportMetaEnv();
+  if (fromDefine) return fromDefine;
+
+  // Jest polyfill support (setupTests asigna globalThis.import.meta.env)
   const poly = (globalThis as any)?.import?.meta?.env;
   if (poly) return poly;
-  // Fallback to process.env when available (Node scripts)
-  if (typeof (globalThis as any).process !== 'undefined') return ((globalThis as any).process as any).env || {};
+
+  // Fallback a process.env cuando está disponible (scripts Node)
+  if (typeof (globalThis as any).process !== 'undefined') {
+    return ((globalThis as any).process as any).env || {};
+  }
+
   return {};
 })();
 

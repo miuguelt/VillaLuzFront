@@ -15,12 +15,20 @@ interface CacheEntry {
   version?: number;
 }
 
+const isIndexedDBSupported = (): boolean => {
+  try {
+    return typeof window !== 'undefined' && !!window.indexedDB;
+  } catch {
+    return false;
+  }
+};
+
 /**
  * Inicializa la base de datos IndexedDB
  */
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined' || !window.indexedDB) {
+    if (!isIndexedDBSupported()) {
       reject(new Error('IndexedDB not available'));
       return;
     }
@@ -257,6 +265,9 @@ export async function getIndexedDBCacheSize(): Promise<number> {
  * Llamar al inicializar la app o periódicamente
  */
 export function startIndexedDBCacheCleanup(intervalMs: number = 300000): void {
+  if (!isIndexedDBSupported()) {
+    return;
+  }
   // Limpiar inmediatamente
   void clearExpiredIndexedDBCache();
 

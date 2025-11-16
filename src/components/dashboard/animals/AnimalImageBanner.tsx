@@ -30,6 +30,27 @@ interface AnimalImageBannerProps {
   fullscreen?: boolean;
 }
 
+type BannerImage = AnimalImage & { isPlaceholder?: boolean };
+
+const BROKEN_IMAGE_PLACEHOLDER = `data:image/svg+xml;utf8,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#eef2ff"/>
+        <stop offset="100%" stop-color="#e2e8f0"/>
+      </linearGradient>
+    </defs>
+    <rect width="400" height="260" rx="24" fill="url(#g)"/>
+    <rect x="32" y="32" width="336" height="196" rx="16" fill="#fff" stroke="#cbd5f5" stroke-width="2"/>
+    <path d="M108 176l42-52 36 44 30-36 64 76H108z" fill="#c7d2fe" opacity="0.8"/>
+    <circle cx="150" cy="102" r="22" fill="#e0e7ff"/>
+    <path d="M96 200h208" stroke="#cbd5f5" stroke-width="6" stroke-linecap="round" opacity="0.7"/>
+    <text x="200" y="226" font-family="Inter, Helvetica, Arial" font-size="18" fill="#475569" text-anchor="middle">
+      Imagen no disponible
+    </text>
+  </svg>`
+)}`;
+
 /**
  * Banner elegante de carrusel para mostrar las imágenes de un animal
  */
@@ -43,10 +64,10 @@ export function AnimalImageBanner({
   objectFit = 'cover',
   fullscreen = false,
 }: AnimalImageBannerProps) {
-  const [images, setImages] = useState<AnimalImage[]>([]);
+  const [images, setImages] = useState<BannerImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedImage, setSelectedImage] = useState<AnimalImage | null>(null);
+  const [selectedImage, setSelectedImage] = useState<BannerImage | null>(null);
   const [isPaused, setIsPaused] = useState(false);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -82,7 +103,7 @@ export function AnimalImageBanner({
           if (b.is_primary) return 1;
           return 0;
         });
-        setImages(sorted);
+        setImages(sorted.map((img) => ({ ...img, isPlaceholder: false })));
         setFetchError(null);
       } else {
         setImages([]);
@@ -146,23 +167,40 @@ export function AnimalImageBanner({
     return () => clearInterval(interval);
   }, [images.length, isPaused, autoPlayInterval]);
 
-  const handleBrokenImage = useCallback((image: AnimalImage) => {
+  const handleBrokenImage = useCallback((image: BannerImage) => {
+    if (image.isPlaceholder) return;
+
+    let shouldUpdateCounters = false;
     setImageErrors((prev) => {
-      if (prev.has(image.id)) return prev;
+      if (prev.has(image.id)) {
+        return prev;
+      }
+      shouldUpdateCounters = true;
       const next = new Set(prev);
       next.add(image.id);
       return next;
     });
-    setBrokenImages((prev) => prev + 1);
-    setBrokenNotice((prev) => prev ?? 'Algunas imágenes no están disponibles en el servidor. Mostramos solo las que sí cargaron.');
-    setImages((prev) => {
-      const filtered = prev.filter((img) => img.id !== image.id);
-      setCurrentIndex((idx) => {
-        if (!filtered.length) return 0;
-        return Math.min(idx, filtered.length - 1);
-      });
-      return filtered;
-    });
+
+    if (shouldUpdateCounters) {
+      setBrokenImages((prev) => prev + 1);
+      setBrokenNotice(
+        (prev) =>
+          prev ??
+          'Algunas imágenes no están disponibles en el servidor. Mostramos una imagen de referencia en su lugar.'
+      );
+    }
+
+    setImages((prev) =>
+      prev.map((img) =>
+        img.id === image.id
+          ? {
+              ...img,
+              url: BROKEN_IMAGE_PLACEHOLDER,
+              isPlaceholder: true,
+            }
+          : img
+      )
+    );
   }, []);
 
   // Navegación con transiciones suaves
@@ -332,36 +370,39 @@ export function AnimalImageBanner({
                   : 'opacity-0 scale-95 z-0'
               }`}
             >
-              {imageErrors.has(image.id) ? (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted/20 to-muted/10">
-                  <div className="text-center">
-                    <ImageIcon className="w-12 h-12 mx-auto text-muted-foreground mb-2 opacity-50" />
-                    <p className="text-xs text-muted-foreground">Error al cargar</p>
+              <>
+                <img
+                  src={image.url}
+                  alt={image.filename}
+                  className={`block w-full h-full ${
+                    objectFit === 'cover' ? 'object-cover' : 'object-contain'
+                  } transition-transform duration-700 ease-out ${
+                    image.isPlaceholder ? 'opacity-80' : ''
+                  }`}
+                  loading={index === 0 ? 'eager' : 'lazy'}
+                  style={{
+                    objectPosition: 'center',
+                    imageRendering: 'auto',
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                  }}
+                  onError={() => handleBrokenImage(image)}
+                />
+                {imageErrors.has(image.id) && (
+                  <div className="absolute inset-0 bg-gradient-to-b from-background/40 to-background/70 flex items-center justify-center px-6 text-center">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-foreground">Imagen original no disponible</p>
+                      <p className="text-xs text-muted-foreground">
+                        Mostramos una referencia temporal para evitar dejar el espacio vacío.
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <>
-                  <img
-                    src={image.url}
-                    alt={image.filename}
-                    className={`block w-full h-full ${
-                      objectFit === 'cover' ? 'object-cover' : 'object-contain'
-                    } transition-transform duration-700 ease-out`}
-                    loading={index === 0 ? 'eager' : 'lazy'}
-                    style={{
-                      objectPosition: 'center',
-                      imageRendering: 'auto',
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                    }}
-                    onError={() => handleBrokenImage(image)}
-                  />
-                  {/* Overlay gradient sutil - solo si no es fullscreen */}
-                  {!fullscreen && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent pointer-events-none" />
-                  )}
-                </>
-              )}
+                )}
+                {/* Overlay gradient sutil - solo si no es fullscreen */}
+                {!fullscreen && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                )}
+              </>
             </div>
           ))}
         </div>

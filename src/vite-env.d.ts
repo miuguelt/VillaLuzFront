@@ -3,6 +3,8 @@
 /// <reference types="react-dom" />
 /// <reference types="node" />
 
+declare const __VITE_IMPORT_META_ENV__: Record<string, any> | undefined;
+
 // Tipos para vite-plugin-pwa virtual modules
 declare module 'virtual:pwa-register' {
   export type RegisterSWOptions = {

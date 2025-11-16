@@ -16,6 +16,7 @@ import { refetchAllResources } from './hooks/useResource'
 import { PWAUpdateHandler } from './components/common/PWAUpdateHandler'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PrefetchManager } from './components/common/PrefetchManager'
+import { OnlineStatusIndicator } from '@/components/common/OnlineStatusIndicator'
 
 // Configurar React Query Client con optimizaciones agresivas de caché
 const queryClient = new QueryClient({
@@ -320,6 +321,7 @@ createRoot(document.getElementById('root')!).render(
                     {/* Sistema inteligente de prefetching para máxima fluidez */}
                     <PrefetchManager />
                     <AppRoutes />
+                    <OnlineStatusIndicator />
                     <PWAUpdateHandler />
                   </AuthProvider>
                 </ToastProvider>

@@ -2,7 +2,7 @@ import React from 'react';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import KPICard from '@/components/analytics/KPICard';
 import AlertCard from '@/components/analytics/AlertCard';
-import { Line, Doughnut } from 'react-chartjs-2';
+import { Doughnut, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,35 +10,51 @@ import {
   PointElement,
   LineElement,
   ArcElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
   Filler,
 } from 'chart.js';
-import { COLORS } from '@/utils/colors';
+import { COLORS, getChartColors } from '@/utils/colors';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
-// Registrar componentes de Chart.js
 ChartJS.register(
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
   ArcElement,
+  BarElement,
   Title,
   Tooltip,
   Legend,
   Filler
 );
 
-/**
- * Dashboard Ejecutivo - Vista principal de analytics
- * Muestra KPIs, gráficos y alertas críticas
- */
 const DashboardExecutive: React.FC = () => {
-  const { useDashboard, useAnimalTrends, useAlerts } = useAnalytics();
+  const {
+    useDashboard,
+    useAnimalStatistics,
+    useHealthStatistics,
+    useProductionStatistics,
+    useAlerts,
+  } = useAnalytics();
 
   const { data: dashboard, isLoading: loadingDashboard } = useDashboard();
-  const { data: trends, isLoading: loadingTrends, error: trendsError } = useAnimalTrends(12);
+  const {
+    data: animalStats,
+    isLoading: loadingAnimalStats,
+  } = useAnimalStatistics();
+  const {
+    data: healthStats,
+    isLoading: loadingHealthStats,
+  } = useHealthStatistics();
+  const {
+    data: productionStats,
+    isLoading: loadingProductionStats,
+  } = useProductionStatistics();
   const { data: alerts, isLoading: loadingAlerts } = useAlerts({
     priority: 'critical',
     limit: 5,
@@ -50,7 +66,7 @@ const DashboardExecutive: React.FC = () => {
 
   if (!dashboard) {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className="min-h-screen bg-slate-50 p-6">
         <div className="text-center py-12">
           <p className="text-gray-500 text-lg">No hay datos disponibles</p>
         </div>
@@ -58,15 +74,16 @@ const DashboardExecutive: React.FC = () => {
     );
   }
 
-  // Datos para gráfico de dona (distribución por sexo)
+  const totalesSexo = {
+    machos: dashboard.distribucion_sexo?.machos || animalStats?.by_gender?.Macho || 0,
+    hembras: dashboard.distribucion_sexo?.hembras || animalStats?.by_gender?.Hembra || 0,
+  };
+
   const sexDistributionData = {
     labels: ['Machos', 'Hembras'],
     datasets: [
       {
-        data: [
-          dashboard.distribucion_sexo?.machos || 0,
-          dashboard.distribucion_sexo?.hembras || 0,
-        ],
+        data: [totalesSexo.machos, totalesSexo.hembras],
         backgroundColor: [COLORS.animals.male, COLORS.animals.female],
         borderWidth: 2,
         borderColor: '#fff',
@@ -74,75 +91,93 @@ const DashboardExecutive: React.FC = () => {
     ],
   };
 
-  // Datos para gráfico de líneas (tendencias)
-  const trendsData = trends
-    ? {
-        labels: trends.map((t: any) => {
-          const [year, month] = t.month.split('-');
-          return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('es', {
-            month: 'short',
-          });
-        }),
-        datasets: [
-          {
-            label: 'Nacimientos',
-            data: trends.map((t: any) => t.births),
-            borderColor: COLORS.charts.success,
-            backgroundColor: `${COLORS.charts.success}20`,
-            tension: 0.4,
-            fill: true,
-          },
-          {
-            label: 'Muertes',
-            data: trends.map((t: any) => t.deaths),
-            borderColor: COLORS.charts.danger,
-            tension: 0.4,
-          },
-          {
-            label: 'Ventas',
-            data: trends.map((t: any) => t.sales),
-            borderColor: COLORS.charts.warning,
-            tension: 0.4,
-          },
-        ],
-      }
-    : null;
+  const statusChartData =
+    animalStats?.by_status && Object.keys(animalStats.by_status).length > 0
+      ? {
+          labels: Object.keys(animalStats.by_status),
+          datasets: [
+            {
+              label: 'Animales',
+              data: Object.values(animalStats.by_status),
+              backgroundColor: getChartColors(Object.keys(animalStats.by_status).length),
+              borderRadius: 6,
+            },
+          ],
+        }
+      : null;
+
+  const ageDistributionData =
+    animalStats?.age_distribution && animalStats.age_distribution.length > 0
+      ? {
+          labels: animalStats.age_distribution.map((item) => item.age_range),
+          datasets: [
+            {
+              label: 'Cantidad',
+              data: animalStats.age_distribution.map((item) => item.count),
+              backgroundColor: COLORS.charts.secondary,
+              borderRadius: 4,
+            },
+          ],
+        }
+      : null;
+
+  const topBreeds =
+    animalStats?.by_breed?.length
+      ? animalStats.by_breed
+      : dashboard.distribucion_razas_top5 || [];
+
+  const enfermedadesComunes = healthStats?.common_diseases || [];
+  const fechaActualizacion = dashboard.generated_at
+    ? new Date(dashboard.generated_at)
+    : undefined;
+
+  const formatNumber = (value?: number, options?: Intl.NumberFormatOptions) => {
+    if (value === undefined || value === null || Number.isNaN(Number(value))) return '0';
+    return Number(value).toLocaleString('es-CO', options);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard Ejecutivo</h1>
-        <p className="text-gray-600 mt-2">Vista general del estado de la finca</p>
+    <div className="min-h-screen bg-slate-50 p-6 space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Panel Integral de Analytics</h1>
+        <p className="text-gray-600 mt-2">
+          Monitorea inventario, salud, producción y alertas en tiempo real
+        </p>
+        {fechaActualizacion && (
+          <p className="text-xs text-gray-500 mt-1">
+            Última actualización:{' '}
+            {format(fechaActualizacion, "d 'de' MMMM, h:mm a", { locale: es })}
+          </p>
+        )}
       </div>
 
-      {/* KPIs Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
-          title="Animales Registrados"
+          title="Animales registrados"
           value={dashboard.animales_registrados?.valor || 0}
           change={dashboard.animales_registrados?.cambio_porcentual}
           icon="🐄"
           loading={loadingDashboard}
         />
         <KPICard
-          title="Animales Vivos"
+          title="Animales vivos"
           value={dashboard.animales_activos?.valor || 0}
           change={dashboard.animales_activos?.cambio_porcentual}
           icon="💚"
           loading={loadingDashboard}
         />
         <KPICard
-          title="Índice de Salud"
+          title="Índice de salud"
           value={`${
             (dashboard.distribucion_salud?.excelente || 0) +
             (dashboard.distribucion_salud?.bueno || 0)
           }/${dashboard.animales_activos?.valor || 0}`}
           icon="🏥"
           loading={loadingDashboard}
+          subtitle="Animales en condición óptima"
         />
         <KPICard
-          title="Alertas Activas"
+          title="Alertas activas"
           value={dashboard.alertas_sistema?.valor || 0}
           change={dashboard.alertas_sistema?.cambio_porcentual}
           icon="🔔"
@@ -150,13 +185,9 @@ const DashboardExecutive: React.FC = () => {
         />
       </div>
 
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Gráfico de Dona */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Distribución por Sexo
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribución por sexo</h2>
           <div className="h-64 flex items-center justify-center">
             <Doughnut
               data={sexDistributionData}
@@ -164,18 +195,13 @@ const DashboardExecutive: React.FC = () => {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                  legend: {
-                    position: 'bottom',
-                  },
+                  legend: { position: 'bottom' },
                   tooltip: {
                     callbacks: {
                       label: (context) => {
-                        const total =
-                          (dashboard.distribucion_sexo?.machos || 0) +
-                          (dashboard.distribucion_sexo?.hembras || 0);
-                        const percentage = total > 0
-                          ? ((context.parsed / total) * 100).toFixed(1)
-                          : '0.0';
+                        const total = totalesSexo.machos + totalesSexo.hembras;
+                        const percentage =
+                          total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
                         return `${context.label}: ${context.parsed} (${percentage}%)`;
                       },
                     },
@@ -186,56 +212,251 @@ const DashboardExecutive: React.FC = () => {
           </div>
         </div>
 
-        {/* Gráfico de Líneas */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Tendencia de Inventario (12 meses)
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estado de los animales</h2>
           <div className="h-64">
-            {loadingTrends ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-400">Cargando datos...</p>
+            {loadingAnimalStats ? (
+              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                Cargando estadísticas...
               </div>
-            ) : trendsError ? (
-              <div className="flex flex-col items-center justify-center h-full">
-                <p className="text-gray-400 text-sm">📊</p>
-                <p className="text-gray-400 text-xs mt-2">Endpoint no disponible</p>
-              </div>
-            ) : trendsData ? (
-              <Line
-                data={trendsData}
+            ) : statusChartData ? (
+              <Bar
+                data={statusChartData}
                 options={{
                   responsive: true,
                   maintainAspectRatio: false,
-                  interaction: {
-                    mode: 'index',
-                    intersect: false,
-                  },
-                  plugins: {
-                    legend: {
-                      position: 'bottom',
-                    },
-                  },
+                  plugins: { legend: { display: false } },
                   scales: {
-                    y: {
-                      beginAtZero: true,
-                    },
+                    y: { beginAtZero: true, ticks: { precision: 0 } },
                   },
                 }}
               />
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-gray-400">No hay datos disponibles</p>
+              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                No hay datos de distribución por estado.
               </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Resumen de inventario</h2>
+          <div className="space-y-5">
+            <QuickStat
+              label="Total de animales"
+              value={formatNumber(animalStats?.total ?? dashboard.animales_activos?.valor)}
+              icon="🐮"
+            />
+            <QuickStat
+              label="Peso promedio"
+              value={
+                animalStats?.average_weight ? `${animalStats.average_weight.toFixed(1)} kg` : '—'
+              }
+              icon="⚖️"
+            />
+            <QuickStat
+              label="Animales por especie"
+              value={dashboard.catalogo_especies?.valor || 0}
+              icon="🧬"
+            />
+            <QuickStat
+              label="Campos monitoreados"
+              value={dashboard.campos_registrados?.valor || productionStats?.total_fields || 0}
+              icon="🌱"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Pirámide de edades</h2>
+          <div className="h-64">
+            {loadingAnimalStats ? (
+              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                Cargando distribución de edades...
+              </div>
+            ) : ageDistributionData ? (
+              <Bar
+                data={ageDistributionData}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  indexAxis: 'y',
+                  plugins: { legend: { display: false } },
+                  scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0 } },
+                  },
+                }}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                No hay datos de edades.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Razas destacadas</h2>
+          {topBreeds && topBreeds.length > 0 ? (
+            <div className="space-y-4">
+              {topBreeds.slice(0, 5).map((breed: any, index: number) => {
+                const nombre = breed.breed_name || breed.raza || breed.name || `Raza ${index + 1}`;
+                const cantidad = breed.count ?? breed.cantidad ?? 0;
+                const totalAnimales = animalStats?.total || dashboard.animales_activos?.valor || 1;
+                const porcentaje = ((cantidad / totalAnimales) * 100).toFixed(1);
+                return (
+                  <div key={index}>
+                    <div className="flex items-center justify-between text-sm font-medium text-gray-700">
+                      <span>{nombre}</span>
+                      <span className="text-gray-900">{cantidad}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                      <div
+                        className="h-2 rounded-full bg-blue-500"
+                        style={{ width: `${Math.min(Number(porcentaje), 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">{porcentaje}% del inventario</p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">No hay datos de razas.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Salud y bienestar</h2>
+            <p className="text-sm text-gray-500">
+              Seguimiento de tratamientos, vacunas y enfermedades recurrentes
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <KPICard
+            title="Tratamientos registrados"
+            value={healthStats?.total_treatments ?? dashboard.tratamientos_totales?.valor ?? 0}
+            icon="💊"
+            loading={loadingHealthStats}
+          />
+          <KPICard
+            title="Tratamientos activos"
+            value={healthStats?.active_treatments ?? dashboard.tratamientos_activos?.valor ?? 0}
+            icon="🩺"
+            loading={loadingHealthStats}
+          />
+          <KPICard
+            title="Vacunas aplicadas"
+            value={healthStats?.total_vaccinations ?? dashboard.vacunas_aplicadas?.valor ?? 0}
+            icon="💉"
+            loading={loadingHealthStats}
+          />
+          <KPICard
+            title="Vacunas pendientes"
+            value={healthStats?.pending_vaccinations ?? 0}
+            icon="📅"
+            loading={loadingHealthStats}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div>
+            <ProgressMetric
+              label="Índice de éxito en tratamientos"
+              value={healthStats?.treatment_success_rate ?? 0}
+              suffix="%"
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              Porcentaje de tratamientos concluidos satisfactoriamente.
+            </p>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Enfermedades frecuentes</h3>
+            {enfermedadesComunes.length > 0 ? (
+              <ul className="space-y-2">
+                {enfermedadesComunes.slice(0, 5).map((disease, index) => (
+                  <li
+                    key={`${disease.disease_name}-${index}`}
+                    className="flex items-center justify-between text-sm text-gray-700 border-b border-gray-100 pb-2"
+                  >
+                    <span>{disease.disease_name}</span>
+                    <span className="font-semibold text-gray-900">{disease.count} casos</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-400">Sin registros recientes.</p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Alertas Críticas */}
-      <div className="bg-white rounded-lg shadow p-6 mb-8">
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Producción y rendimiento</h2>
+            <p className="text-sm text-gray-500">Utilización de potreros y eficiencia general</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <KPICard
+            title="Campos registrados"
+            value={productionStats?.total_fields ?? dashboard.campos_registrados?.valor ?? 0}
+            icon="🏞️"
+            loading={loadingProductionStats}
+          />
+          <KPICard
+            title="Animales por campo"
+            value={productionStats?.animals_per_field ?? 0}
+            icon="🐄"
+            loading={loadingProductionStats}
+            subtitle="Promedio actual"
+          />
+          <KPICard
+            title="Consumo de alimento"
+            value={
+              productionStats?.feed_consumption
+                ? `${productionStats.feed_consumption} kg`
+                : '—'
+            }
+            icon="🌾"
+            loading={loadingProductionStats}
+            subtitle="Último período reportado"
+          />
+          <KPICard
+            title="Costos mensuales"
+            value={`$ ${formatNumber(productionStats?.monthly_costs)}`}
+            icon="💰"
+            loading={loadingProductionStats}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ProgressMetric
+            label="Utilización de potreros"
+            value={productionStats?.field_utilization ?? 0}
+            suffix="%"
+          />
+          <ProgressMetric
+            label="Índice de productividad"
+            value={productionStats?.productivity_index ?? 0}
+            suffix="%"
+          />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-6 mb-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Alertas Críticas</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Alertas críticas</h2>
           <span className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
             {alerts?.alerts?.length || 0} activas
           </span>
@@ -260,75 +481,16 @@ const DashboardExecutive: React.FC = () => {
         ) : (
           <div className="text-center py-8 text-gray-500">
             <p className="text-4xl mb-2">✅</p>
-            <p>No hay alertas críticas</p>
+            <p>No hay alertas críticas en este momento</p>
           </div>
         )}
-      </div>
-
-      {/* Estadísticas Adicionales */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Distribución por Raza */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 5 Razas</h3>
-          <div className="space-y-3">
-            {dashboard.distribucion_razas_top5?.slice(0, 5).map((raza: any, index: number) => {
-              const total = dashboard.animales_activos?.valor || 1;
-              const percentage = ((raza.cantidad / total) * 100).toFixed(1);
-              return (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">{raza.raza}</span>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-24 bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-semibold text-gray-900 w-12 text-right">
-                      {raza.cantidad}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Estado de Salud */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Estado de Salud</h3>
-          <div className="space-y-3">
-            {dashboard.distribucion_salud &&
-              Object.entries(dashboard.distribucion_salud).map(([estado, cantidad]) => (
-                <div key={estado} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 capitalize">{estado}</span>
-                  <span className="text-sm font-semibold text-gray-900">{cantidad as number}</span>
-                </div>
-              ))}
-          </div>
-        </div>
-
-        {/* Grupos de Edad */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Grupos de Edad</h3>
-          <div className="space-y-3">
-            {dashboard.grupos_edad &&
-              Object.entries(dashboard.grupos_edad).map(([grupo, cantidad]) => (
-                <div key={grupo} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 capitalize">{grupo}</span>
-                  <span className="text-sm font-semibold text-gray-900">{cantidad as number}</span>
-                </div>
-              ))}
-          </div>
-        </div>
       </div>
     </div>
   );
 };
 
-// Componente de Loading
 const LoadingDashboard: React.FC = () => (
-  <div className="min-h-screen bg-gray-50 p-6">
+  <div className="min-h-screen bg-slate-50 p-6">
     <div className="mb-8 animate-pulse">
       <div className="h-8 bg-gray-200 rounded w-1/4 mb-2"></div>
       <div className="h-4 bg-gray-200 rounded w-1/3"></div>
@@ -342,6 +504,44 @@ const LoadingDashboard: React.FC = () => (
         </div>
       ))}
     </div>
+  </div>
+);
+
+const ProgressMetric: React.FC<{ label: string; value?: number; suffix?: string }> = ({
+  label,
+  value,
+  suffix = '%',
+}) => {
+  const normalized = value ?? 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between text-sm font-medium text-gray-600 mb-1">
+        <span>{label}</span>
+        <span className="text-gray-900">
+          {value !== undefined && value !== null ? `${normalized.toFixed(1)}${suffix}` : '—'}
+        </span>
+      </div>
+      <div className="w-full bg-gray-200 rounded-full h-2.5">
+        <div
+          className="h-2.5 rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 transition-all"
+          style={{ width: `${Math.min(Math.max(normalized, 0), 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+const QuickStat: React.FC<{ label: string; value: string | number; icon?: string }> = ({
+  label,
+  value,
+  icon,
+}) => (
+  <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+    <div>
+      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-lg font-semibold text-gray-900">{value}</p>
+    </div>
+    {icon && <span className="text-2xl">{icon}</span>}
   </div>
 );
 

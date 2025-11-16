@@ -147,6 +147,9 @@ export default defineConfig(({ command, mode }) => {
       conditions: ['module'],
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']
     },
+    define: {
+      __VITE_IMPORT_META_ENV__: 'import.meta.env'
+    },
     esbuild: { target: 'esnext' },
     build: {
       target: 'esnext',

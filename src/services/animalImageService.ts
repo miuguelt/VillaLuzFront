@@ -196,30 +196,31 @@ class AnimalImageService extends BaseService<AnimalImage> {
           }
         };
 
-        const buildAbsoluteStaticUrl = (path: string) => {
+        const buildStaticAssetUrl = (path: string, updatedAt?: string) => {
           const cleanPath = path.startsWith('/') ? path : `/${path}`;
           const backendBase = backendBaseURL.endsWith('/')
             ? backendBaseURL.slice(0, -1)
             : backendBaseURL;
-          return `${backendBase}${cleanPath}`;
+          if (isDevelopment()) {
+            try {
+              if (typeof window !== 'undefined') {
+                // Dejar que el dev server proxy /public o /static al backend
+                return addVersionParam(cleanPath, updatedAt);
+              }
+            } catch {
+              // noop - fallback a opciones siguientes
+            }
+            if (apiBaseURL.startsWith('/')) {
+              const baseRel = apiBaseURL.endsWith('/') ? apiBaseURL.slice(0, -1) : apiBaseURL;
+              return addVersionParam(`${baseRel}${cleanPath}`, updatedAt);
+            }
+          }
+          return addVersionParam(`${backendBase}${cleanPath}`, updatedAt);
         };
 
         response.data.data.images = response.data.data.images.map((image: AnimalImage) => {
-          // Si la URL ya es absoluta, intentar reescribir a origen local en desarrollo
+          // Si la URL ya es absoluta, respetarla para evitar 404 innecesarios
           if (image.url && (image.url.startsWith('http://') || image.url.startsWith('https://'))) {
-            if (isDevelopment()) {
-              try {
-                const abs = new URL(image.url);
-                const path = abs.pathname + (abs.search || '');
-                // Solo reescribir si apunta a rutas estáticas conocidas
-                if (path.startsWith('/public/images') || path.startsWith('/static/uploads')) {
-                  // En dev, usar la ruta local directa para aprovechar el proxy de Vite
-                  return { ...image, url: addVersionParam(path, image.updated_at) };
-                }
-              } catch {
-                // Ignorar errores de parseo y dejar la URL como está
-              }
-            }
             return { ...image, url: addVersionParam(image.url, image.updated_at) };
           }
 
@@ -227,14 +228,15 @@ class AnimalImageService extends BaseService<AnimalImage> {
           if (image.url) {
             const imageUrl = image.url.startsWith('/') ? image.url : `/${image.url}`;
 
-            // En desarrollo, enviar rutas estáticas conocidas sin prefijo /api/v1
+            if (imageUrl.startsWith('/public/images') || imageUrl.startsWith('/static/uploads')) {
+              return {
+                ...image,
+                url: buildStaticAssetUrl(imageUrl, image.updated_at),
+              };
+            }
+
+            // En desarrollo, enviar otras rutas relativas de API usando el proxy /api/v1
             if (isDevelopment()) {
-              if (imageUrl.startsWith('/public/images') || imageUrl.startsWith('/static/uploads')) {
-                return {
-                  ...image,
-                  url: addVersionParam(buildAbsoluteStaticUrl(imageUrl), image.updated_at),
-                };
-              }
               // Para otras rutas relativas de API, construir con /api/v1
               if (apiBaseURL.startsWith('/')) {
                 const baseRel = apiBaseURL.endsWith('/') ? apiBaseURL.slice(0, -1) : apiBaseURL;

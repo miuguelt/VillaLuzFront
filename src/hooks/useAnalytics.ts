@@ -1,6 +1,7 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
 import analyticsService from '@/services/analyticsService';
 import { ANALYTICS_FEATURES } from '@/config/analyticsFeatures';
+import type { AnimalStatistics, HealthStatistics, ProductionStatistics } from '@/types/swaggerTypes';
 
 /**
  * Hook personalizado para manejar todas las queries de analytics
@@ -48,6 +49,43 @@ export const useAnalytics = () => {
       enabled: ANALYTICS_FEATURES.AGE_PYRAMID,
       staleTime: 5 * 60 * 1000,
       retry: false,
+    });
+
+  /**
+   * Estadísticas detalladas de animales
+   * Incluye distribución por estado, sexo, raza, grupos de edad y peso promedio
+   */
+  const useAnimalStatistics = (): UseQueryResult<AnimalStatistics, Error> =>
+    useQuery({
+      queryKey: ['animal-statistics'],
+      queryFn: () => analyticsService.getAnimalStatistics(),
+      enabled: ANALYTICS_FEATURES.ANIMAL_STATISTICS,
+      staleTime: 5 * 60 * 1000,
+      retry: 1,
+    });
+
+  /**
+   * Estadísticas de salud (tratamientos, vacunas, enfermedades comunes)
+   */
+  const useHealthStatistics = (): UseQueryResult<HealthStatistics, Error> =>
+    useQuery({
+      queryKey: ['health-statistics'],
+      queryFn: () => analyticsService.getHealthStatistics(),
+      enabled: ANALYTICS_FEATURES.HEALTH_STATISTICS,
+      staleTime: 5 * 60 * 1000,
+      retry: 1,
+    });
+
+  /**
+   * Estadísticas de producción y rendimiento
+   */
+  const useProductionStatistics = (): UseQueryResult<ProductionStatistics, Error> =>
+    useQuery({
+      queryKey: ['production-statistics'],
+      queryFn: () => analyticsService.getProductionStatistics(),
+      enabled: ANALYTICS_FEATURES.PRODUCTION_STATISTICS,
+      staleTime: 5 * 60 * 1000,
+      retry: 1,
     });
 
   /**
@@ -188,6 +226,9 @@ export const useAnalytics = () => {
 
   return {
     useDashboard,
+    useAnimalStatistics,
+    useHealthStatistics,
+    useProductionStatistics,
     useAnimalInventory,
     useAgePyramid,
     useAnimalTrends,

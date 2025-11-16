@@ -22,12 +22,6 @@ const config = {
     }],
     '^.+\\.(js|jsx|ts|tsx)$': '<rootDir>/jest.transform.cjs',
   },
-  globals: {
-    'ts-jest': {
-      useESM: true,
-      tsconfig: '<rootDir>/tsconfig.jest.json',
-    },
-  },
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',

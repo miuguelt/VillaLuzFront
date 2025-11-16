@@ -4,12 +4,12 @@
  * Mejora drásticamente la percepción de velocidad de la aplicación
  */
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useIdleCallback, useNetworkStatus } from '@/hooks/usePerformance';
-import { prefetchData, isLowEndDevice } from '@/utils/performance';
+import { isLowEndDevice } from '@/utils/performance';
 import { animalService } from '@/services/animalService';
 import { fieldService } from '@/services/fieldService';
 import { breedsService } from '@/services/breedsService';
@@ -70,30 +70,24 @@ const PREFETCH_CONFIG: PrefetchConfig[] = [
   },
 ];
 
-/**
- * Mapeo de rutas a sus datos dependientes
- */
-const ROUTE_TO_DATA_MAP: Record<string, string[]> = {
-  '/dashboard': ['species', 'breeds'],
-  '/dashboard/admin/animals': ['species', 'breeds', 'fields'],
-  '/dashboard/admin/fields': ['fields'],
-  '/dashboard/admin/breeds': ['species', 'breeds'],
-  '/dashboard/instructor/animals': ['species', 'breeds', 'animals'],
-  '/dashboard/apprentice/animals': ['species', 'breeds', 'animals'],
-};
-
 export const PrefetchManager: React.FC = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { isAuthenticated, user } = useAuth();
   const { online, saveData } = useNetworkStatus();
   const prefetchedRoutes = useRef<Set<string>>(new Set());
+  const prefetchedQueries = useRef<Set<string>>(new Set());
   const isPrefetching = useRef(false);
+
+  const markQueryPrefetched = (config: PrefetchConfig) => {
+    const key = config.queryKey[0] ?? config.queryKey.join('|');
+    prefetchedQueries.current.add(key);
+  };
 
   /**
    * Prefetch de datos para una ruta específica
    */
-  const prefetchRoute = async (route: string) => {
+  const prefetchRoute = useCallback(async (route: string) => {
     // Solo si está autenticado y online
     if (!isAuthenticated || !online) return;
 
@@ -125,7 +119,7 @@ export const PrefetchManager: React.FC = () => {
         // Verificar dependencias
         if (config.dependencies) {
           const hasAllDeps = config.dependencies.every((dep) =>
-            prefetchedRoutes.current.has(dep)
+            prefetchedQueries.current.has(dep)
           );
           if (!hasAllDeps) continue;
         }
@@ -133,7 +127,7 @@ export const PrefetchManager: React.FC = () => {
         // Verificar si ya está en caché de React Query
         const cached = queryClient.getQueryData(config.queryKey);
         if (cached) {
-          prefetchedRoutes.current.add(config.queryKey.join('-'));
+          markQueryPrefetched(config);
           continue;
         }
 
@@ -144,7 +138,7 @@ export const PrefetchManager: React.FC = () => {
           staleTime: 5 * 60 * 1000, // 5 minutos
         });
 
-        prefetchedRoutes.current.add(config.queryKey.join('-'));
+        markQueryPrefetched(config);
 
         // Pequeño delay entre prefetches para no saturar
         await new Promise((resolve) => setTimeout(resolve, 100));
@@ -156,7 +150,7 @@ export const PrefetchManager: React.FC = () => {
     } finally {
       isPrefetching.current = false;
     }
-  };
+  }, [isAuthenticated, online, saveData, queryClient]);
 
   /**
    * Prefetch inteligente basado en la ruta actual
@@ -211,7 +205,7 @@ export const PrefetchManager: React.FC = () => {
 
     // Ejecutar predicción en idle time
     requestIdleCallback(predictNextRoutes, { timeout: 2000 });
-  }, [location.pathname, isAuthenticated, online, user?.role]);
+  }, [location.pathname, isAuthenticated, online, user?.role, prefetchRoute]);
 
   /**
    * Prefetch al hacer hover sobre links
@@ -249,7 +243,7 @@ export const PrefetchManager: React.FC = () => {
     return () => {
       document.removeEventListener('mouseover', handleMouseEnter, { capture: true });
     };
-  }, [isAuthenticated, online]);
+  }, [isAuthenticated, online, prefetchRoute]);
 
   /**
    * Limpiar caché antigua periódicamente
@@ -259,6 +253,7 @@ export const PrefetchManager: React.FC = () => {
       // Limpiar queries inactivas más antiguas de 30 minutos
       queryClient.clear();
       prefetchedRoutes.current.clear();
+      prefetchedQueries.current.clear();
     };
 
     // Limpiar cada 30 minutos
@@ -278,13 +273,19 @@ export const PrefetchManager: React.FC = () => {
 
     criticalData.forEach((key) => {
       const config = PREFETCH_CONFIG.find((c) => c.queryKey[0] === key);
-      if (config && !queryClient.getQueryData(config.queryKey)) {
-        queryClient.prefetchQuery({
-          queryKey: config.queryKey,
-          queryFn: config.fetchFn,
-          staleTime: 10 * 60 * 1000, // 10 minutos para datos críticos
-        });
+      if (!config) return;
+
+      const cached = queryClient.getQueryData(config.queryKey);
+      if (cached) {
+        markQueryPrefetched(config);
+        return;
       }
+
+      void queryClient.prefetchQuery({
+        queryKey: config.queryKey,
+        queryFn: config.fetchFn,
+        staleTime: 10 * 60 * 1000, // 10 minutos para datos críticos
+      }).then(() => markQueryPrefetched(config));
     });
   }, { timeout: 1000 });
 

@@ -1,8 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { getCookie } from '@/utils/cookieUtils'
 import { getApiBaseURL } from '@/utils/envConfig';
-import { unwrapApi } from '@/utils/apiUnwrap';
-import { extractJWT } from '@/utils/tokenUtils';
 import { getIndexedDBCache, setIndexedDBCache, startIndexedDBCacheCleanup } from '@/utils/indexedDBCache';
 
 // ENV y configuración
@@ -12,11 +10,14 @@ const env: Record<string, any> = ((globalThis as any)?.['import']?.['meta']?.['e
 const API_TIMEOUT = Number(env.VITE_API_TIMEOUT ?? 30000); // Increased from 10s to 30s
 const REFRESH_TIMEOUT = Number(env.VITE_REFRESH_TIMEOUT ?? 15000); // Increased from 8s to 15s
 // Mantener compatibilidad con VITE_FORCE_ABSOLUTE_BASE_URL pero preferir getApiBaseURL()
-const FORCE_ABSOLUTE = String(env.VITE_FORCE_ABSOLUTE_BASE_URL ?? '').toLowerCase() === 'true';
 const DEBUG_LOG = String(env.VITE_DEBUG_MODE ?? '').toLowerCase() === 'true';
 const AUTH_STORAGE_KEY = env.VITE_AUTH_STORAGE_KEY || 'finca_access_token';
 const HTTP_CACHE_TTL = Number(env.VITE_HTTP_CACHE_TTL ?? 20000); // TTL por defecto 20s
 const LOGIN_REDIRECT_PATH = env.VITE_LOGIN_PATH || '/login';
+
+const logDebugError = (prefix: string, error: unknown) => {
+  if (DEBUG_LOG) console.warn(prefix, error);
+};
 
 // Bases de URL: usar helper que decide según entorno y variables
 const baseURL = getApiBaseURL();
@@ -178,7 +179,9 @@ api.interceptors.request.use(
               (config as any).headers['Authorization'] = `Bearer ${tok}`;
             }
           }
-        } catch {}
+        } catch (storageError) {
+          logDebugError('[api] No se pudo leer token desde localStorage', storageError);
+        }
         // Añadir CSRF desde cookies legibles según el endpoint
         const isAuthMe = path.startsWith('auth/me');
         const isProtected = !isPublicEndpoint(path) || isAuthMe;
@@ -238,7 +241,9 @@ refreshClient.interceptors.request.use(
               }
             }
           }
-        } catch {}
+        } catch (storageError) {
+          logDebugError('[refreshClient] No se pudo leer token desde localStorage', storageError);
+        }
         if (path.startsWith('auth/refresh') && (config as any).headers['Authorization']) {
           delete (config as any).headers['Authorization'];
         }
@@ -320,8 +325,16 @@ async function callBackendLogout(logoutUrl?: string) {
 function clearClientTokens() {
   const keys = [AUTH_STORAGE_KEY, 'access_token'];
   for (const key of keys) {
-    try { if (typeof localStorage !== 'undefined') localStorage.removeItem(key); } catch {}
-    try { if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(key); } catch {}
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+    } catch (storageError) {
+      logDebugError('[api] No se pudo limpiar localStorage', storageError);
+    }
+    try {
+      if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(key);
+    } catch (storageError) {
+      logDebugError('[api] No se pudo limpiar sessionStorage', storageError);
+    }
   }
 }
 
@@ -332,10 +345,40 @@ async function forceClientLogout(reason = 'expired', options?: { logoutUrl?: str
     await callBackendLogout(options?.logoutUrl);
     if (typeof window !== 'undefined') {
       const loginPath = options?.loginUrl || LOGIN_REDIRECT_PATH || '/login';
-      const hasQuery = loginPath.includes('?');
-      const separator = hasQuery ? '&' : '?';
-      const target = `${loginPath}${separator}reason=${encodeURIComponent(reason)}`;
-      window.location.assign(target);
+      const redirectToLogin = () => {
+        try {
+          const loginUrl = new URL(loginPath, window.location.origin);
+          loginUrl.searchParams.set('reason', reason);
+          const target = loginUrl.toString();
+          const current = new URL(window.location.href);
+          const samePath = current.pathname === loginUrl.pathname;
+          const sameSearch = current.search === loginUrl.search;
+
+          if (samePath) {
+            if (!sameSearch) {
+              // Only query differs; update it without triggering a reload
+              window.history.replaceState(window.history.state, '', target);
+            }
+            // Already on target URL – avoid forcing another reload loop
+            return;
+          }
+
+          window.location.assign(target);
+        } catch (urlError) {
+          logDebugError('[api] No se pudo construir URL de login', urlError);
+          const hasQuery = loginPath.includes('?');
+          const separator = hasQuery ? '&' : '?';
+          const target = `${loginPath}${separator}reason=${encodeURIComponent(reason)}`;
+          const currentPathWithQuery = `${window.location.pathname}${window.location.search}`;
+          if (currentPathWithQuery === target) {
+            window.history.replaceState(window.history.state, '', target);
+            return;
+          }
+          window.location.assign(target);
+        }
+      };
+
+      redirectToLogin();
     }
   })().finally(() => {
     // En tests o entornos sin navegación, permitir reintentos manuales
@@ -451,9 +494,17 @@ api.interceptors.response.use(
             }
           }
           // rateLimitBackoff se declara más abajo; el closure lo resolverá a runtime
-          try { rateLimitBackoff.set(path, Date.now() + delayMs); } catch {}
-        } catch {}
-      } catch { /* noop */ }
+          try {
+            rateLimitBackoff.set(path, Date.now() + delayMs);
+          } catch (backoffError) {
+            logDebugError('[api] No se pudo registrar backoff de rate limit', backoffError);
+          }
+        } catch (rlError) {
+          logDebugError('[api] No se pudo procesar cabeceras de rate limit', rlError);
+        }
+      } catch (notifyError) {
+        logDebugError('[api] No se pudo despachar evento de rate limit', notifyError);
+      }
     }
 
     // Evitar recursión
@@ -587,7 +638,9 @@ const originalGet = api.get.bind(api);
         return { data: cachedBackoff, status: 200, statusText: 'OK', headers: {}, config } as AxiosResponse;
       }
     }
-  } catch {}
+  } catch (backoffError) {
+    logDebugError('[api] No se pudo evaluar backoff activo', backoffError);
+  }
 
   // Cache fresco primero (ahora asíncrono por IndexedDB)
   const cached = await readCache(key);
@@ -604,7 +657,11 @@ const originalGet = api.get.bind(api);
 
   const p = originalGet(url, config).then((resp: AxiosResponse) => {
     // Guardar en caché la respuesta (ahora en IndexedDB + memoria)
-    try { writeCache(key, resp.data, HTTP_CACHE_TTL); } catch {}
+    try {
+      writeCache(key, resp.data, HTTP_CACHE_TTL);
+    } catch (cacheError) {
+      logDebugError('[api] No se pudo almacenar respuesta en caché', cacheError);
+    }
     return resp;
   });
   inflightGet.set(key, p);

@@ -75,6 +75,15 @@ const lsRemove = (k: string) => {
   } catch { /* noop */ }
 }
 
+function safeJsonParse<T>(value: string | null): T | null {
+  if (!value) return null
+  try {
+    return JSON.parse(value) as T
+  } catch {
+    return null
+  }
+}
+
 // Caché de usuario con TTL de 1 hora para reducir llamadas a /auth/me
 const setCachedUser = (u: User | null) => {
   try {
@@ -90,9 +99,8 @@ const setCachedUser = (u: User | null) => {
 
 const getCachedUser = (): User | null => {
   try {
-    const raw = lsGet(LS_USER_CACHE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as { user?: User; cachedAt?: number }
+    const parsed = safeJsonParse<{ user?: User; cachedAt?: number }>(lsGet(LS_USER_CACHE_KEY))
+    if (!parsed) return null
     const cachedAt = Number(parsed?.cachedAt || 0)
     const age = Date.now() - cachedAt
 
@@ -134,9 +142,8 @@ const persistUser = (u: User | null) => {
 
 const readPersistedUser = (): User | null => {
   try {
-    const raw = lsGet(LS_AUTH_USER_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as { user?: User; ts?: number }
+    const parsed = safeJsonParse<{ user?: User; ts?: number }>(lsGet(LS_AUTH_USER_KEY))
+    if (!parsed) return null
     const ts = Number(parsed?.ts || 0)
     if (!ts || (Date.now() - ts) > LS_AUTH_TTL) {
       // Expirado: limpiar y devolver null
@@ -157,10 +164,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const navigate = useNavigate()
 
-  // Use env helpers without directly referencing import.meta
-  const rawRoleSwitch = ((globalThis as any)?.import?.meta?.env?.VITE_ENABLE_ROLE_SWITCH
-    ?? ((typeof (globalThis as any).process !== 'undefined' ? ((globalThis as any).process as any).env?.VITE_ENABLE_ROLE_SWITCH : undefined))
-    ?? '').toString()
  // Hacer que el role switch sea SOLO para entorno de desarrollo (ignorar flags en producción)
  const enableRoleSwitch = isDevelopment()
 
@@ -336,31 +339,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Bootstrap DEV impersonation if present (set by main.tsx) and only in development
     if (isDevelopment()) {
-      const devRaw = lsGet(DEV_USER_SESSION_KEY)
-      if (devRaw) {
-        try {
-          const dev = JSON.parse(devRaw) as { role: any; fullname?: string; id?: any }
-          const canonRole = normalizeRole(dev.role) || (typeof dev.role === 'string' ? dev.role : null)
-          if (canonRole) {
-            const devUser: User = {
-              id: Number(dev.id) || 0,
-              identification: 0,
-              fullname: dev.fullname || 'Dev User',
-              email: 'dev@example.com',
-              password: '',
-              role: canonRole as any,
-              status: true,
-            }
-            setUser(devUser)
-            setRole(devUser.role)
-            setName(devUser.fullname)
-            setIsAuthenticated(true)
-            setLoading(false)
-            persistUser(devUser)
-            prefetchRoleRoutes(devUser.role)
-            return
+      const dev = safeJsonParse<{ role: any; fullname?: string; id?: any }>(lsGet(DEV_USER_SESSION_KEY))
+      if (dev) {
+        const canonRole = normalizeRole(dev.role) || (typeof dev.role === 'string' ? dev.role : null)
+        if (canonRole) {
+          const devUser: User = {
+            id: Number(dev.id) || 0,
+            identification: 0,
+            fullname: dev.fullname || 'Dev User',
+            email: 'dev@example.com',
+            password: '',
+            role: canonRole as any,
+            status: true,
           }
-        } catch { /* ignore parse errors */ }
+          setUser(devUser)
+          setRole(devUser.role)
+          setName(devUser.fullname)
+          setIsAuthenticated(true)
+          setLoading(false)
+          persistUser(devUser)
+          prefetchRoleRoutes(devUser.role)
+          return
+        }
       }
     }
   
@@ -447,10 +447,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const onStorage = (e: StorageEvent) => {
         if (e.key !== AUTH_BC_FALLBACK_KEY || !e.newValue) return
-        try {
-          const parsed = JSON.parse(e.newValue)
-          onMsg({ data: parsed })
-        } catch { /* noop */ }
+        const parsed = safeJsonParse<any>(e.newValue)
+        if (parsed) onMsg({ data: parsed })
       }
       window.addEventListener('storage', onStorage)
 
@@ -518,10 +516,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       try { bc.close() } catch { /* noop */ }
     }
-  }, [clearAuthState])
+  }, [clearAuthState, navigate])
 
   // Login inmediato y redirección a rutas existentes según rol
-  const login = (userData?: User, _token?: string) => {
+  const login = useCallback((userData?: User, _token?: string) => {
     // Establecer estado inmediatamente con los datos proporcionados
     if (userData) {
       // Normalizar rol; si el backend retorna un rol desconocido (p. ej. "guest"), no lo forzamos a un rol válido
@@ -547,10 +545,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       clearAuthState()
       navigate('/login')
     }
-  }
+  }, [clearAuthState, navigate])
 
   // Impersonate solo para DEV, cambia el estado local del rol
-  const impersonateRole = (nextRole: RoleType) => {
+  const impersonateRole = useCallback((nextRole: RoleType) => {
     if (!enableRoleSwitch) return
     if (!user) return
     const newUser = { ...user, role: nextRole as any } as User
@@ -567,7 +565,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     const nextPath = roleToPath[newUser.role as Role] || '/admin/dashboard'
     navigate(nextPath, { replace: true })
-  }
+  }, [enableRoleSwitch, navigate, user])
 
   // Chequeo de permisos por rol
   const hasPermission = useCallback((permission: string) => {
@@ -628,4 +626,3 @@ const RATE_LIMIT_COOLDOWN_MS = 60_000; // 60s de enfriamiento tras 429
 const AUTH_BC_NAME = 'auth:sync'
 const INFLIGHT_SUPPRESSION_WINDOW_MS = 5000
 const AUTH_BC_FALLBACK_KEY = 'auth:sync:storage'
-const AUTH_STORAGE_KEY = 'auth:sync:storage'

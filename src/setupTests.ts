@@ -1,7 +1,5 @@
 import '@testing-library/jest-dom';
 
-import '@testing-library/jest-dom';
-
 // Mock import.meta for Jest compatibility
 (globalThis as any).import = {
   meta: {
@@ -12,6 +10,7 @@ import '@testing-library/jest-dom';
     }
   }
 };
+(globalThis as any).__VITE_IMPORT_META_ENV__ = (globalThis as any).import.meta.env;
 
 // Mock ResizeObserver for Jest compatibility
 global.ResizeObserver = jest.fn().mockImplementation(() => ({
