@@ -421,13 +421,37 @@ export { authService };
 export const loginUser = async (userData: any) => {
   try {
     const result = await authService.login(userData.identification, userData.password);
-    // Normalizar ruta al objeto user en posibles envoltorios del backend
+
+    // Normalizar respuesta para extraer usuario y token de forma robusta,
+    // soportando tanto el nuevo backend (envoltorio `data`) como variantes anteriores.
     const _r: any = result;
-    let normalizedUser = _r ? findUserCandidate(_r) : undefined;
+
+    // 1) Usuario: probar rutas directas más comunes y luego heurística genérica
+    let normalizedUser =
+      _r?.user ??
+      _r?.data?.user ??
+      _r?.data?.data?.user ??
+      (_r ? findUserCandidate(_r) : undefined);
+
     if (!normalizedUser && looksLikeUserObject(_r)) {
       normalizedUser = _r;
     }
-    let normalizedToken = _r ? extractJWT(findTokenCandidate(_r)) : undefined;
+
+    // 2) Token: intentar rutas directas y, si fallan, heurística findTokenCandidate
+    const directTokenCandidate =
+      _r?.access_token ??
+      _r?.token ??
+      _r?.data?.access_token ??
+      _r?.data?.data?.access_token;
+
+    let normalizedToken = directTokenCandidate
+      ? extractJWT(directTokenCandidate)
+      : undefined;
+
+    if (!normalizedToken && _r) {
+      const tokenFromHeuristics = findTokenCandidate(_r);
+      normalizedToken = extractJWT(tokenFromHeuristics);
+    }
 
     // Si no hay token visible, intentar validar sesión vía /auth/me (cookie HttpOnly)
     if (!normalizedToken) {
