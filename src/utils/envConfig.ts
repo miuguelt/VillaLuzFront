@@ -64,6 +64,24 @@ export const getBackendBaseURL = (): string => {
 
 // URL completa de la API (backend + /api/v1)
 export const getApiBaseURL = (): string => {
+  // Para dominios reales en producción (*.enlinea.sbs) usamos siempre
+  // el backend público HTTPS, evitando depender de heurísticas de entorno
+  // que pueden marcar erróneamente como "development" en el build final.
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname || '';
+    const isLocalHost =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1';
+
+    // Cualquier frontend servido bajo *.enlinea.sbs (p.ej. villaluz.enlinea.sbs)
+    // debe hablar con el backend público en finca.enlinea.sbs para evitar
+    // que /api/v1 apunte al propio frontend estático.
+    if (!isLocalHost && hostname.endsWith('.enlinea.sbs')) {
+      return 'https://finca.enlinea.sbs/api/v1';
+    }
+  }
+
   // If running in development and no explicit VITE_API_BASE_URL is provided,
   // return a relative path so the Vite dev server proxy can forward requests
   // to the backend and avoid CORS issues.
