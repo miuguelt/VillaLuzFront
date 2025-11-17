@@ -56,6 +56,114 @@ function clearCachedLoginPath(): void {
     // ignore
   }
 }
+
+// Utilidades para extraer tokens/usuarios en respuestas con estructuras inconsistentes
+const MAX_NESTED_LOOKUP_DEPTH = 6;
+const normalizeKey = (key: string) => key.replace(/[^a-z0-9]/gi, '').toLowerCase();
+const TOKEN_KEY_CANDIDATES = new Set([
+  'accesstoken',
+  'token',
+  'jwttoken',
+  'jwt',
+  'refreshtoken',
+]);
+const USER_CONTAINER_HINTS = ['user', 'usuario', 'userdata', 'user_data', 'userprofile', 'user_profile', 'profile', 'perfil', 'data', 'payload', 'result'];
+const USER_IDENTITY_KEYS = ['id', 'user_id', 'identification', 'fullname', 'full_name', 'name', 'email', 'role'];
+const USER_SECONDARY_KEYS = ['status', 'active', 'is_active', 'enabled'];
+const SKIP_KEYS = new Set(['message', 'messages', 'status', 'success', 'error', 'errors', 'code', 'detail', 'details']);
+
+const isPlainObject = (value: unknown): value is Record<string, any> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const looksLikeUserObject = (value: unknown): boolean => {
+  if (!isPlainObject(value)) return false;
+  if (USER_IDENTITY_KEYS.some((key) => key in value)) return true;
+  if ('id' in value && USER_SECONDARY_KEYS.some((key) => key in value)) return true;
+  return false;
+};
+
+const isLikelyTokenString = (value: unknown): value is string => {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  const bare = trimmed.startsWith('Bearer ') ? trimmed.slice(7).trim() : trimmed;
+  if (bare.length < 16) return false;
+  if (/\s/.test(bare)) return false;
+  return true;
+};
+
+const findUserCandidate = (payload: any, depth = 0): any => {
+  if (depth > MAX_NESTED_LOOKUP_DEPTH || payload == null) return undefined;
+  if (looksLikeUserObject(payload)) return payload;
+
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const found = findUserCandidate(item, depth + 1);
+      if (found) return found;
+    }
+    return undefined;
+  }
+
+  if (!isPlainObject(payload)) return undefined;
+
+  for (const key of USER_CONTAINER_HINTS) {
+    if (key in payload) {
+      const found = findUserCandidate((payload as any)[key], depth + 1);
+      if (found) return found;
+    }
+  }
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (USER_CONTAINER_HINTS.includes(key) || SKIP_KEYS.has(key)) continue;
+    const found = findUserCandidate(value, depth + 1);
+    if (found) return found;
+  }
+
+  return undefined;
+};
+
+const findTokenCandidate = (payload: any, depth = 0): any => {
+  if (depth > MAX_NESTED_LOOKUP_DEPTH || payload == null) return undefined;
+
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const found = findTokenCandidate(item, depth + 1);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  }
+
+  if (!isPlainObject(payload)) return undefined;
+
+  for (const [key, value] of Object.entries(payload)) {
+    const normalizedKey = normalizeKey(key);
+    if (TOKEN_KEY_CANDIDATES.has(normalizedKey)) {
+      if (typeof value === 'string') {
+        if (isLikelyTokenString(value)) return value;
+        continue;
+      }
+      const nested = findTokenCandidate(value, depth + 1);
+      if (nested !== undefined) return nested;
+      return value;
+    }
+  }
+
+  const prioritized = ['data', 'payload', 'result', 'attributes', 'meta', 'response'];
+  for (const key of prioritized) {
+    if (key in payload) {
+      const found = findTokenCandidate((payload as any)[key], depth + 1);
+      if (found !== undefined) return found;
+    }
+  }
+
+  for (const [key, value] of Object.entries(payload)) {
+    if (prioritized.includes(key) || SKIP_KEYS.has(key)) continue;
+    const found = findTokenCandidate(value, depth + 1);
+    if (found !== undefined) return found;
+  }
+
+  return undefined;
+};
 // Interfaces basadas en la documentación de la API
 interface LoginRequest {
   identification: string;
@@ -129,14 +237,7 @@ class AuthService {
       }
       const response = await refreshClient.post(`/auth/refresh`, null, { headers });
       const _r = response?.data ?? response;
-      const rawTokenCandidate = (_r && (
-        _r.access_token ||
-        _r.token ||
-        _r.data?.access_token ||
-        _r.data?.token ||
-        _r.data?.data?.access_token ||
-        _r.data?.data?.token
-      )) || undefined;
+      const rawTokenCandidate = _r ? findTokenCandidate(_r) : undefined;
       const normalizedToken = extractJWT(rawTokenCandidate);
       if (normalizedToken && isValidTokenFormat(normalizedToken)) {
         try { if (typeof localStorage !== 'undefined') localStorage.setItem(AUTH_STORAGE_KEY, normalizedToken); } catch {}
@@ -156,15 +257,11 @@ class AuthService {
       const response = await api.post(`/auth/login`, payload);
       const _r = response?.data ?? response;
   
-      const rawTokenCandidate = (_r && (
-        _r.access_token ||
-        _r.token ||
-        _r.data?.access_token ||
-        _r.data?.token ||
-        _r.data?.data?.access_token ||
-        _r.data?.data?.token
-      )) || undefined;
-      const normalizedUser = (_r && (_r.user || _r.data?.user || _r.data?.data?.user)) || undefined;
+      const rawTokenCandidate = _r ? findTokenCandidate(_r) : undefined;
+      let normalizedUser = _r ? findUserCandidate(_r) : undefined;
+      if (!normalizedUser && looksLikeUserObject(_r)) {
+        normalizedUser = _r;
+      }
       const normalizedMessage = (_r && (_r.message || _r.data?.message || _r.data?.data?.message)) || undefined;
   
       const normalizedToken = extractJWT(rawTokenCandidate);
@@ -224,7 +321,10 @@ class AuthService {
         const response: any = await api.get(`/${AUTH_URL}/me`, axiosConfig);
         const _r = response?.data ?? response;
         const normalizedMessage = (_r && (_r.message || _r.data?.message || _r.data?.data?.message)) || undefined;
-        const normalizedUser = (_r && (_r.user || _r.data?.user || _r.data?.data?.user)) || undefined;
+        let normalizedUser = _r ? findUserCandidate(_r) : undefined;
+        if (!normalizedUser && looksLikeUserObject(_r)) {
+          normalizedUser = _r;
+        }
 
         const result: UserProfileResponse = {
           message: normalizedMessage || 'Perfil obtenido',
@@ -323,13 +423,11 @@ export const loginUser = async (userData: any) => {
     const result = await authService.login(userData.identification, userData.password);
     // Normalizar ruta al objeto user en posibles envoltorios del backend
     const _r: any = result;
-    let normalizedUser = (_r && (
-      _r.user ||
-      _r.data?.user ||
-      _r.data?.data?.user ||
-      ((_r.id || _r.fullname || _r.identification) ? _r : undefined)
-    )) || undefined;
-    let normalizedToken = (_r && (_r.access_token || _r.data?.access_token || _r.data?.data?.access_token)) || undefined;
+    let normalizedUser = _r ? findUserCandidate(_r) : undefined;
+    if (!normalizedUser && looksLikeUserObject(_r)) {
+      normalizedUser = _r;
+    }
+    let normalizedToken = _r ? extractJWT(findTokenCandidate(_r)) : undefined;
 
     // Si no hay token visible, intentar validar sesión vía /auth/me (cookie HttpOnly)
     if (!normalizedToken) {
