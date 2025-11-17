@@ -54,7 +54,8 @@ export const getBackendBaseURL = (): string => {
   // URLs por defecto según el entorno
   switch (env) {
     case 'production':
-      return 'https://finca.isladigital.xyz';
+      // Backend público actual en producción
+      return 'https://finca.enlinea.sbs';
     case 'development':
     default:
       return 'http://127.0.0.1:8081';
@@ -110,7 +111,8 @@ export const getFrontendURL = (): string => {
   // URLs por defecto según el entorno
   switch (env) {
     case 'production':
-      return 'https://mifinca.isladigital.xyz';
+      // Frontend público actual en producción
+      return 'https://villaluz.enlinea.sbs';
     case 'development':
     default:
       return 'https://localhost:5175';
@@ -124,7 +126,8 @@ export const getCookieConfig = () => {
   return {
     secure: env === 'production',
     sameSite: 'none' as const,
-    domain: env === 'production' ? '.isladigital.xyz' : undefined
+    // Dominio base actualizado para producción
+    domain: env === 'production' ? '.enlinea.sbs' : undefined
   };
 };
 

@@ -1,6 +1,6 @@
 /**
  * Utilidad para verificar la conectividad con todos los endpoints del backend
- * Verifica que finca.isladigital.xyz esté respondiendo correctamente
+ * Verifica que el backend público (actualmente finca.enlinea.sbs) esté respondiendo correctamente
  */
 
 import api from '@/services/api';
@@ -67,7 +67,7 @@ interface TestResult {
 export const checkAllEndpoints = async (skipAuth: boolean = false): Promise<TestResult[]> => {
   const results: TestResult[] = [];
   
-  console.group('🔍 Verificando conectividad con finca.isladigital.xyz');
+  console.group('🔍 Verificando conectividad con finca.enlinea.sbs');
   console.log(`🌐 Base URL (api.defaults): ${api.defaults.baseURL}`);
   // Removed redundant resolvedApiBaseURL log
   console.log(`⏰ Timeout: ${api.defaults.timeout}ms`);
@@ -206,7 +206,7 @@ export const generateConnectivityReport = (results: TestResult[]): string => {
     results.filter(r => r.responseTime).length;
   
   return `
-📊 REPORTE DE CONECTIVIDAD - finca.isladigital.xyz
+📊 REPORTE DE CONECTIVIDAD - finca.enlinea.sbs
 ${'='.repeat(60)}
 
 📈 Resumen:
