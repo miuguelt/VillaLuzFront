@@ -544,7 +544,10 @@ export function AnimalImageBanner({
           }}
         >
           <DialogHeader className="sr-only">
-            <DialogTitle>{selectedImage?.filename}</DialogTitle>
+            <DialogTitle>{selectedImage?.filename || 'Imagen del animal'}</DialogTitle>
+            <DialogDescription>
+              Vista ampliada de la galería de imágenes del animal.
+            </DialogDescription>
           </DialogHeader>
           {selectedImage && (
             <div

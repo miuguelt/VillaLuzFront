@@ -187,24 +187,24 @@ const DashboardExecutive: React.FC = () => {
     ? new Date(dashboard.generated_at)
     : undefined;
 
-  // KPIs derivados del backend
-  const percentageKpis = useMemo(
-    () =>
-      kpiCards.filter((card) =>
-        ['health_index', 'vaccination_coverage', 'control_compliance', 'mortality_rate_30d', 'sales_rate_30d', 'alert_pressure', 'task_load_index'].includes(card.id)
-      ),
-    [kpiCards]
+  // KPIs derivados del backend (no usan hooks adicionales para evitar violar reglas de hooks)
+  const percentageKpis = kpiCards.filter((card) =>
+    [
+      'health_index',
+      'vaccination_coverage',
+      'control_compliance',
+      'mortality_rate_30d',
+      'sales_rate_30d',
+      'alert_pressure',
+      'task_load_index',
+    ].includes(card.id)
   );
 
-  const intensityKpis = useMemo(
-    () =>
-      kpiCards.filter((card) =>
-        ['treatments_intensity', 'controls_frequency', 'herd_growth_rate'].includes(card.id)
-      ),
-    [kpiCards]
+  const intensityKpis = kpiCards.filter((card) =>
+    ['treatments_intensity', 'controls_frequency', 'herd_growth_rate'].includes(card.id)
   );
 
-  const healthTimeSeries = useMemo(() => {
+  const healthTimeSeries = (() => {
     const treatments = healthStats?.treatments_by_month || [];
     const vaccinations = healthStats?.vaccinations_by_month || [];
     if (!treatments.length && !vaccinations.length) return null;
@@ -240,12 +240,14 @@ const DashboardExecutive: React.FC = () => {
         },
       ],
     };
-  }, [healthStats]);
+  })();
 
-  const weightTrendSeries = useMemo(() => {
+  const weightTrendSeries = (() => {
     const trends = productionStats?.weight_trends || [];
     if (!trends.length) return null;
-    const labels = trends.map((t: any) => t.period ?? `${t.year}-${String(t.month).padStart(2, '0')}`);
+    const labels = trends.map(
+      (t: any) => t.period ?? `${t.year}-${String(t.month).padStart(2, '0')}`
+    );
     const data = trends.map((t: any) => t.avg_weight ?? 0);
     return {
       labels,
@@ -260,7 +262,7 @@ const DashboardExecutive: React.FC = () => {
         },
       ],
     };
-  }, [productionStats]);
+  })();
 
   const formatNumber = (value?: number, options?: Intl.NumberFormatOptions) => {
     if (value === undefined || value === null || Number.isNaN(Number(value))) return '0';
