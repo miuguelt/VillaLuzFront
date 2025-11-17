@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
+import { formatChangePercentage } from '@/utils/formatUtils';
 
 interface KPICardProps {
   title: string;
@@ -22,9 +23,14 @@ const KPICard: React.FC<KPICardProps> = ({
   loading = false,
   subtitle,
 }) => {
-  const isPositive = change !== undefined && change >= 0;
+  const hasChange = change !== undefined && change !== null;
+  const isPositive = hasChange && (change as number) >= 0;
   const changeColor = isPositive ? 'text-green-600' : 'text-red-600';
   const bgColor = isPositive ? 'bg-green-50' : 'bg-red-50';
+  const formattedChange = useMemo(
+    () => formatChangePercentage(change),
+    [change]
+  );
 
   if (loading) {
     return (
@@ -51,15 +57,18 @@ const KPICard: React.FC<KPICardProps> = ({
           )}
         </div>
 
-        {change !== undefined && (
-          <div className={`flex items-center space-x-1 ${bgColor} px-2 py-1 rounded-full`}>
+        {formattedChange && (
+          <div
+            className={`flex items-center space-x-1 ${bgColor} px-2 py-1 rounded-full`}
+            title={typeof change === 'number' ? `${change.toFixed(1)}% vs periodo anterior` : undefined}
+          >
             {isPositive ? (
               <ArrowUpIcon className={`w-4 h-4 ${changeColor}`} />
             ) : (
               <ArrowDownIcon className={`w-4 h-4 ${changeColor}`} />
             )}
             <span className={`text-sm font-semibold ${changeColor}`}>
-              {Math.abs(change).toFixed(1)}%
+              {formattedChange}
             </span>
           </div>
         )}

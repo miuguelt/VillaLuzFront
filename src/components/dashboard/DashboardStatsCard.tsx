@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Minus, LucideIcon } from 'lucide-react';
 import { DashboardStat } from '@/hooks/useCompleteDashboardStats';
+import { formatChangePercentage } from '@/utils/formatUtils';
 
 interface DashboardStatsCardProps {
   title: string;
@@ -27,7 +28,27 @@ const DashboardStatsCardComponent: React.FC<DashboardStatsCardProps> = ({
   // OPTIMIZACIÓN: Memoizar cálculos para evitar recalcularlos en cada render
   const value = useMemo(() => stat?.valor ?? 0, [stat?.valor]);
   const change = useMemo(() => stat?.cambio_porcentual, [stat?.cambio_porcentual]);
-  const hasChange = useMemo(() => change !== undefined && change !== null, [change]);
+  const formattedChange = useMemo(
+    () => formatChangePercentage(change),
+    [change]
+  );
+  const hasChange = useMemo(() => formattedChange !== null, [formattedChange]);
+  const trend = useMemo(() => stat?.tendencia, [stat?.tendencia]);
+  const trendInfo = useMemo(() => {
+    if (!trend) return null;
+    const { periodo_actual, periodo_anterior } = trend;
+    if (
+      typeof periodo_actual !== 'number' ||
+      typeof periodo_anterior !== 'number'
+    ) {
+      return null;
+    }
+    const diff = periodo_actual - periodo_anterior;
+    let diffColor = 'text-muted-foreground';
+    if (diff > 0) diffColor = 'text-green-600';
+    else if (diff < 0) diffColor = 'text-red-600';
+    return { diff, diffColor, periodo_actual, periodo_anterior };
+  }, [trend]);
 
   const { TrendIcon, trendColor, trendBgColor } = useMemo(() => {
     if (!hasChange || change === 0) {
@@ -75,18 +96,35 @@ const DashboardStatsCardComponent: React.FC<DashboardStatsCardProps> = ({
           {description && (
             <p className="text-xs text-muted-foreground">{description}</p>
           )}
+          {trendInfo && (
+            <p className="text-[11px] text-muted-foreground">
+              Últimos 30 días:{' '}
+              <span className="font-medium text-foreground">
+                {trendInfo.periodo_actual}
+              </span>
+              {' · '}
+              Periodo anterior:{' '}
+              <span className="font-medium text-foreground">
+                {trendInfo.periodo_anterior}
+              </span>
+              {trendInfo.diff !== 0 && (
+                <span className={`ml-1 font-medium ${trendInfo.diffColor}`}>
+                  ({trendInfo.diff > 0 ? '+' : ''}
+                  {trendInfo.diff} vs anterior)
+                </span>
+              )}
+            </p>
+          )}
           {hasChange && (
             <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className={`${trendBgColor} border-0 ${trendColor}`}
-              >
-                <TrendIcon className="h-3 w-3 mr-1" />
-                <span className="text-xs font-medium">
-                  {change! > 0 ? '+' : ''}
-                  {change}%
-                </span>
-              </Badge>
+          <Badge
+            variant="outline"
+            className={`${trendBgColor} border-0 ${trendColor}`}
+            title={typeof change === 'number' ? `${change.toFixed(1)}% vs periodo anterior` : undefined}
+          >
+            <TrendIcon className="h-3 w-3 mr-1" />
+            <span className="text-xs font-medium">{formattedChange}</span>
+          </Badge>
               <span className="text-xs text-muted-foreground">vs anterior</span>
             </div>
           )}
@@ -103,6 +141,8 @@ export const DashboardStatsCard = memo(DashboardStatsCardComponent, (prevProps, 
     prevProps.title === nextProps.title &&
     prevProps.stat?.valor === nextProps.stat?.valor &&
     prevProps.stat?.cambio_porcentual === nextProps.stat?.cambio_porcentual &&
+    prevProps.stat?.tendencia?.periodo_actual === nextProps.stat?.tendencia?.periodo_actual &&
+    prevProps.stat?.tendencia?.periodo_anterior === nextProps.stat?.tendencia?.periodo_anterior &&
     prevProps.description === nextProps.description &&
     prevProps.className === nextProps.className &&
     prevProps.onClick === nextProps.onClick

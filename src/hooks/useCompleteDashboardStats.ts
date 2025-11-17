@@ -1,9 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { analyticsService } from '@/services/analyticsService';
 
+export interface StatTrend {
+  periodo_actual: number;
+  periodo_anterior: number;
+}
+
 export interface DashboardStat {
   valor: number;
-  tendencia?: string;
+  /**
+   * Desglose de altas recientes para el periodo actual (últimos 30 días)
+   * y el periodo inmediatamente anterior (30-60 días).
+   * Campo opcional: no todas las métricas lo incluyen.
+   */
+  tendencia?: StatTrend;
   cambio_porcentual?: number;
   desglose?: Record<string, any>;
 }
