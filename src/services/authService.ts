@@ -129,7 +129,14 @@ class AuthService {
       }
       const response = await refreshClient.post(`/auth/refresh`, null, { headers });
       const _r = response?.data ?? response;
-      const rawTokenCandidate = (_r && (_r.access_token || _r.data?.access_token || _r.data?.data?.access_token)) || undefined;
+      const rawTokenCandidate = (_r && (
+        _r.access_token ||
+        _r.token ||
+        _r.data?.access_token ||
+        _r.data?.token ||
+        _r.data?.data?.access_token ||
+        _r.data?.data?.token
+      )) || undefined;
       const normalizedToken = extractJWT(rawTokenCandidate);
       if (normalizedToken && isValidTokenFormat(normalizedToken)) {
         try { if (typeof localStorage !== 'undefined') localStorage.setItem(AUTH_STORAGE_KEY, normalizedToken); } catch {}
@@ -149,7 +156,14 @@ class AuthService {
       const response = await api.post(`/auth/login`, payload);
       const _r = response?.data ?? response;
   
-      const rawTokenCandidate = (_r && (_r.access_token || _r.data?.access_token || _r.data?.data?.access_token)) || undefined;
+      const rawTokenCandidate = (_r && (
+        _r.access_token ||
+        _r.token ||
+        _r.data?.access_token ||
+        _r.data?.token ||
+        _r.data?.data?.access_token ||
+        _r.data?.data?.token
+      )) || undefined;
       const normalizedUser = (_r && (_r.user || _r.data?.user || _r.data?.data?.user)) || undefined;
       const normalizedMessage = (_r && (_r.message || _r.data?.message || _r.data?.data?.message)) || undefined;
   
