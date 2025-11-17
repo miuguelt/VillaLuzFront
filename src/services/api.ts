@@ -14,6 +14,34 @@ const DEBUG_LOG = String(env.VITE_DEBUG_MODE ?? '').toLowerCase() === 'true';
 const AUTH_STORAGE_KEY = env.VITE_AUTH_STORAGE_KEY || 'finca_access_token';
 const HTTP_CACHE_TTL = Number(env.VITE_HTTP_CACHE_TTL ?? 20000); // TTL por defecto 20s
 const LOGIN_REDIRECT_PATH = env.VITE_LOGIN_PATH || '/login';
+const SESSION_STORAGE_KEYS = [AUTH_STORAGE_KEY, 'access_token'];
+const SESSION_COOKIE_CANDIDATES = ['access_token_cookie', 'access_token', 'csrf_access_token', 'csrf_refresh_token'];
+
+function hasClientSession(): boolean {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      for (const key of SESSION_STORAGE_KEYS) {
+        const value = localStorage.getItem(key);
+        if (value && value.trim().length) return true;
+      }
+    }
+  } catch { /* noop */ }
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      for (const key of SESSION_STORAGE_KEYS) {
+        const value = sessionStorage.getItem(key);
+        if (value && value.trim().length) return true;
+      }
+    }
+  } catch { /* noop */ }
+  try {
+    return SESSION_COOKIE_CANDIDATES.some((name) => {
+      try { return !!getCookie(name); } catch { return false; }
+    });
+  } catch {
+    return false;
+  }
+}
 
 const logDebugError = (prefix: string, error: unknown) => {
   if (DEBUG_LOG) console.warn(prefix, error);
@@ -520,7 +548,9 @@ api.interceptors.response.use(
 
     if (status === 401) {
       const tokenStatus = shouldForceLogout(error);
-      if (tokenStatus.shouldForce) {
+      const hasStoredAuth = hasClientSession();
+      const isAuthMeRequest = path.startsWith('auth/me');
+      if (tokenStatus.shouldForce && hasStoredAuth && !isAuthMeRequest) {
         await forceClientLogout('expired', { logoutUrl: tokenStatus.logoutUrl, loginUrl: tokenStatus.loginUrl });
         return Promise.reject(error);
       }
