@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardStatsCard, DashboardStatsGrid } from '@/components/dashboard/DashboardStatsCard';
-import { useCompleteDashboardStats, getStatValue } from '@/hooks/useCompleteDashboardStats';
+import { useCompleteDashboardStats, getStatValue, KpiCardSummary } from '@/hooks/useCompleteDashboardStats';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,10 +22,52 @@ import {
   Pill,
   RefreshCw,
 } from 'lucide-react';
+import KPICard from '@/components/analytics/KPICard';
 
 const InstructorDashboard: React.FC = () => {
   const { stats, loading, error, refetch, lastUpdated } = useCompleteDashboardStats();
   const navigate = useNavigate();
+  const kpiResumen = stats?.kpi_resumen;
+  const rawKpiCards: KpiCardSummary[] = kpiResumen?.cards ?? [];
+  const KPI_ORDER = [
+    'health_index',
+    'vaccination_coverage',
+    'control_compliance',
+    'mortality_rate_30d',
+    'sales_rate_30d',
+    'treatments_intensity',
+    'controls_frequency',
+    'herd_growth_rate',
+    'alert_pressure',
+    'task_load_index',
+  ];
+  const kpiCards = useMemo<KpiCardSummary[]>(() => {
+    if (!rawKpiCards.length) return [];
+    const indexOfId = (id: string) => KPI_ORDER.indexOf(id);
+    return [...rawKpiCards].sort((a, b) => {
+      const ai = indexOfId(a.id);
+      const bi = indexOfId(b.id);
+      if (ai === -1 && bi === -1) return a.id.localeCompare(b.id);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [rawKpiCards]);
+  const kpiIconMap = useMemo<Record<string, React.ReactNode>>(
+    () => ({
+      health_index: <Heart className="w-5 h-5 text-red-500" />,
+      vaccination_coverage: <Syringe className="w-5 h-5 text-emerald-600" />,
+      control_compliance: <FileCheck className="w-5 h-5 text-sky-600" />,
+      mortality_rate_30d: <AlertTriangle className="w-5 h-5 text-zinc-600" />,
+      sales_rate_30d: <TrendingUp className="w-5 h-5 text-amber-600" />,
+      treatments_intensity: <Pill className="w-5 h-5 text-indigo-600" />,
+      controls_frequency: <Calendar className="w-5 h-5 text-blue-600" />,
+      herd_growth_rate: <TrendingUp className="w-5 h-5 text-emerald-700" />,
+      alert_pressure: <AlertTriangle className="w-5 h-5 text-red-500" />,
+      task_load_index: <FileCheck className="w-5 h-5 text-orange-600" />,
+    }),
+    []
+  );
 
   if (error) {
     return (
@@ -62,12 +104,51 @@ const InstructorDashboard: React.FC = () => {
                 Última actualización: {lastUpdated.toLocaleTimeString()}
               </p>
             )}
-          </div>
+        </div>
           <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Actualizar
           </Button>
         </div>
+
+        {/* KPIs clave de salud y operación */}
+        {!loading && kpiCards.length > 0 && (
+          <div>
+            <h2 className="text-lg font-semibold mb-3">KPIs del hato (últimos 30 días)</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
+              {kpiCards.map((card) => {
+                // Para el instructor todos los KPIs son informativos; las tasas negativas (mortalidad)
+                // se muestran como mejores cuando bajan.
+                const isBadWhenHigher =
+                  card.id === 'mortality_rate_30d' ||
+                  card.id === 'sales_rate_30d' ||
+                  card.id === 'alert_pressure' ||
+                  card.id === 'task_load_index';
+                const unit = card.unidad || undefined;
+                const value =
+                  typeof card.valor === 'number' && unit === '%'
+                    ? card.valor.toFixed(1)
+                    : card.valor;
+                const iconNode =
+                  kpiIconMap[card.id] ??
+                  (card.icono ? <span className="text-lg">{card.icono}</span> : null);
+
+                return (
+                  <KPICard
+                    key={card.id}
+                    title={card.titulo}
+                    value={value}
+                    unit={unit}
+                    change={card.cambio}
+                    icon={iconNode}
+                    subtitle={card.descripcion}
+                    goodWhenHigher={!isBadWhenHigher}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Estadísticas Principales */}
         <div>

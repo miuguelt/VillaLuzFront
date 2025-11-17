@@ -69,6 +69,43 @@ const ApprenticeDashboard: React.FC = () => {
           </Button>
         </div>
 
+        {/* KPIs clave para el aprendiz (lectura general del hato) */}
+        {!loading && kpiCards.length > 0 && (
+          <div>
+            <h2 className="text-lg font-semibold mb-4">KPIs del hato (últimos 30 días)</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
+              {kpiCards.map((card) => {
+                const isBadWhenHigher =
+                  card.id === 'mortality_rate_30d' ||
+                  card.id === 'sales_rate_30d' ||
+                  card.id === 'alert_pressure' ||
+                  card.id === 'task_load_index';
+                const unit = card.unidad || undefined;
+                const value =
+                  typeof card.valor === 'number' && unit === '%'
+                    ? card.valor.toFixed(1)
+                    : card.valor;
+                const iconNode =
+                  kpiIconMap[card.id] ||
+                  (card.icono ? <span className="text-lg">{card.icono}</span> : null);
+
+                return (
+                  <KPICard
+                    key={card.id}
+                    title={card.titulo}
+                    value={value}
+                    unit={unit}
+                    change={card.cambio}
+                    icon={iconNode}
+                    subtitle={card.descripcion}
+                    goodWhenHigher={!isBadWhenHigher}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Estadísticas Principales */}
         <div>
           <h2 className="text-lg font-semibold mb-4">Resumen General</h2>

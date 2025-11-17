@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useAnalytics } from '@/hooks/useAnalytics';
 import KPICard from '@/components/analytics/KPICard';
 import AlertCard from '@/components/analytics/AlertCard';
-import { Doughnut, Bar } from 'react-chartjs-2';
+import { Doughnut, Bar, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -19,6 +19,19 @@ import {
 import { COLORS, getChartColors } from '@/utils/colors';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { KpiCardSummary } from '@/hooks/useCompleteDashboardStats';
+import {
+  HeartPulse,
+  ShieldCheck,
+  Stethoscope,
+  Skull,
+  ShoppingCart,
+  Pill,
+  ClipboardCheck,
+  TrendingUp,
+  AlertTriangle,
+  ListChecks,
+} from 'lucide-react';
 
 ChartJS.register(
   CategoryScale,
@@ -59,6 +72,49 @@ const DashboardExecutive: React.FC = () => {
     priority: 'critical',
     limit: 5,
   });
+
+  const kpiResumen = dashboard?.kpi_resumen;
+  const rawKpiCards: KpiCardSummary[] = kpiResumen?.cards ?? [];
+  const KPI_ORDER = [
+    'health_index',
+    'vaccination_coverage',
+    'control_compliance',
+    'mortality_rate_30d',
+    'sales_rate_30d',
+    'treatments_intensity',
+    'controls_frequency',
+    'herd_growth_rate',
+    'alert_pressure',
+    'task_load_index',
+  ];
+  const kpiCards = useMemo<KpiCardSummary[]>(() => {
+    if (!rawKpiCards.length) return [];
+    const indexOfId = (id: string) => KPI_ORDER.indexOf(id);
+    return [...rawKpiCards].sort((a, b) => {
+      const ai = indexOfId(a.id);
+      const bi = indexOfId(b.id);
+      if (ai === -1 && bi === -1) return a.id.localeCompare(b.id);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [rawKpiCards]);
+
+  const kpiIconMap = useMemo<Record<string, React.ReactNode>>(
+    () => ({
+      health_index: <HeartPulse className="w-5 h-5 text-red-500" />,
+      vaccination_coverage: <ShieldCheck className="w-5 h-5 text-emerald-600" />,
+      control_compliance: <Stethoscope className="w-5 h-5 text-sky-600" />,
+      mortality_rate_30d: <Skull className="w-5 h-5 text-zinc-600" />,
+      sales_rate_30d: <ShoppingCart className="w-5 h-5 text-amber-600" />,
+      treatments_intensity: <Pill className="w-5 h-5 text-indigo-600" />,
+      controls_frequency: <ClipboardCheck className="w-5 h-5 text-blue-600" />,
+      herd_growth_rate: <TrendingUp className="w-5 h-5 text-emerald-700" />,
+      alert_pressure: <AlertTriangle className="w-5 h-5 text-red-500" />,
+      task_load_index: <ListChecks className="w-5 h-5 text-orange-600" />,
+    }),
+    []
+  );
 
   if (loadingDashboard) {
     return <LoadingDashboard />;
@@ -131,6 +187,81 @@ const DashboardExecutive: React.FC = () => {
     ? new Date(dashboard.generated_at)
     : undefined;
 
+  // KPIs derivados del backend
+  const percentageKpis = useMemo(
+    () =>
+      kpiCards.filter((card) =>
+        ['health_index', 'vaccination_coverage', 'control_compliance', 'mortality_rate_30d', 'sales_rate_30d', 'alert_pressure', 'task_load_index'].includes(card.id)
+      ),
+    [kpiCards]
+  );
+
+  const intensityKpis = useMemo(
+    () =>
+      kpiCards.filter((card) =>
+        ['treatments_intensity', 'controls_frequency', 'herd_growth_rate'].includes(card.id)
+      ),
+    [kpiCards]
+  );
+
+  const healthTimeSeries = useMemo(() => {
+    const treatments = healthStats?.treatments_by_month || [];
+    const vaccinations = healthStats?.vaccinations_by_month || [];
+    if (!treatments.length && !vaccinations.length) return null;
+    // Unificar etiquetas por periodo
+    const labels = Array.from(
+      new Set([
+        ...treatments.map((i: any) => i.period),
+        ...vaccinations.map((i: any) => i.period),
+      ])
+    ).sort();
+
+    const mapSeries = (src: any[]) =>
+      labels.map((p) => src.find((i) => i.period === p)?.count ?? 0);
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'Tratamientos',
+          data: mapSeries(treatments),
+          borderColor: COLORS.charts.primary,
+          backgroundColor: COLORS.charts.primary,
+          tension: 0.25,
+          fill: false,
+        },
+        {
+          label: 'Vacunaciones',
+          data: mapSeries(vaccinations),
+          borderColor: COLORS.charts.secondary,
+          backgroundColor: COLORS.charts.secondary,
+          tension: 0.25,
+          fill: false,
+        },
+      ],
+    };
+  }, [healthStats]);
+
+  const weightTrendSeries = useMemo(() => {
+    const trends = productionStats?.weight_trends || [];
+    if (!trends.length) return null;
+    const labels = trends.map((t: any) => t.period ?? `${t.year}-${String(t.month).padStart(2, '0')}`);
+    const data = trends.map((t: any) => t.avg_weight ?? 0);
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'Peso promedio (kg)',
+          data,
+          borderColor: COLORS.charts.primary,
+          backgroundColor: COLORS.charts.primary,
+          tension: 0.3,
+          fill: true,
+        },
+      ],
+    };
+  }, [productionStats]);
+
   const formatNumber = (value?: number, options?: Intl.NumberFormatOptions) => {
     if (value === undefined || value === null || Number.isNaN(Number(value))) return '0';
     return Number(value).toLocaleString('es-CO', options);
@@ -152,38 +283,193 @@ const DashboardExecutive: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KPICard
-          title="Animales registrados"
-          value={dashboard.animales_registrados?.valor || 0}
-          change={dashboard.animales_registrados?.cambio_porcentual}
-          icon="🐄"
-          loading={loadingDashboard}
-        />
-        <KPICard
-          title="Animales vivos"
-          value={dashboard.animales_activos?.valor || 0}
-          change={dashboard.animales_activos?.cambio_porcentual}
-          icon="💚"
-          loading={loadingDashboard}
-        />
-        <KPICard
-          title="Índice de salud"
-          value={`${
-            (dashboard.distribucion_salud?.excelente || 0) +
-            (dashboard.distribucion_salud?.bueno || 0)
-          }/${dashboard.animales_activos?.valor || 0}`}
-          icon="🏥"
-          loading={loadingDashboard}
-          subtitle="Animales en condición óptima"
-        />
-        <KPICard
-          title="Alertas activas"
-          value={dashboard.alertas_sistema?.valor || 0}
-          change={dashboard.alertas_sistema?.cambio_porcentual}
-          icon="🔔"
-          loading={loadingDashboard}
-        />
+        {kpiCards.length > 0
+          ? kpiCards.slice(0, 4).map((card) => {
+              const isBadWhenHigher =
+                card.id === 'mortality_rate_30d' ||
+                card.id === 'sales_rate_30d' ||
+                card.id === 'alert_pressure' ||
+                card.id === 'task_load_index';
+              const unit = card.unidad || undefined;
+              const value =
+                typeof card.valor === 'number' && unit === '%'
+                  ? card.valor.toFixed(1)
+                  : card.valor;
+              const iconNode =
+                kpiIconMap[card.id] ||
+                (card.icono ? <span className="text-lg">{card.icono}</span> : null);
+
+              return (
+                <KPICard
+                  key={card.id}
+                  title={card.titulo}
+                  value={value}
+                  unit={unit}
+                  change={card.cambio}
+                  icon={iconNode}
+                  subtitle={card.descripcion}
+                  goodWhenHigher={!isBadWhenHigher}
+                  loading={loadingDashboard}
+                />
+              );
+            })
+          : (
+            <>
+              <KPICard
+                title="Animales registrados"
+                value={dashboard.animales_registrados?.valor || 0}
+                change={dashboard.animales_registrados?.cambio_porcentual}
+                icon="🐄"
+                loading={loadingDashboard}
+              />
+              <KPICard
+                title="Animales vivos"
+                value={dashboard.animales_activos?.valor || 0}
+                change={dashboard.animales_activos?.cambio_porcentual}
+                icon="💚"
+                loading={loadingDashboard}
+              />
+              <KPICard
+                title="Índice de salud"
+                value={`${
+                  (dashboard.distribucion_salud?.excelente || 0) +
+                  (dashboard.distribucion_salud?.bueno || 0)
+                }/${dashboard.animales_activos?.valor || 0}`}
+                icon="🏥"
+                loading={loadingDashboard}
+                subtitle="Animales en condición óptima"
+              />
+              <KPICard
+                title="Alertas activas"
+                value={dashboard.alertas_sistema?.valor || 0}
+                change={dashboard.alertas_sistema?.cambio_porcentual}
+                icon="🔔"
+                loading={loadingDashboard}
+              />
+            </>
+          )}
       </div>
+
+      {/* Visualización de KPIs como gauges (torta/oscilador) */}
+      {percentageKpis.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Estado general del hato (KPIs porcentuales)
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {percentageKpis.map((card) => {
+              const unit = card.unidad || '%';
+              const raw = typeof card.valor === 'number' ? card.valor : Number(card.valor) || 0;
+              const clamped = Math.max(0, Math.min(raw, 100));
+              const data = {
+                labels: ['Valor', 'Resto'],
+                datasets: [
+                  {
+                    data: [clamped, 100 - clamped],
+                    backgroundColor: [COLORS.charts.primary, '#E5E7EB'],
+                    borderWidth: 0,
+                  },
+                ],
+              };
+              const isBadWhenHigher =
+                card.id === 'mortality_rate_30d' ||
+                card.id === 'sales_rate_30d' ||
+                card.id === 'alert_pressure' ||
+                card.id === 'task_load_index';
+              const goodWhenHigher = !isBadWhenHigher;
+              const iconNode =
+                kpiIconMap[card.id] ||
+                (card.icono ? <span className="text-lg">{card.icono}</span> : null);
+
+              return (
+                <div key={card.id} className="flex flex-col items-center gap-2">
+                  <div className="w-32 h-32">
+                    <Doughnut
+                      data={data}
+                      options={{
+                        cutout: '70%',
+                        plugins: {
+                          legend: { display: false },
+                          tooltip: {
+                            callbacks: {
+                              label: (ctx) => `${ctx.parsed}%`,
+                            },
+                          },
+                        },
+                      }}
+                    />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <div className="flex items-center justify-center gap-1 text-sm font-medium">
+                      {iconNode}
+                      <span>{card.titulo}</span>
+                    </div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {clamped.toFixed(1)}
+                      {unit}
+                    </div>
+                    {typeof card.cambio === 'number' && (
+                      <div className="text-xs">
+                        <span
+                          className={
+                            (goodWhenHigher ? card.cambio >= 0 : card.cambio <= 0)
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                          }
+                        >
+                          {card.cambio > 0 ? '+' : ''}
+                          {card.cambio.toFixed(1)} pts
+                        </span>{' '}
+                        vs periodo anterior
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Comparación de intensidad/frecuencia/growth por periodo */}
+      {intensityKpis.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Intensidad de manejo (aceleración de actividades)
+          </h2>
+          <div className="h-80">
+            <Bar
+              data={{
+                labels: intensityKpis.map((c) => c.titulo),
+                datasets: [
+                  {
+                    label: 'Periodo actual',
+                    data: intensityKpis.map((c) => c.tendencia?.periodo_actual ?? c.valor ?? 0),
+                    backgroundColor: COLORS.charts.primary,
+                  },
+                  {
+                    label: 'Periodo anterior',
+                    data: intensityKpis.map((c) => c.tendencia?.periodo_anterior ?? 0),
+                    backgroundColor: COLORS.charts.secondary,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: 'bottom' },
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
@@ -366,6 +652,28 @@ const DashboardExecutive: React.FC = () => {
           />
         </div>
 
+        {/* Evolución de tratamientos y vacunaciones */}
+        {healthTimeSeries && (
+          <div className="h-72 mt-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+              Evolución de tratamientos y vacunaciones
+            </h3>
+            <Line
+              data={healthTimeSeries}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: 'bottom' },
+                },
+                scales: {
+                  y: { beginAtZero: true, ticks: { precision: 0 } },
+                },
+              }}
+            />
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
             <ProgressMetric
@@ -441,17 +749,43 @@ const DashboardExecutive: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ProgressMetric
-            label="Utilización de potreros"
-            value={productionStats?.field_utilization ?? 0}
-            suffix="%"
-          />
-          <ProgressMetric
-            label="Índice de productividad"
-            value={productionStats?.productivity_index ?? 0}
-            suffix="%"
-          />
+          <div>
+            <ProgressMetric
+              label="Utilización de potreros"
+              value={productionStats?.field_utilization ?? 0}
+              suffix="%"
+            />
+          </div>
+          <div>
+            <ProgressMetric
+              label="Índice de productividad"
+              value={productionStats?.productivity_index ?? 0}
+              suffix="%"
+            />
+          </div>
         </div>
+
+        {/* Curva de peso promedio: aceleración del crecimiento */}
+        {weightTrendSeries && (
+          <div className="h-72 mt-6">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+              Tendencia de peso promedio (aceleración del crecimiento)
+            </h3>
+            <Line
+              data={weightTrendSeries}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: { position: 'bottom' },
+                },
+                scales: {
+                  y: { beginAtZero: false },
+                },
+              }}
+            />
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow p-6 mb-4">

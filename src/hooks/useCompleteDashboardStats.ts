@@ -6,6 +6,29 @@ export interface StatTrend {
   periodo_anterior: number;
 }
 
+export interface KpiTrend {
+  periodo_actual: number;
+  periodo_anterior: number;
+  ventana_dias?: number;
+}
+
+export interface KpiCardSummary {
+  id: string;
+  titulo: string;
+  valor: number;
+  unidad?: string;
+  cambio?: number;
+  tendencia?: KpiTrend;
+  icono?: string;
+  descripcion?: string;
+  detalle?: Record<string, any>;
+}
+
+export interface KpiResumen {
+  ventana_dias: number;
+  cards: KpiCardSummary[];
+}
+
 export interface DashboardStat {
   valor: number;
   /**
@@ -56,6 +79,9 @@ export interface CompleteDashboardStats {
   mejoras_geneticas: DashboardStat;
   tratamientos_medicamentos: DashboardStat;
   tratamientos_vacunas: DashboardStat;
+
+  // KPIs agregados (ventana móvil)
+  kpi_resumen?: KpiResumen;
 }
 
 interface UseCompleteDashboardStatsResult {

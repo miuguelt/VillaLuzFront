@@ -5,10 +5,12 @@ import { formatChangePercentage } from '@/utils/formatUtils';
 interface KPICardProps {
   title: string;
   value: string | number;
+  unit?: string;
   change?: number;
-  icon?: string;
+  icon?: React.ReactNode;
   loading?: boolean;
   subtitle?: string;
+  goodWhenHigher?: boolean;
 }
 
 /**
@@ -18,13 +20,17 @@ interface KPICardProps {
 const KPICard: React.FC<KPICardProps> = ({
   title,
   value,
+  unit,
   change,
   icon,
   loading = false,
   subtitle,
+  goodWhenHigher = true,
 }) => {
   const hasChange = change !== undefined && change !== null;
-  const isPositive = hasChange && (change as number) >= 0;
+  const isPositive = hasChange
+    ? (goodWhenHigher ? (change as number) >= 0 : (change as number) <= 0)
+    : false;
   const changeColor = isPositive ? 'text-green-600' : 'text-red-600';
   const bgColor = isPositive ? 'bg-green-50' : 'bg-red-50';
   const formattedChange = useMemo(
@@ -51,7 +57,14 @@ const KPICard: React.FC<KPICardProps> = ({
 
       <div className="flex items-baseline justify-between">
         <div className="flex flex-col">
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
+          <p className="text-3xl font-bold text-gray-900">
+            {value}
+            {unit && (
+              <span className="ml-1 text-base font-semibold text-gray-500">
+                {unit}
+              </span>
+            )}
+          </p>
           {subtitle && (
             <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
           )}

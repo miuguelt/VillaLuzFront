@@ -9,7 +9,24 @@ import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
-import { Loader2, Users, Building2, ClipboardList, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react';
+import {
+  Loader2,
+  Users,
+  Building2,
+  ClipboardList,
+  AlertTriangle,
+  CheckCircle,
+  RefreshCw,
+  HeartPulse,
+  ShieldCheck,
+  Stethoscope,
+  Skull,
+  ShoppingCart,
+  Pill,
+  ClipboardCheck,
+  TrendingUp,
+  ListChecks,
+} from 'lucide-react';
 // OPTIMIZACIÓN: Lazy loading de componentes pesados
 import { usePermissions } from '@/hooks/useJWT';
 import api, { unwrapApi } from '@/services/api';
@@ -21,7 +38,8 @@ import { SkeletonCard, SkeletonTable } from '@/components/ui/skeleton';
 import { useOptimizedList } from '@/hooks/useOptimizedData';
 import { DataSyncIndicator } from '@/components/common/DataSyncIndicator';
 import { DashboardStatsCard, DashboardStatsGrid } from '@/components/dashboard/DashboardStatsCard';
-import { useCompleteDashboardStats } from '@/hooks/useCompleteDashboardStats';
+import { useCompleteDashboardStats, KpiCardSummary } from '@/hooks/useCompleteDashboardStats';
+import KPICard from '@/components/analytics/KPICard';
 
 // Lazy load de componentes pesados para mejorar tiempo de carga inicial
 const StatisticsCard = lazy(() => import('../../../components/dashboard/StatisticsCard'));
@@ -178,6 +196,32 @@ const AdminDashboard: React.FC = () => {
   // OPTIMIZACIÓN: Usar SOLO useCompleteDashboardStats que trae TODAS las métricas en una sola llamada
   // Esto elimina 3 llamadas HTTP redundantes (dashboard, health, production)
   const { stats: completeStats, loading: completeLoading, error: completeError, refetch: refetchComplete, lastUpdated } = useCompleteDashboardStats(true);
+  const kpiResumen = completeStats?.kpi_resumen;
+  const rawKpiCards: KpiCardSummary[] = kpiResumen?.cards ?? [];
+  const KPI_ORDER = [
+    'health_index',
+    'vaccination_coverage',
+    'control_compliance',
+    'mortality_rate_30d',
+    'sales_rate_30d',
+    'treatments_intensity',
+    'controls_frequency',
+    'herd_growth_rate',
+    'alert_pressure',
+    'task_load_index',
+  ];
+  const kpiCards = useMemo<KpiCardSummary[]>(() => {
+    if (!rawKpiCards.length) return [];
+    const indexOfId = (id: string) => KPI_ORDER.indexOf(id);
+    return [...rawKpiCards].sort((a, b) => {
+      const ai = indexOfId(a.id);
+      const bi = indexOfId(b.id);
+      if (ai === -1 && bi === -1) return a.id.localeCompare(b.id);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [rawKpiCards]);
 
   // Helper: mapear color devuelto por backend a clases Tailwind
   const colorToClasses = (color?: string) => {
@@ -385,9 +429,71 @@ const AdminDashboard: React.FC = () => {
     [alerts, filterType, filterPriority]
   )
 
+  const kpiIconMap: Record<string, React.ReactNode> = useMemo(
+    () => ({
+      health_index: <HeartPulse className="w-5 h-5 text-red-500" />,
+      vaccination_coverage: <ShieldCheck className="w-5 h-5 text-emerald-600" />,
+      control_compliance: <Stethoscope className="w-5 h-5 text-sky-600" />,
+      mortality_rate_30d: <Skull className="w-5 h-5 text-zinc-600" />,
+      sales_rate_30d: <ShoppingCart className="w-5 h-5 text-amber-600" />,
+      treatments_intensity: <Pill className="w-5 h-5 text-indigo-600" />,
+      controls_frequency: <ClipboardCheck className="w-5 h-5 text-blue-600" />,
+      herd_growth_rate: <TrendingUp className="w-5 h-5 text-emerald-700" />,
+      alert_pressure: <AlertTriangle className="w-5 h-5 text-red-500" />,
+      task_load_index: <ListChecks className="w-5 h-5 text-orange-600" />,
+    }),
+    []
+  );
+
   // Generación de tarjetas del dashboard usando estadísticas completas del backend
   const renderCompleteStatsCards = () => (
     <div className="space-y-6">
+      {kpiCards.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base font-semibold text-foreground">
+                KPIs de salud y operación
+              </CardTitle>
+              {kpiResumen?.ventana_dias && (
+                <CardDescription className="text-xs">
+                  Ventana móvil de {kpiResumen.ventana_dias} días
+                </CardDescription>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {kpiCards.map((card) => {
+              const isBadWhenHigher =
+                card.id === 'mortality_rate_30d' ||
+                card.id === 'sales_rate_30d' ||
+                card.id === 'alert_pressure' ||
+                card.id === 'task_load_index';
+              const goodWhenHigher = !isBadWhenHigher;
+              const iconNode =
+                kpiIconMap[card.id] ?? (card.icono ? <span>{card.icono}</span> : null);
+              const unit = card.unidad || undefined;
+              const value =
+                typeof card.valor === 'number' && unit === '%'
+                  ? card.valor.toFixed(1)
+                  : card.valor;
+
+              return (
+                <KPICard
+                  key={card.id}
+                  title={card.titulo}
+                  value={value}
+                  unit={unit}
+                  change={card.cambio}
+                  icon={iconNode}
+                  subtitle={card.descripcion}
+                  goodWhenHigher={goodWhenHigher}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
       {/* Errores del endpoint completo */}
       {completeError && (
         <Alert>
