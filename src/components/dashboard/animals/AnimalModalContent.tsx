@@ -14,6 +14,7 @@ import { vaccinationsService } from '@/services/vaccinationsService';
 import { treatmentsService } from '@/services/treatmentsService';
 import { controlService } from '@/services/controlService';
 import analyticsService from '@/services/analyticsService';
+import { resolveRecordId } from '@/utils/recordIdUtils';
 
 interface AnimalModalContentProps {
   animal: AnimalResponse & { [k: string]: any };
@@ -394,13 +395,14 @@ export function AnimalModalContent({
             onView={(item) => openViewModal('genetic_improvement', item)}
             onEdit={(item) => openEditModal('genetic_improvement', item)}
             onDelete={async (item) => {
-              if (confirm('¿Está seguro de eliminar esta mejora genética?')) {
-                try {
-                  await geneticImprovementsService.deleteGeneticImprovement(item.id);
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
-                }
+              if (!confirm('¿Está seguro de eliminar esta mejora genética?')) return;
+              try {
+                const recordId = resolveRecordId(item);
+                if (recordId === null) throw new Error('No se pudo determinar el ID del registro');
+                await geneticImprovementsService.deleteGeneticImprovement(recordId as any);
+                setDataRefreshTrigger(prev => prev + 1);
+              } catch (error: any) {
+                alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
               }
             }}
           />
@@ -429,13 +431,14 @@ export function AnimalModalContent({
             onView={(item) => openViewModal('animal_disease', item)}
             onEdit={(item) => openEditModal('animal_disease', item)}
             onDelete={async (item) => {
-              if (confirm('¿Está seguro de eliminar este registro de enfermedad?')) {
-                try {
-                  await animalDiseasesService.deleteAnimalDisease(item.id);
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
-                }
+              if (!confirm('¿Está seguro de eliminar este registro de enfermedad?')) return;
+              try {
+                const recordId = resolveRecordId(item);
+                if (recordId === null) throw new Error('No se pudo determinar el ID del registro');
+                await animalDiseasesService.deleteAnimalDisease(recordId as any);
+                setDataRefreshTrigger(prev => prev + 1);
+              } catch (error: any) {
+                alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
               }
             }}
           />
@@ -467,13 +470,14 @@ export function AnimalModalContent({
             onView={(item) => openViewModal('animal_field', item)}
             onEdit={(item) => openEditModal('animal_field', item)}
             onDelete={async (item) => {
-              if (confirm('¿Está seguro de eliminar esta asignación de campo?')) {
-                try {
-                  await animalFieldsService.deleteAnimalField(item.id);
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
-                }
+              if (!confirm('¿Está seguro de eliminar esta asignación de campo?')) return;
+              try {
+                const recordId = resolveRecordId(item);
+                if (recordId === null) throw new Error('No se pudo determinar el ID del registro');
+                await animalFieldsService.deleteAnimalField(recordId as any);
+                setDataRefreshTrigger(prev => prev + 1);
+              } catch (error: any) {
+                alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
               }
             }}
           />
@@ -502,13 +506,14 @@ export function AnimalModalContent({
             onView={(item) => openViewModal('vaccination', item)}
             onEdit={(item) => openEditModal('vaccination', item)}
             onDelete={async (item) => {
-              if (confirm('¿Está seguro de eliminar esta vacunación?')) {
-                try {
-                  await vaccinationsService.deleteVaccination(item.id);
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
-                }
+              if (!confirm('¿Está seguro de eliminar esta vacunación?')) return;
+              try {
+                const recordId = resolveRecordId(item);
+                if (recordId === null) throw new Error('No se pudo determinar el ID del registro');
+                await vaccinationsService.deleteVaccination(recordId as any);
+                setDataRefreshTrigger(prev => prev + 1);
+              } catch (error: any) {
+                alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
               }
             }}
           />
@@ -537,13 +542,14 @@ export function AnimalModalContent({
             onEdit={(item) => openEditModal('treatment', item)}
             onView={(item) => openViewModal('treatment', item)}
             onDelete={async (item) => {
-              if (confirm('¿Está seguro de eliminar este tratamiento?')) {
-                try {
-                  await treatmentsService.deleteTreatment(item.id);
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
-                }
+              if (!confirm('¿Está seguro de eliminar este tratamiento?')) return;
+              try {
+                const recordId = resolveRecordId(item);
+                if (recordId === null) throw new Error('No se pudo determinar el ID del registro');
+                await treatmentsService.deleteTreatment(recordId as any);
+                setDataRefreshTrigger(prev => prev + 1);
+              } catch (error: any) {
+                alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
               }
             }}
           />
@@ -577,13 +583,14 @@ export function AnimalModalContent({
             onView={(item) => openViewModal('control', item)}
             onEdit={(item) => openEditModal('control', item)}
             onDelete={async (item) => {
-              if (confirm('¿Está seguro de eliminar este control?')) {
-                try {
-                  await controlService.deleteControl(item.id);
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
-                }
+              if (!confirm('¿Está seguro de eliminar este control?')) return;
+              try {
+                const recordId = resolveRecordId(item);
+                if (recordId === null) throw new Error('No se pudo determinar el ID del registro');
+                await controlService.deleteControl(recordId as any);
+                setDataRefreshTrigger(prev => prev + 1);
+              } catch (error: any) {
+                alert('Error al eliminar: ' + (error?.response?.data?.message || error.message));
               }
             }}
           />

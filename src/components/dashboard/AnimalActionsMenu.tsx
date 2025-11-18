@@ -15,6 +15,7 @@ import { AnimalResponse } from '@/types/swaggerTypes';
 import { getTodayColombia } from '@/utils/dateUtils';
 import { SectionCard, InfoField } from '@/components/common/ModalStyles';
 import { Badge } from '@/components/ui/badge';
+import { resolveRecordId } from '@/utils/recordIdUtils';
 
 // Importar servicios
 import { geneticImprovementsService } from '@/services/geneticImprovementsService';
@@ -72,7 +73,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
   const [listData, setListData] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
-  const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<string | number | null>(null);
 
   // Opciones para los selects
   const [diseaseOptions, setDiseaseOptions] = useState<Array<{ value: number; label: string }>>([]);
@@ -333,6 +334,10 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
 
     try {
       const isEditing = !!editingItem;
+      const targetId = isEditing ? resolveRecordId(editingItem) : null;
+      if (isEditing && targetId === null) {
+        throw new Error('No se pudo determinar el identificador del registro a actualizar');
+      }
 
       // Asegurar que animal_id siempre esté presente
       const dataToSend = {
@@ -361,7 +366,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
             throw new Error('Los resultados son obligatorios');
           }
           if (isEditing) {
-            await geneticImprovementsService.updateGeneticImprovement(editingItem.id, dataToSend);
+            await geneticImprovementsService.updateGeneticImprovement(targetId as any, dataToSend);
           } else {
             await geneticImprovementsService.createGeneticImprovement(dataToSend);
           }
@@ -374,7 +379,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
             throw new Error('Enfermedad e instructor son obligatorios');
           }
           if (isEditing) {
-            await animalDiseasesService.updateAnimalDisease(editingItem.id, dataToSend);
+            await animalDiseasesService.updateAnimalDisease(targetId as any, dataToSend);
           } else {
             await animalDiseasesService.createAnimalDisease(dataToSend);
           }
@@ -390,7 +395,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
             throw new Error('La fecha de asignación es obligatoria');
           }
           if (isEditing) {
-            await animalFieldsService.updateAnimalField(editingItem.id, dataToSend);
+            await animalFieldsService.updateAnimalField(targetId as any, dataToSend);
           } else {
             await animalFieldsService.createAnimalField(dataToSend);
           }
@@ -406,7 +411,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
             throw new Error('La fecha de vacunación es obligatoria');
           }
           if (isEditing) {
-            await vaccinationsService.updateVaccination(editingItem.id, dataToSend);
+            await vaccinationsService.updateVaccination(targetId as any, dataToSend);
           } else {
             await vaccinationsService.createVaccination(dataToSend);
           }
@@ -433,7 +438,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
 
           try {
             if (isEditing) {
-              await treatmentsService.updateTreatment(editingItem.id, dataToSend);
+              await treatmentsService.updateTreatment(targetId as any, dataToSend);
             } else {
               await treatmentsService.createTreatment(dataToSend);
             }
@@ -453,7 +458,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
             throw new Error('La fecha del control es obligatoria');
           }
           if (isEditing) {
-            await controlService.updateControl(editingItem.id, dataToSend);
+            await controlService.updateControl(targetId as any, dataToSend);
           } else {
             await controlService.createControl(dataToSend);
           }
@@ -484,29 +489,34 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
     setModalMode('create');
   };
 
-  const handleDelete = async (itemId: number) => {
+  const handleDelete = async (item: any) => {
+    const itemId = resolveRecordId(item);
+    if (itemId === null) {
+      alert('No se pudo determinar el identificador del registro');
+      return;
+    }
     if (!confirm('¿Está seguro de eliminar este registro?')) return;
 
     setDeletingItemId(itemId);
     try {
       switch (openModal) {
         case 'genetic_improvement':
-          await geneticImprovementsService.deleteGeneticImprovement(itemId);
+          await geneticImprovementsService.deleteGeneticImprovement(itemId as any);
           break;
         case 'animal_disease':
-          await animalDiseasesService.deleteAnimalDisease(itemId);
+          await animalDiseasesService.deleteAnimalDisease(itemId as any);
           break;
         case 'animal_field':
-          await animalFieldsService.deleteAnimalField(itemId);
+          await animalFieldsService.deleteAnimalField(itemId as any);
           break;
         case 'vaccination':
-          await vaccinationsService.deleteVaccination(itemId);
+          await vaccinationsService.deleteVaccination(itemId as any);
           break;
         case 'treatment':
-          await treatmentsService.deleteTreatment(itemId);
+          await treatmentsService.deleteTreatment(itemId as any);
           break;
         case 'control':
-          await controlService.deleteControl(itemId);
+          await controlService.deleteControl(itemId as any);
           break;
       }
 
@@ -567,7 +577,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
                   <Edit2 className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleDelete(item.id)}
+                  onClick={() => handleDelete(item)}
                   disabled={deletingItemId === item.id}
                   className="p-2 rounded-md bg-destructive/10 hover:bg-destructive/20 text-destructive transition-colors disabled:opacity-50"
                   title="Eliminar"
