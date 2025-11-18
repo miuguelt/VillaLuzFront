@@ -31,8 +31,8 @@ const KPICard: React.FC<KPICardProps> = ({
   const isPositive = hasChange
     ? (goodWhenHigher ? (change as number) >= 0 : (change as number) <= 0)
     : false;
-  const changeColor = isPositive ? 'text-green-600' : 'text-red-600';
-  const bgColor = isPositive ? 'bg-green-50' : 'bg-red-50';
+  const changeColor = isPositive ? 'text-success-600' : 'text-danger-600';
+  const bgColor = isPositive ? 'bg-success-50' : 'bg-danger-50';
   const formattedChange = useMemo(
     () => formatChangePercentage(change),
     [change]
@@ -40,33 +40,33 @@ const KPICard: React.FC<KPICardProps> = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-6 animate-pulse">
-        <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-        <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+      <div className="bg-card rounded-lg shadow p-6 animate-pulse">
+        <div className="h-4 bg-muted rounded w-1/2 mb-4"></div>
+        <div className="h-8 bg-muted rounded w-3/4 mb-2"></div>
+        <div className="h-4 bg-muted rounded w-1/3"></div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6">
+    <div className="bg-card text-card-foreground rounded-lg shadow hover:shadow-lg transition-shadow p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-gray-600">{title}</h3>
+        <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
         {icon && <span className="text-2xl">{icon}</span>}
       </div>
 
       <div className="flex items-baseline justify-between">
         <div className="flex flex-col">
-          <p className="text-3xl font-bold text-gray-900">
+          <p className="text-3xl font-bold text-foreground">
             {value}
             {unit && (
-              <span className="ml-1 text-base font-semibold text-gray-500">
+              <span className="ml-1 text-base font-semibold text-muted-foreground">
                 {unit}
               </span>
             )}
           </p>
           {subtitle && (
-            <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+            <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
           )}
         </div>
 

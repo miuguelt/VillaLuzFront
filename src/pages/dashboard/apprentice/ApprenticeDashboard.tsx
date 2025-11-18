@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardStatsCard, DashboardStatsGrid } from '@/components/dashboard/DashboardStatsCard';
-import { useCompleteDashboardStats, getStatValue } from '@/hooks/useCompleteDashboardStats';
+import { useCompleteDashboardStats, getStatValue, KpiCardSummary } from '@/hooks/useCompleteDashboardStats';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,10 +22,52 @@ import {
   Pill,
   RefreshCw,
 } from 'lucide-react';
+import KPICard from '@/components/analytics/KPICard';
 
 const ApprenticeDashboard: React.FC = () => {
   const { stats, loading, error, refetch, lastUpdated } = useCompleteDashboardStats();
   const navigate = useNavigate();
+  const kpiResumen = stats?.kpi_resumen;
+  const rawKpiCards: KpiCardSummary[] = kpiResumen?.cards ?? [];
+  const KPI_ORDER = [
+    'health_index',
+    'vaccination_coverage',
+    'control_compliance',
+    'mortality_rate_30d',
+    'sales_rate_30d',
+    'treatments_intensity',
+    'controls_frequency',
+    'herd_growth_rate',
+    'alert_pressure',
+    'task_load_index',
+  ];
+  const kpiCards = useMemo<KpiCardSummary[]>(() => {
+    if (!rawKpiCards.length) return [];
+    const indexOfId = (id: string) => KPI_ORDER.indexOf(id);
+    return [...rawKpiCards].sort((a, b) => {
+      const ai = indexOfId(a.id);
+      const bi = indexOfId(b.id);
+      if (ai === -1 && bi === -1) return a.id.localeCompare(b.id);
+      if (ai === -1) return 1;
+      if (bi === -1) return -1;
+      return ai - bi;
+    });
+  }, [rawKpiCards]);
+  const kpiIconMap = useMemo<Record<string, React.ReactNode>>(
+    () => ({
+      health_index: <Heart className="w-5 h-5 text-red-500" />,
+      vaccination_coverage: <Syringe className="w-5 h-5 text-emerald-600" />,
+      control_compliance: <FileCheck className="w-5 h-5 text-sky-600" />,
+      mortality_rate_30d: <AlertTriangle className="w-5 h-5 text-zinc-600" />,
+      sales_rate_30d: <TrendingUp className="w-5 h-5 text-amber-600" />,
+      treatments_intensity: <Pill className="w-5 h-5 text-indigo-600" />,
+      controls_frequency: <Calendar className="w-5 h-5 text-blue-600" />,
+      herd_growth_rate: <TrendingUp className="w-5 h-5 text-emerald-700" />,
+      alert_pressure: <AlertTriangle className="w-5 h-5 text-red-500" />,
+      task_load_index: <FileCheck className="w-5 h-5 text-orange-600" />,
+    }),
+    []
+  );
 
   if (error) {
     return (

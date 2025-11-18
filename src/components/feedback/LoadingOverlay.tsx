@@ -69,7 +69,11 @@ export function LoadingOverlay({
         allowInteraction ? 'pointer-events-none' : ''
       }`}
       style={{
-        backgroundColor: opaque ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.15)',
+        backgroundColor: opaque
+          ? 'rgba(0, 0, 0, 0.35)'
+          : allowInteraction
+            ? 'rgba(0, 0, 0, 0.07)'
+            : 'rgba(0, 0, 0, 0.15)',
         backdropFilter: show ? 'blur(8px)' : 'blur(0px)',
         WebkitBackdropFilter: show ? 'blur(8px)' : 'blur(0px)',
         opacity: show ? 1 : 0,

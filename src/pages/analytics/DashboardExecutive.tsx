@@ -122,9 +122,9 @@ const DashboardExecutive: React.FC = () => {
 
   if (!dashboard) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6">
+      <div className="min-h-screen bg-background p-6">
         <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No hay datos disponibles</p>
+          <p className="text-muted-foreground text-lg">No hay datos disponibles</p>
         </div>
       </div>
     );
@@ -270,14 +270,14 @@ const DashboardExecutive: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6 space-y-8">
+    <div className="min-h-screen bg-background p-6 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Panel Integral de Analytics</h1>
-        <p className="text-gray-600 mt-2">
+        <h1 className="text-3xl font-bold text-foreground">Panel Integral de Analytics</h1>
+        <p className="text-muted-foreground mt-2">
           Monitorea inventario, salud, producción y alertas en tiempo real
         </p>
         {fechaActualizacion && (
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             Última actualización:{' '}
             {format(fechaActualizacion, "d 'de' MMMM, h:mm a", { locale: es })}
           </p>
@@ -354,8 +354,8 @@ const DashboardExecutive: React.FC = () => {
 
       {/* Visualización de KPIs como gauges (torta/oscilador) */}
       {percentageKpis.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-card rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">
             Estado general del hato (KPIs porcentuales)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -401,12 +401,12 @@ const DashboardExecutive: React.FC = () => {
                       }}
                     />
                   </div>
-                  <div className="text-center space-y-1">
+                  <div className="text-center space-y-1 text-card-foreground">
                     <div className="flex items-center justify-center gap-1 text-sm font-medium">
                       {iconNode}
                       <span>{card.titulo}</span>
                     </div>
-                    <div className="text-sm font-semibold text-gray-900">
+                    <div className="text-sm font-semibold text-foreground">
                       {clamped.toFixed(1)}
                       {unit}
                     </div>
@@ -415,8 +415,8 @@ const DashboardExecutive: React.FC = () => {
                         <span
                           className={
                             (goodWhenHigher ? card.cambio >= 0 : card.cambio <= 0)
-                              ? 'text-green-600'
-                              : 'text-red-600'
+                              ? 'text-success-600'
+                              : 'text-danger-600'
                           }
                         >
                           {card.cambio > 0 ? '+' : ''}
@@ -435,8 +435,8 @@ const DashboardExecutive: React.FC = () => {
 
       {/* Comparación de intensidad/frecuencia/growth por periodo */}
       {intensityKpis.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="bg-card rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">
             Intensidad de manejo (aceleración de actividades)
           </h2>
           <div className="h-80">
@@ -474,8 +474,8 @@ const DashboardExecutive: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribución por sexo</h2>
+        <div className="bg-card rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Distribución por sexo</h2>
           <div className="h-64 flex items-center justify-center">
             <Doughnut
               data={sexDistributionData}
@@ -500,11 +500,11 @@ const DashboardExecutive: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Estado de los animales</h2>
+        <div className="bg-card rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Estado de los animales</h2>
           <div className="h-64">
             {loadingAnimalStats ? (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 Cargando estadísticas...
               </div>
             ) : statusChartData ? (
@@ -520,15 +520,15 @@ const DashboardExecutive: React.FC = () => {
                 }}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 No hay datos de distribución por estado.
               </div>
             )}
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Resumen de inventario</h2>
+        <div className="bg-card rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Resumen de inventario</h2>
           <div className="space-y-5">
             <QuickStat
               label="Total de animales"
@@ -557,11 +557,11 @@ const DashboardExecutive: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Pirámide de edades</h2>
+        <div className="bg-card rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Pirámide de edades</h2>
           <div className="h-64">
             {loadingAnimalStats ? (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 Cargando distribución de edades...
               </div>
             ) : ageDistributionData ? (
@@ -578,15 +578,15 @@ const DashboardExecutive: React.FC = () => {
                 }}
               />
             ) : (
-              <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+              <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                 No hay datos de edades.
               </div>
             )}
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Razas destacadas</h2>
+        <div className="bg-card rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Razas destacadas</h2>
           {topBreeds && topBreeds.length > 0 ? (
             <div className="space-y-4">
               {topBreeds.slice(0, 5).map((breed: any, index: number) => {
@@ -596,32 +596,34 @@ const DashboardExecutive: React.FC = () => {
                 const porcentaje = ((cantidad / totalAnimales) * 100).toFixed(1);
                 return (
                   <div key={index}>
-                    <div className="flex items-center justify-between text-sm font-medium text-gray-700">
+                    <div className="flex items-center justify-between text-sm font-medium text-card-foreground">
                       <span>{nombre}</span>
-                      <span className="text-gray-900">{cantidad}</span>
+                      <span className="text-foreground">{cantidad}</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                    <div className="w-full bg-muted rounded-full h-2 mt-2">
                       <div
                         className="h-2 rounded-full bg-blue-500"
                         style={{ width: `${Math.min(Number(porcentaje), 100)}%` }}
                       />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{porcentaje}% del inventario</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {porcentaje}% del inventario
+                    </p>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <p className="text-sm text-gray-400">No hay datos de razas.</p>
+            <p className="text-sm text-muted-foreground">No hay datos de razas.</p>
           )}
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-card rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Salud y bienestar</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-xl font-bold text-foreground">Salud y bienestar</h2>
+            <p className="text-sm text-muted-foreground">
               Seguimiento de tratamientos, vacunas y enfermedades recurrentes
             </p>
           </div>
@@ -657,7 +659,7 @@ const DashboardExecutive: React.FC = () => {
         {/* Evolución de tratamientos y vacunaciones */}
         {healthTimeSeries && (
           <div className="h-72 mt-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
               Evolución de tratamientos y vacunaciones
             </h3>
             <Line
@@ -683,37 +685,41 @@ const DashboardExecutive: React.FC = () => {
               value={healthStats?.treatment_success_rate ?? 0}
               suffix="%"
             />
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-xs text-muted-foreground mt-2">
               Porcentaje de tratamientos concluidos satisfactoriamente.
             </p>
           </div>
 
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Enfermedades frecuentes</h3>
+            <h3 className="text-sm font-semibold text-foreground mb-2">
+              Enfermedades frecuentes
+            </h3>
             {enfermedadesComunes.length > 0 ? (
               <ul className="space-y-2">
                 {enfermedadesComunes.slice(0, 5).map((disease, index) => (
                   <li
                     key={`${disease.disease_name}-${index}`}
-                    className="flex items-center justify-between text-sm text-gray-700 border-b border-gray-100 pb-2"
+                    className="flex items-center justify-between text-sm text-card-foreground border-b border-gray-100 pb-2"
                   >
                     <span>{disease.disease_name}</span>
-                    <span className="font-semibold text-gray-900">{disease.count} casos</span>
+                    <span className="font-semibold text-foreground">{disease.count} casos</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-gray-400">Sin registros recientes.</p>
+              <p className="text-sm text-muted-foreground">Sin registros recientes.</p>
             )}
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-card rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Producción y rendimiento</h2>
-            <p className="text-sm text-gray-500">Utilización de potreros y eficiencia general</p>
+            <h2 className="text-xl font-bold text-foreground">Producción y rendimiento</h2>
+            <p className="text-sm text-muted-foreground">
+              Utilización de potreros y eficiencia general
+            </p>
           </div>
         </div>
 
@@ -770,7 +776,7 @@ const DashboardExecutive: React.FC = () => {
         {/* Curva de peso promedio: aceleración del crecimiento */}
         {weightTrendSeries && (
           <div className="h-72 mt-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
               Tendencia de peso promedio (aceleración del crecimiento)
             </h3>
             <Line
@@ -790,9 +796,9 @@ const DashboardExecutive: React.FC = () => {
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-4">
+      <div className="bg-card rounded-lg shadow p-6 mb-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Alertas críticas</h2>
+          <h2 className="text-lg font-semibold text-foreground">Alertas críticas</h2>
           <span className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
             {alerts?.alerts?.length || 0} activas
           </span>
@@ -801,7 +807,7 @@ const DashboardExecutive: React.FC = () => {
         {loadingAlerts ? (
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-gray-100 rounded animate-pulse" />
+              <div key={i} className="h-20 bg-muted rounded animate-pulse" />
             ))}
           </div>
         ) : alerts?.alerts && alerts.alerts.length > 0 ? (
@@ -815,7 +821,7 @@ const DashboardExecutive: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             <p className="text-4xl mb-2">✅</p>
             <p>No hay alertas críticas en este momento</p>
           </div>
@@ -826,17 +832,17 @@ const DashboardExecutive: React.FC = () => {
 };
 
 const LoadingDashboard: React.FC = () => (
-  <div className="min-h-screen bg-slate-50 p-6">
+  <div className="min-h-screen bg-background p-6">
     <div className="mb-8 animate-pulse">
-      <div className="h-8 bg-gray-200 rounded w-1/4 mb-2"></div>
-      <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+      <div className="h-8 bg-muted rounded w-1/4 mb-2"></div>
+      <div className="h-4 bg-muted rounded w-1/3"></div>
     </div>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="bg-white rounded-lg shadow p-6 animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-          <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+        <div key={i} className="bg-card rounded-lg shadow p-6 animate-pulse">
+          <div className="h-4 bg-muted rounded w-1/2 mb-4"></div>
+          <div className="h-8 bg-muted rounded w-3/4 mb-2"></div>
+          <div className="h-4 bg-muted rounded w-1/3"></div>
         </div>
       ))}
     </div>
@@ -851,13 +857,13 @@ const ProgressMetric: React.FC<{ label: string; value?: number; suffix?: string 
   const normalized = value ?? 0;
   return (
     <div>
-      <div className="flex items-center justify-between text-sm font-medium text-gray-600 mb-1">
+      <div className="flex items-center justify-between text-sm font-medium text-muted-foreground mb-1">
         <span>{label}</span>
-        <span className="text-gray-900">
+        <span className="text-foreground">
           {value !== undefined && value !== null ? `${normalized.toFixed(1)}${suffix}` : '—'}
         </span>
       </div>
-      <div className="w-full bg-gray-200 rounded-full h-2.5">
+      <div className="w-full bg-muted rounded-full h-2.5">
         <div
           className="h-2.5 rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 transition-all"
           style={{ width: `${Math.min(Math.max(normalized, 0), 100)}%` }}
@@ -874,8 +880,8 @@ const QuickStat: React.FC<{ label: string; value: string | number; icon?: string
 }) => (
   <div className="flex items-center justify-between border-b border-gray-100 pb-2">
     <div>
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className="text-lg font-semibold text-gray-900">{value}</p>
+      <p className="text-xs text-muted-foreground uppercase tracking-wide">{label}</p>
+      <p className="text-lg font-semibold text-foreground">{value}</p>
     </div>
     {icon && <span className="text-2xl">{icon}</span>}
   </div>

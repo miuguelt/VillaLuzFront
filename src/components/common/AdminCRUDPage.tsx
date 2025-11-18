@@ -221,6 +221,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   // Loading overlay state
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMessage, setProcessingMessage] = useState('Procesando...');
+  const deleteProcessingTimeoutRef = useRef<number | null>(null);
 
   // Límite inicial fijo estándar para consistencia y mejor UX
   // Valores comunes: 10, 20, 50, 100
@@ -1075,17 +1076,24 @@ const {
     // Limpiar targetId INMEDIATAMENTE para permitir abrir nuevos diálogos
     setTargetId(null);
 
-    // Mostrar loading overlay
-    setIsProcessing(true);
-    setProcessingMessage(`Eliminando ${config.entityName.toLowerCase()}...`);
-
-    // Marcar item como "deleting" para animación de fade-out
+    // Marcar item como "deleting" para animación de fade-out (efecto rojo)
     setDeletingItems(prev => {
       const newSet = new Set(prev);
       newSet.add(String(idToDelete));
       console.log('[AdminCRUDPage] ➕ Agregando item a deletingItems:', String(idToDelete), 'Set completo:', Array.from(newSet));
       return newSet;
     });
+
+    // Mostrar loading overlay solo si la operación tarda un poco,
+    // para que primero se vea claramente el efecto rojo de eliminación.
+    if (deleteProcessingTimeoutRef.current) {
+      clearTimeout(deleteProcessingTimeoutRef.current);
+      deleteProcessingTimeoutRef.current = null;
+    }
+    deleteProcessingTimeoutRef.current = window.setTimeout(() => {
+      setProcessingMessage(`Eliminando ${config.entityName.toLowerCase()}...`);
+      setIsProcessing(true);
+    }, 350);
 
     try {
       const success = await deleteItem(idToDelete);
@@ -1306,9 +1314,13 @@ const {
       }
     } finally {
       setDeletingId(null);
+      if (deleteProcessingTimeoutRef.current) {
+        clearTimeout(deleteProcessingTimeoutRef.current);
+        deleteProcessingTimeoutRef.current = null;
+      }
       // NO resetear targetId aquí - ya se reseteó al inicio para permitir abrir nuevos diálogos
       // Ocultar loading overlay con delay para mejor UX
-      setTimeout(() => setIsProcessing(false), 300);
+      setTimeout(() => setIsProcessing(false), 150);
     }
   };
 
