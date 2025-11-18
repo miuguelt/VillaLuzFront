@@ -167,6 +167,11 @@ export function AnimalImageGallery({
         // Actualizar estado local (aunque el backend ya no tenga la imagen)
         setImages((prev) => prev.filter((img) => img.id !== imageId));
 
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent('animal-images:updated', { detail: { animalId } })
+          );
+        }, 0);
         if (onGalleryUpdate) {
           onGalleryUpdate();
         }

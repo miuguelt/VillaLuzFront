@@ -138,7 +138,7 @@ export function ImageManager({
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail as { animalId?: number } | undefined;
       if (!detail || detail.animalId === animalId) {
-        fetchImages();
+        setTimeout(fetchImages, 0);
       }
     };
     window.addEventListener('animal-images:updated', handler as EventListener);
