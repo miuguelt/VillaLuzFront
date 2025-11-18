@@ -78,6 +78,7 @@ export function AnimalImageBanner({
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
   const carouselRef = useRef<HTMLDivElement>(null);
+  const isContainMode = objectFit === 'contain';
 
   // Cargar imágenes con manejo completo de errores
   const fetchImages = useCallback(async () => {
@@ -351,7 +352,7 @@ export function AnimalImageBanner({
         className={`overflow-hidden group ${
           fullscreen
             ? 'fixed inset-0 z-50 bg-black w-screen h-screen'
-            : 'relative w-full h-full rounded-xl'
+            : `relative w-full h-full rounded-xl ${isContainMode ? 'bg-slate-900/80 dark:bg-black' : ''}`
         }`}
         style={fullscreen ? undefined : { height }}
         onMouseEnter={() => setIsPaused(true)}

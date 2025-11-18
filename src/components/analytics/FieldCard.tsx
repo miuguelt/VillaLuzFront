@@ -46,9 +46,9 @@ const FieldCardComponent: React.FC<FieldCardProps> = ({
         text: 'text-rose-600 dark:text-rose-300',
         progress: 'from-rose-500 via-red-500 to-red-700',
         track: 'bg-rose-100/70 dark:bg-rose-900/40',
-        border: 'border border-rose-200/70 dark:border-rose-500/40',
+        border: 'border border-rose-300/70 dark:border-rose-500/40',
         cardBg:
-          'bg-gradient-to-br from-rose-50/95 via-white to-orange-50/80 dark:from-rose-950/70 dark:via-slate-900 dark:to-slate-950',
+          'bg-card/95 dark:bg-card/80 backdrop-blur-sm',
         badge: 'bg-rose-100 text-rose-900 dark:bg-rose-900/60 dark:text-rose-100',
         ring: 'hover:ring-2 hover:ring-rose-300/80 dark:hover:ring-rose-400/50',
       };
@@ -60,7 +60,7 @@ const FieldCardComponent: React.FC<FieldCardProps> = ({
         track: 'bg-amber-100/70 dark:bg-amber-900/40',
         border: 'border border-amber-200/70 dark:border-amber-500/30',
         cardBg:
-          'bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:from-amber-950/50 dark:via-slate-900 dark:to-slate-950',
+          'bg-card/95 dark:bg-card/80 backdrop-blur-sm',
         badge: 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-100',
         ring: 'hover:ring-2 hover:ring-amber-300/70 dark:hover:ring-amber-400/50',
       };
@@ -72,7 +72,7 @@ const FieldCardComponent: React.FC<FieldCardProps> = ({
         track: 'bg-emerald-100/60 dark:bg-emerald-900/40',
         border: 'border border-emerald-200/60 dark:border-emerald-500/30',
         cardBg:
-          'bg-gradient-to-br from-emerald-50 via-white to-green-50 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-950',
+          'bg-card/95 dark:bg-card/80 backdrop-blur-sm',
         badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-100',
         ring: 'hover:ring-2 hover:ring-emerald-300/70 dark:hover:ring-emerald-400/50',
       };
@@ -84,7 +84,7 @@ const FieldCardComponent: React.FC<FieldCardProps> = ({
         track: 'bg-cyan-100/60 dark:bg-cyan-900/40',
         border: 'border border-cyan-200/60 dark:border-sky-600/30',
         cardBg:
-          'bg-gradient-to-br from-cyan-50 via-white to-blue-50 dark:from-sky-950/50 dark:via-slate-900 dark:to-slate-950',
+          'bg-card/95 dark:bg-card/80 backdrop-blur-sm',
         badge: 'bg-cyan-100 text-cyan-800 dark:bg-sky-900/60 dark:text-sky-100',
         ring: 'hover:ring-2 hover:ring-sky-300/70 dark:hover:ring-sky-500/50',
       };
@@ -95,7 +95,7 @@ const FieldCardComponent: React.FC<FieldCardProps> = ({
       track: 'bg-indigo-100/60 dark:bg-indigo-900/40',
       border: 'border border-indigo-100/70 dark:border-indigo-500/30',
       cardBg:
-        'bg-gradient-to-br from-indigo-50 via-white to-violet-50 dark:from-slate-950 dark:via-slate-900/80 dark:to-slate-950',
+        'bg-card/95 dark:bg-card/80 backdrop-blur-sm',
       badge: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-100',
       ring: 'hover:ring-2 hover:ring-indigo-300/70 dark:hover:ring-indigo-400/50',
     };

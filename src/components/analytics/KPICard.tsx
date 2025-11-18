@@ -49,7 +49,7 @@ const KPICard: React.FC<KPICardProps> = ({
   }
 
   return (
-    <div className="bg-card text-card-foreground rounded-lg shadow hover:shadow-lg transition-shadow p-6">
+    <div className="bg-card/95 dark:bg-card/80 text-card-foreground rounded-xl border border-border/60 shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 p-6 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
         {icon && <span className="text-2xl">{icon}</span>}

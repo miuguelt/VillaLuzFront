@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AuthContext } from "@/context/AuthenticationContext";
 import { Button } from "@/components/ui/button";
 import { LogIn, LogOut } from 'lucide-react';
+import { normalizeRole } from "@/services/authService";
 
 interface MenuItem {
   id: string;
@@ -16,7 +17,18 @@ export default function NavBar() {
 
   const auth = useContext(AuthContext);
   const isAuthenticated = !!auth?.isAuthenticated;
-  const dashboardRoute = isAuthenticated ? "/dashboard" : null;
+  const authReady = !auth?.loading;
+  const rawRole = auth?.role ?? auth?.user?.role ?? null;
+  const normalizedRole = rawRole ? normalizeRole(rawRole) : null;
+  const roleDashboardRoutes: Record<string, string> = {
+    Administrador: '/admin/dashboard',
+    Instructor: '/instructor/dashboard',
+    Aprendiz: '/apprentice/dashboard',
+  };
+  const preferredDashboardRoute = normalizedRole ? roleDashboardRoutes[normalizedRole] : undefined;
+  const dashboardRoute = isAuthenticated && authReady
+    ? preferredDashboardRoute || '/dashboard'
+    : null;
 
   const menuItems: MenuItem[] = useMemo(
     () => [

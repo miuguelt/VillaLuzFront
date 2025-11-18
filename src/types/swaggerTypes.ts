@@ -98,6 +98,7 @@ export interface UserInput {
   address?: string;
   role: 'Administrador' | 'Instructor' | 'Aprendiz';
   password: string;
+  password_confirmation?: string;
   status?: boolean;
   is_active?: boolean;
 }

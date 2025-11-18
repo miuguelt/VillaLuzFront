@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { X, MoreVertical, Activity, Syringe, MapPin, Pill, ClipboardList, TrendingUp, Plus, List, Eye, Edit, Trash2 } from 'lucide-react';
+import { X, Activity, Syringe, MapPin, Pill, ClipboardList, TrendingUp, Plus, List, Eye, Edit, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AnimalResponse } from '@/types/swaggerTypes';
@@ -45,36 +45,20 @@ export function AnimalModalContent({
   scrollContainerRef
 }: AnimalModalContentProps) {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [showUpload, setShowUpload] = useState(false);
   const savedScrollTopRef = React.useRef(0);
 
-  const preserveScroll = React.useCallback(() => {
+  const preserveScroll = useCallback(() => {
     const node = scrollContainerRef?.current;
     if (node) savedScrollTopRef.current = node.scrollTop;
   }, [scrollContainerRef]);
 
-  const restoreScroll = React.useCallback(() => {
+  const restoreScroll = useCallback(() => {
     const node = scrollContainerRef?.current;
     if (!node) return;
     requestAnimationFrame(() => {
       node.scrollTop = savedScrollTopRef.current;
     });
   }, [scrollContainerRef]);
-
-  // Escuchar evento para abrir la pestaña de subida
-  useEffect(() => {
-    const handleOpenUploadTab = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { animalId?: number } | undefined;
-      if (!detail || detail.animalId === animal.id) {
-        setShowUpload(true);
-      }
-    };
-    
-    window.addEventListener('open-upload-tab', handleOpenUploadTab as EventListener);
-    return () => {
-      window.removeEventListener('open-upload-tab', handleOpenUploadTab as EventListener);
-    };
-  }, [animal.id]);
 
   // Estados para datos relacionados
   const [geneticImprovements, setGeneticImprovements] = useState<any[]>([]);
@@ -133,11 +117,6 @@ export function AnimalModalContent({
   const weight = animal.weight ?? '-';
   const status = animal.status || '-';
   const isAdult = animal.is_adult === true ? 'Sí' : animal.is_adult === false ? 'No' : '-';
-
-  const handleUploadSuccess = useCallback(() => {
-    setRefreshTrigger(prev => prev + 1);
-    setShowUpload(false);
-  }, []);
 
   // Cargar datos relacionados
   useEffect(() => {
@@ -243,11 +222,11 @@ export function AnimalModalContent({
       <div className="w-full rounded-xl overflow-hidden shadow-lg -mt-4">
         <AnimalImageBanner
           animalId={animal.id}
-          height="450px"
+          height="clamp(280px, 55vh, 640px)"
           showControls={true}
           autoPlayInterval={5000}
           hideWhenEmpty={true}
-          objectFit="cover"
+          objectFit="contain"
           refreshTrigger={refreshTrigger}
         />
       </div>

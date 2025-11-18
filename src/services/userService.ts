@@ -41,7 +41,12 @@ class UsersService extends BaseService<UserResponse> {
       const createdAt = (await import('@/utils/dateUtils')).getNowColombiaISO?.() || new Date().toISOString();
       // Normalizar a formato 'YYYY-MM-DD HH:mm:ss' si viene con 'T'
       const normalizedCreatedAt = String(createdAt).replace('T', ' ').split('.')[0];
-      const payload = { ...(userData as any), created_at: normalizedCreatedAt } as any;
+      const payload = {
+        ...(userData as any),
+        created_at: normalizedCreatedAt,
+        password_confirmation:
+          (userData as any).password_confirmation ?? (userData as any).password,
+      } as any;
       // Intentar registro público primero
       return await this.customRequest('public', 'POST', payload);
     } catch (error: any) {
@@ -50,7 +55,12 @@ class UsersService extends BaseService<UserResponse> {
         console.warn('Registro público no disponible, intentando registro normal...');
         const createdAt = (await import('@/utils/dateUtils')).getNowColombiaISO?.() || new Date().toISOString();
         const normalizedCreatedAt = String(createdAt).replace('T', ' ').split('.')[0];
-        const payload = { ...(userData as any), created_at: normalizedCreatedAt } as any;
+        const payload = {
+          ...(userData as any),
+          created_at: normalizedCreatedAt,
+          password_confirmation:
+            (userData as any).password_confirmation ?? (userData as any).password,
+        } as any;
         return await this.create(payload);
       }
       throw error;

@@ -23,6 +23,10 @@ import {
   type AnimalImage,
 } from '@/services/animalImageService';
 import { useToast } from '@/context/ToastContext';
+import {
+  formatAnimalImageName,
+  getAnimalImageId,
+} from '@/utils/animalImageUtils';
 
 interface ImageManagerProps {
   /** ID del animal asociado */
@@ -70,6 +74,9 @@ export function ImageManager({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [settingPrimaryId, setSettingPrimaryId] = useState<number | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
+  const selectedImageId = selectedImage ? getAnimalImageId(selectedImage) : null;
+  const selectedImageHasError =
+    selectedImageId !== null && imageErrors.has(selectedImageId);
 
   // Estados para la subida de imágenes
   const [showUpload, setShowUpload] = useState(false);
@@ -302,8 +309,17 @@ export function ImageManager({
 
   // Eliminar imagen
   const handleDelete = useCallback(
-    async (imageId: number) => {
-      if (!confirm('¿Está seguro de eliminar esta imagen?')) {
+    async (image: AnimalImage) => {
+      const imageId = getAnimalImageId(image);
+      if (imageId === null) {
+        const fallbackMessage = 'No se encontró un identificador válido para esta imagen.';
+        setError(fallbackMessage);
+        showToast(fallbackMessage, 'error');
+        return;
+      }
+
+      const label = formatAnimalImageName(image);
+      if (!confirm(`¿Está seguro de eliminar ${label}?`)) {
         return;
       }
 
@@ -314,13 +330,21 @@ export function ImageManager({
         await animalImageService.deleteImage(imageId);
 
         // Actualizar estado local (aunque el backend ya no tenga la imagen)
-        setImages((prev) => prev.filter((img) => img.id !== imageId));
+        setImages((prev) =>
+          prev.filter((img) => getAnimalImageId(img) !== imageId)
+        );
 
         if (onGalleryUpdate) {
           onGalleryUpdate();
         }
 
         showToast('Imagen eliminada correctamente', 'success');
+
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent('animal-images:updated', { detail: { animalId } })
+          );
+        }, 0);
       } catch (err: any) {
         const status = err?.response?.status;
         const defaultMessage = 'No se pudo eliminar la imagen. Intenta nuevamente.';
@@ -345,7 +369,7 @@ export function ImageManager({
         setDeletingId(null);
       }
     },
-    [onGalleryUpdate, showToast]
+    [animalId, onGalleryUpdate, showToast]
   );
 
   // Descargar imagen
@@ -428,13 +452,15 @@ export function ImageManager({
   // Manejar selección de imágenes
   const handleImageSelect = useCallback((image: AnimalImage, isSelected: boolean) => {
     if (!allowMultipleSelection) return;
+    const imageId = getAnimalImageId(image);
+    if (imageId === null) return;
 
     setSelectedImages((prev) => {
       const newSet = new Set(prev);
       if (isSelected) {
-        newSet.add(image.id);
+        newSet.add(imageId);
       } else {
-        newSet.delete(image.id);
+        newSet.delete(imageId);
       }
       return newSet;
     });
@@ -443,7 +469,10 @@ export function ImageManager({
   // Notificar cambios en la selección
   useEffect(() => {
     if (onSelectionChange && allowMultipleSelection) {
-      const selectedImagesList = images.filter(img => selectedImages.has(img.id));
+      const selectedImagesList = images.filter((img) => {
+        const imgId = getAnimalImageId(img);
+        return imgId !== null && selectedImages.has(imgId);
+      });
       onSelectionChange(selectedImagesList);
     }
   }, [selectedImages, images, onSelectionChange, allowMultipleSelection]);
@@ -696,11 +725,21 @@ export function ImageManager({
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {images.map((image) => (
+          {images.map((image, index) => {
+            const numericId = getAnimalImageId(image);
+            const key =
+              numericId !== null ? `manager-image-${numericId}` : `manager-image-${index}`;
+            const isSelected =
+              allowMultipleSelection && numericId !== null && selectedImages.has(numericId);
+            const hasError = numericId !== null && imageErrors.has(numericId);
+            const isDeleting = numericId !== null && deletingId === numericId;
+            const isSettingPrimary = numericId !== null && settingPrimaryId === numericId;
+
+            return (
             <div
-              key={image.id}
+              key={key}
               className={`relative group aspect-square rounded-lg overflow-hidden border bg-accent/5 hover:shadow-lg transition-all ${
-                allowMultipleSelection && selectedImages.has(image.id) ? 'ring-2 ring-primary' : ''
+                isSelected ? 'ring-2 ring-primary' : ''
               }`}
             >
               {/* Checkbox para selección múltiple */}
@@ -708,15 +747,16 @@ export function ImageManager({
                 <div className="absolute top-2 left-2 z-10">
                   <input
                     type="checkbox"
-                    checked={selectedImages.has(image.id)}
+                    checked={isSelected}
                     onChange={(e) => handleImageSelect(image, e.target.checked)}
                     className="w-4 h-4 rounded border-2 border-primary/50"
+                    disabled={numericId === null}
                   />
                 </div>
               )}
 
               {/* Imagen */}
-              {imageErrors.has(image.id) ? (
+              {hasError ? (
                 <div className="w-full h-full flex items-center justify-center bg-muted/20 cursor-pointer" onClick={() => setSelectedImage(image)}>
                   <div className="text-center">
                     <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-1" />
@@ -734,7 +774,13 @@ export function ImageManager({
                     imageRendering: 'auto',
                   }}
                   onError={() => {
-                    setImageErrors(prev => new Set(prev).add(image.id));
+                    if (numericId !== null) {
+                      setImageErrors((prev) => {
+                        const next = new Set(prev);
+                        next.add(numericId);
+                        return next;
+                      });
+                    }
                   }}
                 />
               )}
@@ -807,11 +853,13 @@ export function ImageManager({
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleSetPrimary(image.id);
+                              if (numericId !== null) {
+                                handleSetPrimary(numericId);
+                              }
                             }}
-                            disabled={settingPrimaryId === image.id}
+                            disabled={isSettingPrimary}
                           >
-                            {settingPrimaryId === image.id ? (
+                            {isSettingPrimary ? (
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             ) : (
                               <Star className="w-4 h-4 mr-2" />
@@ -825,12 +873,12 @@ export function ImageManager({
                       <DropdownMenuItem
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDelete(image.id);
+                          handleDelete(image);
                         }}
-                        disabled={deletingId === image.id}
+                        disabled={isDeleting}
                         className="text-destructive focus:text-destructive"
                       >
-                        {deletingId === image.id ? (
+                        {isDeleting ? (
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         ) : (
                           <Trash2 className="w-4 h-4 mr-2" />
@@ -852,7 +900,8 @@ export function ImageManager({
                 </p>
               </div>
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
 
@@ -882,7 +931,7 @@ export function ImageManager({
           {selectedImage && (
             <div className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden bg-black group">
               {/* Imagen a pantalla completa */}
-              {imageErrors.has(selectedImage.id) ? (
+              {selectedImageHasError ? (
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="text-center">
                     <ImageIcon className="w-16 h-16 mx-auto text-muted-foreground mb-2" />
@@ -911,7 +960,13 @@ export function ImageManager({
                   decoding="async"
                   fetchPriority="high"
                   onError={() => {
-                    setImageErrors(prev => new Set(prev).add(selectedImage.id));
+                    if (selectedImageId !== null) {
+                      setImageErrors((prev) => {
+                        const next = new Set(prev);
+                        next.add(selectedImageId);
+                        return next;
+                      });
+                    }
                   }}
                 />
               )}

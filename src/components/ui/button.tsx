@@ -13,12 +13,18 @@ const base =
   "inline-flex items-center justify-center rounded-md font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background select-none relative overflow-hidden min-w-0 max-w-full whitespace-normal break-words";
 
 const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
-  primary: "bg-primary-600 text-primary-foreground hover:bg-primary-700 hover:shadow-lg active:scale-95 shadow-md",
-  secondary: "bg-secondary/80 text-secondary-foreground hover:bg-secondary hover:shadow-md active:scale-95 backdrop-blur-sm",
-  outline: "border border-input bg-background/50 hover:bg-accent hover:text-accent-foreground hover:shadow-md active:scale-95 backdrop-blur-sm",
-  ghost: "bg-background/30 hover:bg-accent/80 hover:shadow-sm active:scale-95 backdrop-blur-sm",
-  destructive: "bg-[#ef4444] text-white hover:bg-[#ef4444]/90 hover:shadow-lg active:scale-95 shadow-md",
-  link: "bg-background underline-offset-4 hover:underline text-primary-600 hover:text-primary-700 hover:bg-primary-50/50 active:scale-95",
+  primary:
+    "bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-transform",
+  secondary:
+    "bg-card text-card-foreground border border-border/70 shadow-sm hover:-translate-y-0.5 hover:shadow-md",
+  outline:
+    "border border-border text-foreground bg-transparent hover:bg-accent hover:text-accent-foreground hover:-translate-y-0.5",
+  ghost:
+    "text-muted-foreground hover:text-foreground bg-transparent hover:bg-accent/70",
+  destructive:
+    "bg-destructive text-destructive-foreground shadow-md hover:bg-destructive/90 hover:-translate-y-0.5",
+  link:
+    "bg-transparent underline-offset-4 hover:underline text-primary hover:text-primary/80",
 };
 
 const sizes: Record<NonNullable<ButtonProps["size"]>, string> = {

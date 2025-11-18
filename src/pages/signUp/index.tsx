@@ -131,6 +131,7 @@ const SignUpForm: React.FC = () => {
         email: formData.email.trim().toLowerCase(),
         phone: formData.phone.trim(),
         password: formData.password,
+        password_confirmation: formData.confirmPassword,
         identification: formData.identification_number.trim(),
         role: formData.role as "Administrador" | "Instructor" | "Aprendiz",
         status: true,
@@ -214,7 +215,9 @@ const SignUpForm: React.FC = () => {
                 .filter(Boolean)
                 .join(' • ');
             }
-          } catch {}
+          } catch (parseError) {
+            console.warn('No se pudo interpretar los errores de validación del backend:', parseError);
+          }
         }
 
         // Asegurar que el mensaje sea un string renderizable

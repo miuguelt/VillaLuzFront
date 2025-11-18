@@ -41,7 +41,7 @@ export function AnimalCard({
       <div className="relative w-full flex-shrink-0">
         <AnimalImageBanner
           animalId={animal.id}
-          height="220px"
+          height="clamp(200px, 32vh, 320px)"
           showControls={true}
           autoPlayInterval={4000}
           hideWhenEmpty={false}

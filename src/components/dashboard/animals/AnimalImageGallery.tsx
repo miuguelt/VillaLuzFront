@@ -31,6 +31,10 @@ import {
   animalImageService,
   type AnimalImage,
 } from '@/services/animalImageService';
+import {
+  formatAnimalImageName,
+  getAnimalImageId,
+} from '@/utils/animalImageUtils';
 
 interface AnimalImageGalleryProps {
   animalId: number;
@@ -61,6 +65,9 @@ export function AnimalImageGallery({
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [settingPrimaryId, setSettingPrimaryId] = useState<number | null>(null);
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
+  const selectedImageId = selectedImage ? getAnimalImageId(selectedImage) : null;
+  const selectedImageHasError =
+    selectedImageId !== null && imageErrors.has(selectedImageId);
 
   // Cargar imágenes
   const fetchImages = useCallback(async () => {
@@ -153,8 +160,15 @@ export function AnimalImageGallery({
 
   // Eliminar imagen
   const handleDelete = useCallback(
-    async (imageId: number) => {
-      if (!confirm('¿Está seguro de eliminar esta imagen?')) {
+    async (image: AnimalImage) => {
+      const imageId = getAnimalImageId(image);
+      if (imageId === null) {
+        setError('No se pudo determinar el identificador de la imagen.');
+        return;
+      }
+
+      const confirmationLabel = formatAnimalImageName(image);
+      if (!confirm(`¿Está seguro de eliminar ${confirmationLabel}?`)) {
         return;
       }
 
@@ -164,9 +178,11 @@ export function AnimalImageGallery({
       try {
         await animalImageService.deleteImage(imageId);
 
-        // Actualizar estado local (aunque el backend ya no tenga la imagen)
-        setImages((prev) => prev.filter((img) => img.id !== imageId));
+        setImages((prev) =>
+          prev.filter((img) => getAnimalImageId(img) !== imageId)
+        );
 
+        // Asegurar que los listeners globales refresquen banners/galerías
         setTimeout(() => {
           window.dispatchEvent(
             new CustomEvent('animal-images:updated', { detail: { animalId } })
@@ -195,7 +211,7 @@ export function AnimalImageGallery({
         setDeletingId(null);
       }
     },
-    [onGalleryUpdate]
+    [animalId, onGalleryUpdate]
   );
 
   // Descargar imagen
@@ -281,149 +297,169 @@ export function AnimalImageGallery({
 
       {/* Galería */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {images.map((image) => (
-          <div
-            key={image.id}
-            className="relative group aspect-square rounded-lg overflow-hidden border bg-accent/5 hover:shadow-lg transition-all"
-          >
-            {/* Imagen */}
-            {imageErrors.has(image.id) ? (
-              <div className="w-full h-full flex items-center justify-center bg-muted/20 cursor-pointer" onClick={() => setSelectedImage(image)}>
-                <div className="text-center">
-                  <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-1" />
-                  <p className="text-xs text-muted-foreground">Error</p>
-                </div>
-              </div>
-            ) : (
-              <img
-                src={image.url}
-                alt={image.filename}
-                className="w-full h-full object-cover cursor-pointer transition-transform duration-300 hover:scale-110"
-                onClick={() => setSelectedImage(image)}
-                loading="lazy"
-                style={{
-                  imageRendering: 'auto',
-                }}
-                onError={() => {
-                  setImageErrors(prev => new Set(prev).add(image.id));
-                }}
-              />
-            )}
+        {images.map((image, index) => {
+          const numericId = getAnimalImageId(image);
+          const itemKey =
+            numericId !== null ? `animal-image-${numericId}` : `animal-image-${index}`;
+          const hasError = numericId !== null && imageErrors.has(numericId);
+          const isDeleting = numericId !== null && deletingId === numericId;
+          const isSettingPrimary = numericId !== null && settingPrimaryId === numericId;
 
-            {/* Badge de imagen principal */}
-            {image.is_primary && (
-              <div className="absolute top-2 left-2">
-                <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">
-                  <Star className="w-3 h-3 mr-1 fill-current" />
-                  Principal
-                </Badge>
-              </div>
-            )}
-
-            {/* Botón de ver imagen */}
+          return (
             <div
-              className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center cursor-pointer"
-              onClick={() => setSelectedImage(image)}
+              key={itemKey}
+              className="relative group aspect-square rounded-lg overflow-hidden border bg-accent/5 hover:shadow-lg transition-all"
             >
-              <Button
-                type="button"
-                variant="secondary"
-                size="icon"
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Ver en grande"
+              {/* Imagen */}
+              {hasError ? (
+                <div
+                  className="w-full h-full flex items-center justify-center bg-muted/20 cursor-pointer"
+                  onClick={() => setSelectedImage(image)}
+                >
+                  <div className="text-center">
+                    <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-1" />
+                    <p className="text-xs text-muted-foreground">Error</p>
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={image.url}
+                  alt={image.filename}
+                  className="w-full h-full object-cover cursor-pointer transition-transform duration-300 hover:scale-110"
+                  onClick={() => setSelectedImage(image)}
+                  loading="lazy"
+                  style={{
+                    imageRendering: 'auto',
+                  }}
+                  onError={() => {
+                    if (numericId !== null) {
+                      setImageErrors((prev) => {
+                        const next = new Set(prev);
+                        next.add(numericId);
+                        return next;
+                      });
+                    }
+                  }}
+                />
+              )}
+
+              {/* Badge de imagen principal */}
+              {image.is_primary && (
+                <div className="absolute top-2 left-2">
+                  <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">
+                    <Star className="w-3 h-3 mr-1 fill-current" />
+                    Principal
+                  </Badge>
+                </div>
+              )}
+
+              {/* Botón de ver imagen */}
+              <div
+                className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center cursor-pointer"
+                onClick={() => setSelectedImage(image)}
               >
-                <ZoomIn className="w-5 h-5" />
-              </Button>
-            </div>
-
-            {/* Menú desplegable de acciones (esquina superior derecha) */}
-            {showControls && (
-              <div className="absolute top-2 right-2 z-10">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="icon"
-                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedImage(image);
-                      }}
-                    >
-                      <ZoomIn className="w-4 h-4 mr-2" />
-                      Ver en grande
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownload(image);
-                      }}
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Descargar
-                    </DropdownMenuItem>
-
-                    {!image.is_primary && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSetPrimary(image.id);
-                          }}
-                          disabled={settingPrimaryId === image.id}
-                        >
-                          {settingPrimaryId === image.id ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          ) : (
-                            <Star className="w-4 h-4 mr-2" />
-                          )}
-                          Establecer como principal
-                        </DropdownMenuItem>
-                      </>
-                    )}
-
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(image.id);
-                      }}
-                      disabled={deletingId === image.id}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      {deletingId === image.id ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4 mr-2" />
-                      )}
-                      Eliminar
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Ver en grande"
+                >
+                  <ZoomIn className="w-5 h-5" />
+                </Button>
               </div>
-            )}
 
-            {/* Info del archivo */}
-            <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-              <p className="text-xs text-white truncate" title={image.filename}>
-                {image.filename}
-              </p>
-              <p className="text-xs text-white/70">
-                {(image.file_size / 1024).toFixed(0)} KB
-              </p>
+              {/* Menú desplegable de acciones (esquina superior derecha) */}
+              {showControls && (
+                <div className="absolute top-2 right-2 z-10">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedImage(image);
+                        }}
+                      >
+                        <ZoomIn className="w-4 h-4 mr-2" />
+                        Ver en grande
+                      </DropdownMenuItem>
+
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(image);
+                        }}
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Descargar
+                      </DropdownMenuItem>
+
+                      {!image.is_primary && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (numericId !== null) {
+                                handleSetPrimary(numericId);
+                              }
+                            }}
+                            disabled={isSettingPrimary}
+                          >
+                            {isSettingPrimary ? (
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            ) : (
+                              <Star className="w-4 h-4 mr-2" />
+                            )}
+                            Establecer como principal
+                          </DropdownMenuItem>
+                        </>
+                      )}
+
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(image);
+                        }}
+                        disabled={isDeleting}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 mr-2" />
+                        )}
+                        Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
+
+              {/* Info del archivo */}
+              <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                <p className="text-xs text-white truncate" title={image.filename}>
+                  {image.filename}
+                </p>
+                <p className="text-xs text-white/70">
+                  {(image.file_size / 1024).toFixed(0)} KB
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Modal de vista previa - pantalla completa */}
@@ -452,7 +488,7 @@ export function AnimalImageGallery({
           {selectedImage && (
             <div className="absolute inset-0 w-full h-full flex items-center justify-center overflow-hidden bg-black group">
               {/* Imagen a pantalla completa */}
-              {imageErrors.has(selectedImage.id) ? (
+              {selectedImageHasError ? (
                 <div className="w-full h-full flex items-center justify-center">
                   <div className="text-center">
                     <ImageIcon className="w-16 h-16 mx-auto text-muted-foreground mb-2" />
@@ -481,7 +517,13 @@ export function AnimalImageGallery({
                   decoding="async"
                   fetchPriority="high"
                   onError={() => {
-                    setImageErrors(prev => new Set(prev).add(selectedImage.id));
+                    if (selectedImageId !== null) {
+                      setImageErrors((prev) => {
+                        const next = new Set(prev);
+                        next.add(selectedImageId);
+                        return next;
+                      });
+                    }
                   }}
                 />
               )}
