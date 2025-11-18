@@ -78,6 +78,8 @@ const LoginForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  const AUTH_REQUEST_TIMEOUT_MS = 20000;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -86,6 +88,8 @@ const LoginForm = () => {
     setLoading(true);
     setErrors({});
     
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     try {
       console.log('🔐 Starting login with credentials:', { identification, password: '***' });
       
@@ -97,11 +101,12 @@ const LoginForm = () => {
       
       // Ejecutar login con timeout más corto para mejor UX
       const loginPromise = loginUser(loginData);
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout de conexión')), 8000)
-      );
-      
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Timeout de conexión')), AUTH_REQUEST_TIMEOUT_MS);
+      });
+
       const response = await Promise.race([loginPromise, timeoutPromise]) as any;
+      if (timeoutId) clearTimeout(timeoutId);
       
       console.log('✅ Login successful:', response);
       
@@ -240,6 +245,7 @@ const LoginForm = () => {
       }
     } finally {
       setLoading(false);
+      if (timeoutId) clearTimeout(timeoutId);
     }
   };
 

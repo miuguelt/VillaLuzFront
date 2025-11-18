@@ -46,7 +46,7 @@ export interface AppLayoutProps {
 export function AppLayout({ children, header, className, contentClassName }: AppLayoutProps) {
   const innerStackClasses = contentClassName ?? "space-y-4 sm:space-y-6"; // por defecto mantiene el espaciado actual
   return (
-    <div className="h-full min-h-0 bg-gradient-to-br from-neutral-50 via-background to-neutral-100 dark:from-neutral-900 dark:via-background dark:to-neutral-800">
+    <div className="h-full min-h-0 bg-background text-foreground transition-colors duration-300">
       <main className={["container mx-auto px-3 sm:px-4 lg:px-6 pt-0 pb-6 sm:pb-8 max-w-full", className].filter(Boolean).join(" ") }>
         {header}
         <div className={innerStackClasses}>{children}</div>

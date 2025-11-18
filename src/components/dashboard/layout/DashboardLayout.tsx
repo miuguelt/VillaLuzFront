@@ -73,7 +73,7 @@ const DashboardLayout: React.FC = () => {
   const isCRUDFullBleed = crudPrefixes.some((p) => path.startsWith(p));
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-gradient-to-br from-slate-100 via-gray-100 to-slate-200">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground transition-colors duration-300">
       <RoleBasedSideBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
       <div
         className="flex-1 min-h-0 flex flex-col overflow-hidden relative transition-[margin-left] duration-300 ease-in-out"
@@ -82,12 +82,10 @@ const DashboardLayout: React.FC = () => {
         <Header isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)} />
         <main
           className={`flex-1 min-h-0 overflow-x-auto ${isCRUDFullBleed ? 'overflow-y-hidden' : 'overflow-y-auto'}
-                     bg-gradient-to-br from-gray-50/80 via-slate-50/90 to-gray-100/80
-                     transition-all duration-300 ease-in-out
+                     bg-background transition-all duration-300 ease-in-out
                      px-2 sm:px-3 md:px-4 lg:px-6 pt-1 md:pt-2
                      ${isCRUDFullBleed ? 'pb-0' : 'pb-3 md:pb-4'}
-                     relative
-                     before:absolute before:inset-0 before:bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.8),transparent_70%)] before:pointer-events-none`}
+                     relative`}
         >
           <Outlet />
         </main>

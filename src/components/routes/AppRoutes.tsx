@@ -24,6 +24,7 @@ const UnauthorizedPage = lazy(() => import('@/pages/unauthorized/index.tsx'));
 const ApprenticeDashboard = lazy(() => import('@/pages/dashboard/apprentice/ApprenticeDashboard.tsx'));
 const InstructorDashboard = lazy(() => import('@/pages/dashboard/instructor/InstructorDashboard.tsx'));
 const NotFoundPage = lazy(() => import('@/pages/notFound/index.tsx'));
+const RoleDashboardRedirect = lazy(() => import('@/pages/dashboard/RoleDashboardRedirect'));
 
 const AdminFieldsPage = lazy(() => import('@/pages/dashboard/admin/fields/index.tsx'));
 const AdminTreatmentMedicationsPage = lazy(() => import('@/pages/dashboard/admin/treatment_medications/index.tsx'));
@@ -134,6 +135,9 @@ const AppRoutes = () => {
 
         {/* Protected Routes */}
         <Route element={<DashboardLayout />}> 
+          <Route element={<ProtectedRoute allowedRoles={['Administrador', 'Instructor', 'Aprendiz']} />}>
+            <Route path="/dashboard" element={<RoleDashboardRedirect />} />
+          </Route>
           <Route element={<ProtectedRoute allowedRoles={['Administrador']} />}>
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
