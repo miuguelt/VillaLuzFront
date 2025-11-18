@@ -12,6 +12,7 @@ interface AnimalCardProps {
   actions?: React.ReactNode;
   onFatherClick?: (fatherId: number) => void;
   onMotherClick?: (motherId: number) => void;
+  hasAlerts?: boolean;
 }
 
 export function AnimalCard({
@@ -22,7 +23,8 @@ export function AnimalCard({
   onCardClick,
   actions,
   onFatherClick,
-  onMotherClick
+  onMotherClick,
+  hasAlerts = false
 }: AnimalCardProps) {
   const gender = animal.sex || animal.gender;
   const birthDate = animal.birth_date
@@ -59,6 +61,15 @@ export function AnimalCard({
         {actions && (
           <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
             {actions}
+          </div>
+        )}
+
+        {/* Indicador de alertas activas */}
+        {hasAlerts && (
+          <div className="absolute top-2 left-2 z-10 pointer-events-none">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-600 text-[10px] font-semibold text-white shadow">
+              ALERTA
+            </span>
           </div>
         )}
       </div>

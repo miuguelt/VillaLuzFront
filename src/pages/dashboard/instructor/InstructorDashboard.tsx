@@ -317,7 +317,7 @@ const InstructorDashboard: React.FC = () => {
                 icon={Map}
                 stat={stats?.animales_por_campo}
                 description="Distribución en potreros"
-                onClick={() => navigate('/instructor/animal-fields')}
+                onClick={() => navigate('/instructor/fields')}
               />
               <DashboardStatsCard
                 title="Usuarios Activos"

@@ -13,6 +13,7 @@ import { animalFieldsService } from '@/services/animalFieldsService';
 import { vaccinationsService } from '@/services/vaccinationsService';
 import { treatmentsService } from '@/services/treatmentsService';
 import { controlService } from '@/services/controlService';
+import analyticsService from '@/services/analyticsService';
 
 interface AnimalModalContentProps {
   animal: AnimalResponse & { [k: string]: any };
@@ -83,6 +84,7 @@ export function AnimalModalContent({
   const [controls, setControls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dataRefreshTrigger, setDataRefreshTrigger] = useState(0);
+  const [hasRecentTreatments, setHasRecentTreatments] = useState<boolean | null>(null);
 
   // Estado para controlar qué tipo de modal abrir y en qué modo
   const [actionModalType, setActionModalType] = useState<
@@ -205,6 +207,35 @@ export function AnimalModalContent({
     loadRelatedData();
   }, [animal.id, dataRefreshTrigger]);
 
+  useEffect(() => {
+    const checkRecentTreatments = async () => {
+      try {
+        const history = await analyticsService
+          .getAnimalMedicalHistory(Number(animal.id))
+          .catch(() => null);
+        if (!history) {
+          setHasRecentTreatments(false);
+          return;
+        }
+        const treatmentsList = (history as any).treatments || [];
+        const now = new Date().getTime();
+        const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+        const hasRecent = treatmentsList.some((t: any) => {
+          const dateStr = t.start_date || t.date || t.created_at;
+          if (!dateStr) return false;
+          const d = new Date(dateStr);
+          if (Number.isNaN(d.getTime())) return false;
+          return now - d.getTime() <= THIRTY_DAYS_MS;
+        });
+        setHasRecentTreatments(hasRecent);
+      } catch {
+        setHasRecentTreatments(false);
+      }
+    };
+
+    checkRecentTreatments();
+  }, [animal.id]);
+
   return (
     <div className="space-y-6">
       {/* Banner de imágenes con carrusel - LO PRIMERO - se oculta si no hay imágenes */}
@@ -226,9 +257,16 @@ export function AnimalModalContent({
           <h2 className="text-xl sm:text-2xl font-bold text-foreground truncate">
             {animal.record || `Animal #${animal.id}`}
           </h2>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            ID: {animal.id} • {breedLabel}
-          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground">
+              ID: {animal.id} • {breedLabel}
+            </p>
+            {hasRecentTreatments && (
+              <Badge className="text-[10px] sm:text-xs bg-amber-500 text-white shadow-sm">
+                Tiene tratamientos recientes (≤ 30 días)
+              </Badge>
+            )}
+          </div>
         </div>
         {/* Menú de acciones (tres puntos) - visible en PC y móvil */}
         <div className="flex-shrink-0">

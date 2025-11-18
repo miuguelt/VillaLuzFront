@@ -315,7 +315,7 @@ const ApprenticeDashboard: React.FC = () => {
                 icon={Map}
                 stat={stats?.animales_por_campo}
                 description="Distribución en potreros"
-                onClick={() => navigate('/apprentice/animal-fields')}
+                onClick={() => navigate('/apprentice/fields')}
               />
               <DashboardStatsCard
                 title="Usuarios Activos"

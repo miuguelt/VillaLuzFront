@@ -18,6 +18,8 @@ import { AnimalModalContent } from '@/components/dashboard/animals/AnimalModalCo
 import { AnimalActionsMenu } from '@/components/dashboard/AnimalActionsMenu';
 import { Eye, Edit } from 'lucide-react';
 import { FoodTypeLink } from '@/components/common/ForeignKeyHelpers';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useAnalytics } from '@/hooks/useAnalytics';
 
 // Tipo de formulario alineado al JSON real del backend
 type FieldFormInput = {
@@ -93,6 +95,22 @@ function AdminFieldsPage() {
   const [animalsLoading, setAnimalsLoading] = useState(false);
   const [fieldAnimals, setFieldAnimals] = useState<AnimalResponse[]>([]);
   const [detailAnimal, setDetailAnimal] = useState<AnimalResponse | null>(null);
+  const [detailAnimalsFieldId, setDetailAnimalsFieldId] = useState<number | null>(null);
+  const [animalFilterSex, setAnimalFilterSex] = useState<'all' | 'Macho' | 'Hembra' | 'Castrado'>('all');
+  const [animalFilterStatus, setAnimalFilterStatus] = useState<
+    | 'all'
+    | 'Sano'
+    | 'Enfermo'
+    | 'En tratamiento'
+    | 'En observación'
+    | 'Cuarentena'
+    | 'Vendido'
+    | 'Fallecido'
+  >('all');
+
+  const { useAlerts } = useAnalytics();
+  const { data: alertsData } = useAlerts({ limit: 100 });
+  const allAlerts: any[] = (alertsData as any)?.alerts ?? (Array.isArray(alertsData) ? (alertsData as any[]) : []);
 
   const matchesField = (animal: AnimalResponse & { [k: string]: any }, fieldId: number): boolean => {
     if (!animal || !fieldId) return false;
@@ -140,10 +158,14 @@ function AdminFieldsPage() {
     return responses.filter(Boolean) as AnimalResponse[];
   };
 
-  // Abrir modal y asegurar listado de animales del potrero
-  const openAnimalsForField = async (field: FieldResponse & { [k: string]: any }) => {
-    setModalField(field);
-    setIsAnimalsOpen(true);
+  // Cargar animales asociados a un potrero (puede usarse para modal o para el detalle inline)
+  const loadAnimalsForField = async (field: FieldResponse & { [k: string]: any }, options?: { openModal?: boolean }) => {
+    const { openModal = false } = options || {};
+    if (openModal) {
+      setModalField(field);
+      setIsAnimalsOpen(true);
+    }
+
     setAnimalsLoading(true);
     const fieldIdNum = Number(field.id);
     try {
@@ -192,12 +214,18 @@ function AdminFieldsPage() {
       }
 
       setFieldAnimals(dedupeAnimals(normalized));
+      setDetailAnimalsFieldId(fieldIdNum);
     } catch (e) {
       console.warn('[fields] Error cargando animales del potrero', e);
       setFieldAnimals([]);
     } finally {
       setAnimalsLoading(false);
     }
+  };
+
+  // Abrir modal y asegurar listado de animales del potrero
+  const openAnimalsForField = async (field: FieldResponse & { [k: string]: any }) => {
+    await loadAnimalsForField(field, { openModal: true });
   };
 
   // Crear mapa de búsqueda optimizado para tipos de alimento
@@ -452,6 +480,305 @@ const initialFormData: FieldFormInput = {
     formSections: formSectionsLocal,
     viewMode,
     renderCard: renderFieldCard,
+    customDetailContent: (item) => {
+      const location = item.location || item.ubication || '-';
+      const management = item.management || item.handlings || '-';
+      const measurements = item.measurements || item.gauges || '-';
+      const animalCount = item.animal_count ?? 0;
+      const capacity = item.capacity || '';
+      const foodTypeLabel = item.food_type_id
+        ? (foodTypeOptions.find((ft) => Number(ft.value) === Number(item.food_type_id))?.label || `ID ${item.food_type_id}`)
+        : '-';
+
+      const fieldIdNum = Number(item.id);
+      if (fieldIdNum && detailAnimalsFieldId !== fieldIdNum && !animalsLoading) {
+        void loadAnimalsForField(item, { openModal: false });
+      }
+
+      const animalsForField =
+        detailAnimalsFieldId === fieldIdNum ? fieldAnimals : [];
+
+      const filteredAnimalsForField = animalsForField.filter((a) => {
+        const sex = (a as any).gender;
+        const status = (a as any).status;
+        if (animalFilterSex !== 'all' && sex !== animalFilterSex) return false;
+        if (animalFilterStatus !== 'all' && status !== animalFilterStatus) return false;
+        return true;
+      });
+
+      const totalAnimals = animalsForField.length;
+      const visibleAnimals = filteredAnimalsForField;
+      const maleCount = visibleAnimals.filter(
+        (a) => (a as any).gender === 'Macho'
+      ).length;
+      const femaleCount = visibleAnimals.filter(
+        (a) => (a as any).gender === 'Hembra'
+      ).length;
+      const neuteredCount = visibleAnimals.filter(
+        (a) => (a as any).gender === 'Castrado'
+      ).length;
+      const avgWeight =
+        visibleAnimals.length > 0
+          ? (
+              visibleAnimals.reduce(
+                (sum, a) => sum + (Number((a as any).weight) || 0),
+                0
+              ) / visibleAnimals.length
+            ).toFixed(1)
+          : null;
+
+      const fieldAlerts = allAlerts.filter((alert: any) => {
+        const animalId = alert.animal_id ?? alert.animalId ?? alert.animal?.id;
+        if (!animalId) return false;
+        return animalsForField.some((a) => Number((a as any).id) === Number(animalId));
+      });
+
+      return (
+        <>
+          <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Información general</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div className="space-y-1">
+                  <dt className="text-xs text-muted-foreground font-medium">Nombre</dt>
+                  <dd className="text-sm font-medium text-foreground">{item.name || '-'}</dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-xs text-muted-foreground font-medium">Ubicación</dt>
+                  <dd className="text-sm font-medium text-foreground">{location}</dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-xs text-muted-foreground font-medium">Área</dt>
+                  <dd className="text-sm font-medium text-foreground">{item.area || '-'}</dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-xs text-muted-foreground font-medium">Capacidad</dt>
+                  <dd className="text-sm font-medium text-foreground">
+                    {capacity ? `${capacity} animales` : '-'}
+                  </dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-xs text-muted-foreground font-medium">Estado</dt>
+                  <dd className="text-sm font-medium text-foreground">{item.state || '-'}</dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-xs text-muted-foreground font-medium">Tipo de alimento</dt>
+                  <dd className="text-sm font-medium text-foreground">{foodTypeLabel}</dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-xs text-muted-foreground font-medium">Manejo</dt>
+                  <dd className="text-sm font-medium text-foreground">{management}</dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className="text-xs text-muted-foreground font-medium">Mediciones</dt>
+                  <dd className="text-sm font-medium text-foreground">{measurements}</dd>
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <dt className="text-xs text-muted-foreground font-medium">Ocupación</dt>
+                  <dd className="mt-1">
+                    <FieldOccupancyBar animalCount={animalCount} capacity={capacity} />
+                  </dd>
+                </div>
+              </dl>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base">
+                  Animales en el campo ({animalsForField.length})
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!animalsLoading && animalsForField.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 mb-4 text-xs">
+                  <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                    Total: <span className="font-semibold text-foreground">{totalAnimals}</span>
+                  </span>
+                  <span className="px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                    Mostrando:{' '}
+                    <span className="font-semibold text-foreground">{visibleAnimals.length}</span>
+                  </span>
+                  <span className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                    Machos: <span className="font-semibold">{maleCount}</span>
+                  </span>
+                  <span className="px-2 py-1 rounded-full bg-pink-50 text-pink-700 border border-pink-100">
+                    Hembras: <span className="font-semibold">{femaleCount}</span>
+                  </span>
+                  {neuteredCount > 0 && (
+                    <span className="px-2 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100">
+                      Castrados: <span className="font-semibold">{neuteredCount}</span>
+                    </span>
+                  )}
+                  {avgWeight && (
+                    <span className="px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                      Peso promedio: <span className="font-semibold">{avgWeight} kg</span>
+                    </span>
+                  )}
+                </div>
+              )}
+              {!animalsLoading && animalsForField.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 mb-4 text-xs">
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">Sexo:</span>
+                    {(['all', 'Macho', 'Hembra', 'Castrado'] as const).map((sex) => (
+                      <button
+                        key={sex}
+                        type="button"
+                        onClick={() => setAnimalFilterSex(sex)}
+                        className={`px-2 py-0.5 rounded-full border text-[11px] ${
+                          animalFilterSex === sex
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-card text-muted-foreground border-border hover:bg-muted'
+                        }`}
+                      >
+                        {sex === 'all' ? 'Todos' : sex}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">Estado:</span>
+                    {(['all', 'Sano', 'Enfermo', 'En tratamiento'] as const).map((status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => setAnimalFilterStatus(status)}
+                        className={`px-2 py-0.5 rounded-full border text-[11px] ${
+                          animalFilterStatus === status
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'bg-card text-muted-foreground border-border hover:bg-muted'
+                        }`}
+                      >
+                        {status === 'all' ? 'Todos' : status}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {animalsLoading && (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  Cargando animales del campo...
+                </div>
+              )}
+              {!animalsLoading && animalsForField.length === 0 && (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  No hay animales asignados a este campo.
+                </div>
+              )}
+              {!animalsLoading && animalsForField.length > 0 && visibleAnimals.length > 0 && (
+                <div className="grid auto-cols-[minmax(260px,1fr)] grid-flow-col gap-4 overflow-x-auto pb-2 snap-x snap-mandatory md:auto-cols-auto md:grid-flow-row md:grid-cols-2 lg:grid-cols-3 md:overflow-visible">
+                  {visibleAnimals.map((a) => {
+                    const breedLabel =
+                      (a as any).breed?.name ||
+                      (a as any).breed_name ||
+                      `ID ${(a as any).breed_id ?? (a as any).breeds_id ?? '-'}`;
+                    const fatherLabel =
+                      (a as any).father?.record ||
+                      (a as any).father_record ||
+                      `${(a as any).idFather ?? (a as any).father_id ?? '-'}`;
+                    const motherLabel =
+                      (a as any).mother?.record ||
+                      (a as any).mother_record ||
+                      `${(a as any).idMother ?? (a as any).mother_id ?? '-'}`;
+
+                    return (
+                      <div
+                        key={a.id}
+                        className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        <AnimalCard
+                          animal={a}
+                          breedLabel={breedLabel}
+                          fatherLabel={fatherLabel}
+                          motherLabel={motherLabel}
+                          hasAlerts={fieldAlerts.some(
+                            (alert: any) =>
+                              Number(alert.animal_id ?? alert.animalId ?? alert.animal?.id) ===
+                              Number((a as any).id)
+                          )}
+                          onCardClick={() => setDetailAnimal(a)}
+                          actions={
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => setDetailAnimal(a)}
+                                title="Ver detalle"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                onClick={() => navigate(`/admin/animals?edit=${a.id}`)}
+                                title="Editar"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <AnimalActionsMenu animal={a} />
+                            </div>
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {!!fieldAlerts.length && (
+            <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Alertas activas en este campo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 text-sm">
+                  {fieldAlerts.slice(0, 6).map((alert: any) => (
+                    <li
+                      key={alert.id}
+                      className="flex items-start justify-between gap-3 border-b border-border/40 pb-2 last:border-none"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="font-medium text-foreground">
+                          {alert.title || 'Alerta'}
+                        </div>
+                        {alert.message && (
+                          <div className="text-xs text-muted-foreground">
+                            {alert.message}
+                          </div>
+                        )}
+                        {alert.animal_record && (
+                          <div className="text-[11px] text-muted-foreground/80">
+                            Animal: {alert.animal_record}
+                          </div>
+                        )}
+                      </div>
+                      {alert.priority && (
+                        <span className="px-2 py-0.5 rounded-full text-[11px] bg-amber-50 text-amber-700 border border-amber-100">
+                          {alert.priority}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                  {fieldAlerts.length > 6 && (
+                    <li className="pt-1 text-xs text-muted-foreground">
+                      +{fieldAlerts.length - 6} alertas adicionales asociadas a estos animales
+                    </li>
+                  )}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      );
+    },
     customToolbar: (
       <div className="flex items-center gap-1">
         <Button
@@ -511,13 +838,13 @@ const initialFormData: FieldFormInput = {
           ) : fieldAnimals.length === 0 ? (
             <div className="py-10 text-center text-sm text-muted-foreground">No hay animales en este potrero.</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid auto-cols-[minmax(260px,1fr)] grid-flow-col gap-4 overflow-x-auto pb-2 snap-x snap-mandatory md:auto-cols-auto md:grid-flow-row md:grid-cols-2 lg:grid-cols-3 md:overflow-visible">
               {fieldAnimals.map((a) => {
                 const breedLabel = (a as any).breed?.name || (a as any).breed_name || `ID ${(a as any).breed_id ?? (a as any).breeds_id ?? '-'}`;
                 const fatherLabel = (a as any).father?.record || (a as any).father_record || `${(a as any).idFather ?? (a as any).father_id ?? '-'}`;
                 const motherLabel = (a as any).mother?.record || (a as any).mother_record || `${(a as any).idMother ?? (a as any).mother_id ?? '-'}`;
                 return (
-                  <div key={a.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  <div key={a.id} className="snap-center bg-card border border-border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                     <AnimalCard
                       animal={a}
                       breedLabel={breedLabel}
