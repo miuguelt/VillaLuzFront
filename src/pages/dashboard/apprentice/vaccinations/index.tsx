@@ -2,8 +2,8 @@ import React from 'react';
 const ApprenticeVaccinationsPage = () => {
   return (
     <div>
-      <h1 className="text-2xl font-bold">Manage Vaccinations</h1>
-      {/* Apprentice-specific vaccination management UI will go here */}
+      <h1 className="text-2xl font-bold">Gestionar vacunaciones</h1>
+      {/* Vista de vacunaciones para aprendices */}
     </div>
   );
 };

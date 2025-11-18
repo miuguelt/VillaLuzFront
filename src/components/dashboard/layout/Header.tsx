@@ -61,8 +61,8 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar }) => {
             <button
               onClick={() => handleRoleNavigation(Role.Administrador)}
               className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors"
-              aria-label="Dashboard Administrador"
-              title="Dashboard Administrador"
+              aria-label="Panel de administrador"
+              title="Panel de administrador"
             >
               <Shield className="h-4 w-4 text-blue-600" />
             </button>
@@ -71,8 +71,8 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar }) => {
             <button
               onClick={() => handleRoleNavigation(Role.Instructor)}
               className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors"
-              aria-label="Dashboard Instructor"
-              title="Dashboard Instructor"
+              aria-label="Panel de instructor"
+              title="Panel de instructor"
             >
               <GraduationCap className="h-4 w-4 text-green-600" />
             </button>
@@ -81,8 +81,8 @@ const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar }) => {
             <button
               onClick={() => handleRoleNavigation(Role.Aprendiz)}
               className="p-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-400 transition-colors"
-              aria-label="Dashboard Aprendiz"
-              title="Dashboard Aprendiz"
+              aria-label="Panel de aprendiz"
+              title="Panel de aprendiz"
             >
               <User className="h-4 w-4 text-purple-600" />
             </button>

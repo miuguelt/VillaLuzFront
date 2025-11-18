@@ -2,8 +2,8 @@ import React from 'react';
 const InstructorAnimalsPage = () => {
   return (
     <div>
-      <h1 className="text-2xl font-bold">Manage My Animals</h1>
-      {/* Instructor-specific animal management UI will go here */}
+      <h1 className="text-2xl font-bold">Gestionar mis animales</h1>
+      {/* Gestión de animales para instructores */}
     </div>
   );
 };

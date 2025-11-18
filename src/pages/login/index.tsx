@@ -263,7 +263,7 @@ const LoginForm = () => {
       ) : (
       <div className="w-full max-w-md p-8 space-y-8 bg-white rounded-xl shadow-2xl">
         <h2 className="text-3xl font-bold text-center text-green-700">
-          Login
+          Iniciar sesión
         </h2>
         
         {/* Estado del Backend removido - ya no es necesario */}
@@ -271,7 +271,7 @@ const LoginForm = () => {
         <form onSubmit={handleSubmit} noValidate className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="documento" className="text-green-700">
-              Identification Number
+              Número de identificación
             </Label>
             <div className="relative">
               <span className="absolute text-gray-600 inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -284,7 +284,7 @@ const LoginForm = () => {
                 type="text"
                 inputMode="numeric"
                 maxLength={15}
-                placeholder="Enter your identification number"
+                placeholder="Ingresa tu número de identificación"
                 value={identification}
                 onChange={(e) => {
                   setIdentification(e.target.value);
@@ -308,7 +308,7 @@ const LoginForm = () => {
           </div>
           <div className="space-y-2">
             <Label htmlFor="password" className="text-green-700">
-              Password
+              Contraseña
             </Label>
             <div className="relative">
               <span className="absolute text-gray-600 inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -362,9 +362,9 @@ const LoginForm = () => {
         )}
         <div className="text-center mt-4">
           <p className="text-sm text-gray-600">
-            Don't have an account?{" "}
+            ¿No tienes una cuenta?{" "}
             <Link to="/signUp" className="text-green-600 hover:text-green-700 font-medium">
-              Sign up here
+              Regístrate aquí
             </Link>
           </p>
         </div>

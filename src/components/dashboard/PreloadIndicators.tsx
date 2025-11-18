@@ -399,7 +399,7 @@ export const NavbarStatusIndicator: React.FC<{
         return {
           color: 'text-gray-600',
           bgColor: 'bg-gray-100',
-          message: 'Offline'
+          message: 'Sin conexión'
         };
       default:
         return {

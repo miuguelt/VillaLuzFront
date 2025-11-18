@@ -10,7 +10,7 @@ const AuthWrapper = ({ children }: AuthWrapperProps): React.ReactElement => {
   const { loading } = useAuth();
 
   if (loading) {
-    return <LoadingScreen message="Verifying authentication..." />;
+    return <LoadingScreen message="Verificando autenticación..." />;
   }
 
   return <>{children}</>;

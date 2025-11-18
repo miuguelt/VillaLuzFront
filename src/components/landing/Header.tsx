@@ -3,6 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { AuthContext } from "@/context/AuthenticationContext";
 import { Button } from "@/components/ui/button";
 import { LogIn, LogOut } from 'lucide-react';
+import { Role } from "@/types/userTypes";
+import { normalizeRole } from "@/services/authService";
+
+const DASHBOARD_ROUTES: Record<Role, string> = {
+  [Role.Administrador]: '/admin/dashboard',
+  [Role.Instructor]: '/instructor/dashboard',
+  [Role.Aprendiz]: '/apprentice/dashboard',
+};
 
 interface MenuItem {
   id: string;
@@ -15,8 +23,15 @@ export default function NavBar() {
   const navigate = useNavigate();
 
   const auth = useContext(AuthContext);
-  const isAuthenticated = auth?.isAuthenticated;
-  const dashboardRoute = isAuthenticated ? "/dashboard" : null;
+  const isAuthenticated = !!auth?.isAuthenticated;
+  const userRole = auth?.role ?? auth?.user?.role ?? null;
+
+  const dashboardRoute = useMemo(() => {
+    if (!isAuthenticated || !userRole) return null;
+    const normalizedRole = normalizeRole(userRole);
+    if (!normalizedRole) return null;
+    return DASHBOARD_ROUTES[normalizedRole as Role] ?? null;
+  }, [isAuthenticated, userRole]);
 
   const menuItems: MenuItem[] = useMemo(
     () => [
@@ -76,12 +91,12 @@ export default function NavBar() {
               {item.label}
             </a>
           ))}
-          {isAuthenticated && dashboardRoute && (
+          {dashboardRoute && (
             <Button
               className="bg-orange-600 text-white font-semibold ml-2"
               onClick={() => navigate(dashboardRoute)}
             >
-              Ir al Dashboard
+              Ir al panel
             </Button>
           )}
         </div>
@@ -138,7 +153,7 @@ export default function NavBar() {
               {item.label}
             </a>
           ))}
-          {isAuthenticated && dashboardRoute && (
+          {dashboardRoute && (
             <Button
               className="w-full bg-orange-600 text-white font-semibold mt-2"
               onClick={() => {
@@ -146,7 +161,7 @@ export default function NavBar() {
                 navigate(dashboardRoute);
               }}
             >
-              Ir al Dashboard
+              Ir al panel
             </Button>
           )}
           {!isAuthenticated ? (

@@ -30,7 +30,7 @@ const CustomReports: React.FC = () => {
         },
         body: JSON.stringify(cfg),
       });
-      if (!response.ok) throw new Error('Error generating report');
+      if (!response.ok) throw new Error('Error al generar el reporte');
       return response.json();
     },
   });

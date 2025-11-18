@@ -13,7 +13,7 @@ const UserDashboard: React.FC = () => {
             <Home className="h-8 w-8 text-green-600" />
             <div className="ml-4">
               <h1 className="text-2xl font-bold text-gray-900">Mi Panel</h1>
-              <p className="text-sm text-gray-500">Bienvenido a tu dashboard</p>
+              <p className="text-sm text-gray-500">Bienvenido a tu panel</p>
             </div>
           </div>
           <div className="flex items-center flex-wrap gap-3">

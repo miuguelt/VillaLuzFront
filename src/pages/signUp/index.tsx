@@ -165,7 +165,7 @@ const SignUpForm: React.FC = () => {
         });
       } else if (error.response?.status === 409) {
         setErrors({ 
-          general: 'A user with this email or identification number already exists' 
+          general: 'Ya existe un usuario con este correo o número de identificación' 
         });
       } else {
         // Extraer mensaje detallado del backend si está disponible

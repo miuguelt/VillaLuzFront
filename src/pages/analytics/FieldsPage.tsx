@@ -43,9 +43,9 @@ const FieldsPage: React.FC = () => {
   };
 
   const handleViewAnalytics = (field: any) => {
-    console.log('Ver analytics del potrero:', field);
-    // TODO: Implementar modal de analytics con gráficos
-    alert(`Analytics para ${field.name} - Próximamente disponible`);
+    console.log('Ver analítica del potrero:', field);
+    // TODO: Implementar modal de analítica con gráficos
+    alert(`Analítica para ${field.name} - próximamente disponible`);
   };
 
   const handleCloseModal = () => {

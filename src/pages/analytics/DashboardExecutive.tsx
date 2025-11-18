@@ -272,7 +272,7 @@ const DashboardExecutive: React.FC = () => {
   return (
     <div className="min-h-screen bg-background p-6 space-y-8">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Panel Integral de Analytics</h1>
+        <h1 className="text-3xl font-bold text-foreground">Panel integral de analítica</h1>
         <p className="text-muted-foreground mt-2">
           Monitorea inventario, salud, producción y alertas en tiempo real
         </p>

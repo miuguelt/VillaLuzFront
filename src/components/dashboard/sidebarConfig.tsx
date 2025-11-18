@@ -42,7 +42,7 @@ export const sidebarItems: SidebarItemConfig[] = [
   // SECCIÓN DE ANALYTICS (TODOS LOS ROLES)
   // ============================================
   {
-    title: 'Dashboard y Analytics',
+    title: 'Panel y analítica',
     icon: <BarChart3 className="h-4 w-4" />,
     roles: ['Administrador', 'Instructor', 'Aprendiz'],
     children: [
@@ -53,7 +53,7 @@ export const sidebarItems: SidebarItemConfig[] = [
         roles: ['Administrador', 'Instructor', 'Aprendiz']
       },
       {
-        title: 'Analytics Ejecutivo',
+        title: 'Analítica ejecutiva',
         icon: <BarChart3 className="h-4 w-4" />,
         path: 'analytics/executive',
         roles: ['Administrador', 'Instructor', 'Aprendiz'],

@@ -9,7 +9,7 @@ const Sidebar = () => {
       case 'Administrador':
         return [
           { path: '/dashboard/admin', name: '🏠 Inicio', icon: '🏠' },
-          { path: '/dashboard/admin/analytics/executive', name: '📊 Analytics', icon: '📊' },
+          { path: '/dashboard/admin/analytics/executive', name: '📊 Analíticas', icon: '📊' },
           { path: '/dashboard/admin/users', name: 'Usuarios', icon: '👥' },
           { path: '/admin/animals', name: 'Animales', icon: '🐄' },
           { path: '/admin/fields', name: 'Potreros', icon: '🗺️' },
@@ -20,7 +20,7 @@ const Sidebar = () => {
       case 'Instructor':
         return [
           { path: '/dashboard/instructor', name: '🏠 Inicio', icon: '🏠' },
-          { path: '/dashboard/instructor/analytics', name: '📊 Analytics', icon: '📊' },
+          { path: '/dashboard/instructor/analytics', name: '📊 Analíticas', icon: '📊' },
           { path: '/instructor/animals', name: 'Animales', icon: '🐄' },
           { path: '/instructor/fields', name: 'Potreros', icon: '🗺️' },
           { path: '/instructor/food-types', name: 'Alimentos', icon: '🌾' },
@@ -38,7 +38,7 @@ const Sidebar = () => {
       case 'Aprendiz':
         return [
           { path: '/dashboard/apprentice', name: '🏠 Inicio', icon: '🏠' },
-          { path: '/dashboard/apprentice/analytics', name: '📊 Analytics', icon: '📊' },
+          { path: '/dashboard/apprentice/analytics', name: '📊 Analíticas', icon: '📊' },
           { path: '/apprentice/animals', name: 'Animales', icon: '🐄' },
           { path: '/apprentice/fields', name: 'Potreros', icon: '🗺️' },
           { path: '/apprentice/food-types', name: 'Alimentos', icon: '🌾' },
@@ -80,7 +80,7 @@ const Sidebar = () => {
         ))}
         {getRoleLinks().length === 0 && (
           <>
-            <NavLink to="/login" className="block px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" tabIndex={0} role="menuitem">Login</NavLink>
+            <NavLink to="/login" className="block px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" tabIndex={0} role="menuitem">Iniciar sesión</NavLink>
             <NavLink to="/signup" className="block px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" tabIndex={0} role="menuitem">Registrarse</NavLink>
             <NavLink to="/public/users" className="block px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" tabIndex={0} role="menuitem">Listado de Usuarios (público)</NavLink>
             <NavLink to="/public/animals" className="block px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400" tabIndex={0} role="menuitem">Listado de Animales (público)</NavLink>

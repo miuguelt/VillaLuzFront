@@ -228,7 +228,8 @@ const FieldCardComponent: React.FC<FieldCardProps> = ({
                      active:translate-y-0 active:shadow-sm
                      transform will-change-transform
                      focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
-            title="Ver Analytics"
+            title="Ver analítica"
+            aria-label="Ver analítica"
           >
             <ChartBarIcon className="w-5 h-5 hover:scale-110 transition-transform" />
           </button>

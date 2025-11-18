@@ -99,7 +99,7 @@ const LandingPage = () => {
               className="mt-6 w-full bg-white text-green-800 hover:bg-green-50"
               onClick={() => navigate('/login')}
             >
-              Ir al login
+              Ir al inicio de sesión
             </Button>
           </div>
         </div>

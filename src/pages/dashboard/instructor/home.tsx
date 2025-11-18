@@ -31,8 +31,8 @@ const InstructorHome = () => {
       <div className="w-full max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-8">
           <div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Welcome, {name}</h1>
-            <p className="text-sm text-muted-foreground">Instructor Home</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">Bienvenido(a), {name}</h1>
+            <p className="text-sm text-muted-foreground">Inicio de Instructor</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
             <button
@@ -40,16 +40,16 @@ const InstructorHome = () => {
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
             >
               <ChartBarIcon className="w-5 h-5" />
-              Ver Analytics
+              Ver analíticas
             </button>
             <div className="overflow-x-auto">
               <Tabs defaultValue="todos" className="w-full">
                 <TabsList className="whitespace-nowrap">
-                  <TabsTrigger value="todos">All</TabsTrigger>
-                  <TabsTrigger value="usuarios">Users</TabsTrigger>
-                  <TabsTrigger value="animales">Animals</TabsTrigger>
-                  <TabsTrigger value="sanidad">Health</TabsTrigger>
-                  <TabsTrigger value="terrenos">Fields</TabsTrigger>
+                  <TabsTrigger value="todos">Todos</TabsTrigger>
+                  <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
+                  <TabsTrigger value="animales">Animales</TabsTrigger>
+                  <TabsTrigger value="sanidad">Sanidad</TabsTrigger>
+                  <TabsTrigger value="terrenos">Potreros</TabsTrigger>
                 </TabsList>
               </Tabs>
             </div>
@@ -59,8 +59,8 @@ const InstructorHome = () => {
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
           <div>
             <StatisticsCard
-              title={"Total Sick Animals"}
-              description={"Animals that are sick"}
+              title="Animales enfermos"
+              description="Animales que requieren atención"
               value={totalAnimals}
             />
           </div>
@@ -69,7 +69,7 @@ const InstructorHome = () => {
             <Card className="text-sm font-semibold w-full">
               <CardHeader>
                 <CardTitle className="text-center">
-                  Animal Status
+                  Estado de los animales
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-[270px]">

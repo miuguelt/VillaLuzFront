@@ -56,7 +56,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
   onSearch,
   onExport,
   filterOptions,
-  placeholder = "Search...",
+  placeholder = "Buscar...",
   showExport = false,
   className = "",
   searchDebounceMs = 300,
@@ -120,7 +120,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
       case 'text':
         return (
           <Input
-            placeholder={option.placeholder || `Filter by ${option.label.toLowerCase()}`}
+            placeholder={option.placeholder || `Filtrar por ${option.label.toLowerCase()}`}
             value={value}
             onChange={(e) => handleFilterChange(option.key, e.target.value)}
           />
@@ -133,10 +133,10 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
             onValueChange={(val) => handleFilterChange(option.key, val)}
           >
             <SelectTrigger>
-              <SelectValue placeholder={`Select ${option.label.toLowerCase()}`} />
+              <SelectValue placeholder={`Selecciona ${option.label.toLowerCase()}`} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All</SelectItem>
+              <SelectItem value="">Todos</SelectItem>
               {option.options?.map((opt) => (
                 <SelectItem key={opt.value} value={opt.value}>
                   {opt.label}
@@ -155,7 +155,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
                 className="w-full justify-start text-left font-normal"
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {value ? format(new Date(value), 'PPP') : 'Select date'}
+                {value ? format(new Date(value), 'PPP') : 'Seleccionar fecha'}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0">
@@ -173,7 +173,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
         return (
           <Input
             type="number"
-            placeholder={option.placeholder || `Filter by ${option.label.toLowerCase()}`}
+            placeholder={option.placeholder || `Filtrar por ${option.label.toLowerCase()}`}
             value={value}
             onChange={(e) => handleFilterChange(option.key, e.target.value)}
           />
@@ -209,7 +209,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
           className="flex items-center gap-2"
         >
           <SlidersHorizontal className="h-4 w-4" />
-          Filters
+          Filtros
           {activeFilters.length > 0 && (
             <Badge variant="secondary" className="ml-1">
               {activeFilters.length}
@@ -224,7 +224,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
             className="flex items-center gap-2"
           >
             <Download className="h-4 w-4" />
-            Export
+            Exportar
           </Button>
         )}
       </div>
@@ -232,7 +232,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
       {/* Filtros activos */}
       {activeFilters.length > 0 && (
         <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-sm text-muted-foreground">Active filters:</span>
+          <span className="text-sm text-muted-foreground">Filtros activos:</span>
           {activeFilters.map((key) => (
             <Badge key={key} variant="secondary" className="flex items-center gap-1">
               {getFilterLabel(key)}
@@ -248,7 +248,7 @@ const AdvancedSearch: React.FC<AdvancedSearchProps> = ({
             onClick={clearAllFilters}
             className="text-muted-foreground hover:text-destructive"
           >
-            Clear all
+            Limpiar todo
           </Button>
         </div>
       )}
