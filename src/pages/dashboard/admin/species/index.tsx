@@ -11,22 +11,24 @@ const columns: CRUDColumn<SpeciesResponse & { [k: string]: any }>[] = [
   { key: 'id', label: 'ID', render: (v) => `#${v}` },
   { key: 'name', label: 'Nombre' },
   {
-    key: 'description',
-    label: 'Descripción',
-    render: (v) => v ? (v as string).substring(0, 100) + (((v as string).length > 100) ? '...' : '') : '-'
+    key: 'created_at',
+    label: 'Creado',
+    render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-'),
   },
-  { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
-  { key: 'updated_at', label: 'Actualizado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
+  {
+    key: 'updated_at',
+    label: 'Actualizado',
+    render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-'),
+  },
 ];
 
-// Secciones del formulario (sin cambios funcionales)
+// Secciones del formulario
 const formSections: CRUDFormSection<SpeciesInput>[] = [
   {
     title: 'Información Básica',
     gridCols: 2,
     fields: [
       { name: 'name', label: 'Nombre', type: 'text', required: true, placeholder: 'Ej: Bovino' },
-      { name: 'description', label: 'Descripción', type: 'textarea', placeholder: 'Descripción de la especie', colSpan: 2 },
     ],
   },
 ];
@@ -37,12 +39,6 @@ const renderSpeciesCard = (item: SpeciesResponse & { [k: string]: any }) => {
     <div className={modalStyles.spacing.section}>
       <SectionCard title="Información Básica">
         <InfoField label="Nombre" value={item.name || '-'} valueSize="large" />
-        {item.description && (
-          <InfoField
-            label="Descripción"
-            value={item.description.substring(0, 80) + (item.description.length > 80 ? '...' : '')}
-          />
-        )}
       </SectionCard>
       <SectionCard title="Fecha de Creación">
         <InfoField
@@ -77,14 +73,6 @@ const renderSpeciesDetail = (item: SpeciesResponse & { [k: string]: any }) => {
               <InfoField label="Nombre" value={item.name || '-'} valueSize="xlarge" />
             </div>
           </SectionCard>
-
-          {item.description && (
-            <SectionCard title="Descripción">
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                {item.description}
-              </p>
-            </SectionCard>
-          )}
         </div>
 
         {/* Columna derecha */}
@@ -114,7 +102,7 @@ const crudConfig: CRUDConfig<SpeciesResponse & { [k: string]: any }, SpeciesInpu
   columns,
   formSections,
   // Especificar campos a cargar para optimizar
-  defaultFields: 'id,name,description,created_at,updated_at',
+  defaultFields: 'id,name,created_at,updated_at',
   searchPlaceholder: 'Buscar especies...',
   emptyStateMessage: 'No hay especies disponibles.',
   emptyStateDescription: 'Crea la primera para comenzar.',
@@ -145,7 +133,6 @@ const crudConfig: CRUDConfig<SpeciesResponse & { [k: string]: any }, SpeciesInpu
 // Mapear respuesta a formulario
 const mapResponseToForm = (item: SpeciesResponse & { [k: string]: any }): SpeciesInput => ({
   name: item.name || '',
-  description: item.description || '',
 });
 
 // Validación simple
@@ -157,7 +144,6 @@ const validateForm = (formData: SpeciesInput): string | null => {
 // Datos iniciales
 const initialFormData: SpeciesInput = {
   name: '',
-  description: '',
 };
 
 // Página principal
