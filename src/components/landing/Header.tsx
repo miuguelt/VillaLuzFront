@@ -76,8 +76,8 @@ export default function NavBar() {
   }, [menuItems]);
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-border bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
-      <div className="container mx-auto flex h-14 items-center justify-between px-4 text-text-primary">
+    <nav className="sticky top-0 z-50 w-full border-b border-border bg-surface text-text-primary">
+      <div className="container mx-auto flex h-14 items-center justify-between px-4">
         {/* Brand */}
         <div className="flex items-center gap-3 text-text-primary">
           <img
@@ -107,14 +107,15 @@ export default function NavBar() {
               {item.label}
             </a>
           ))}
-          <Button
-            className={`bg-primary text-primary-foreground font-semibold ml-2 ${!isAuthenticated ? 'opacity-75' : ''}`}
-            onClick={handleGoToPanel}
-            type="button"
-            aria-disabled={!isAuthenticated}
-          >
-            Ir al panel
-          </Button>
+          {isAuthenticated && dashboardRoute && (
+            <Button
+              className="bg-primary text-primary-foreground font-semibold ml-2"
+              onClick={handleGoToPanel}
+              type="button"
+            >
+              Ir al panel
+            </Button>
+          )}
         </div>
 
         {/* Desktop auth actions */}
@@ -169,17 +170,18 @@ export default function NavBar() {
               {item.label}
             </a>
           ))}
-          <Button
-            className="w-full bg-primary text-primary-foreground font-semibold mt-2"
-            onClick={() => {
-              setIsMenuOpen(false);
-              handleGoToPanel();
-            }}
-            type="button"
-            aria-disabled={!isAuthenticated}
-          >
-            Ir al panel
-          </Button>
+          {isAuthenticated && dashboardRoute && (
+            <Button
+              className="w-full bg-primary text-primary-foreground font-semibold mt-2"
+              onClick={() => {
+                setIsMenuOpen(false);
+                handleGoToPanel();
+              }}
+              type="button"
+            >
+              Ir al panel
+            </Button>
+          )}
           {!isAuthenticated ? (
             <Button
               className="w-full bg-success text-success-foreground font-semibold"

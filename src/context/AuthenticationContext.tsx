@@ -588,7 +588,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       clearAuthState()
       postBC('logout')
-      navigate('/login')
+      navigate('/', { replace: true })
     }
   }, [clearAuthState, navigate])
 
