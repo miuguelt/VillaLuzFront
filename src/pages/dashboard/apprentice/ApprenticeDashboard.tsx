@@ -24,23 +24,27 @@ import {
 } from 'lucide-react';
 import KPICard from '@/components/analytics/KPICard';
 
+const KPI_ORDER = [
+  'health_index',
+  'vaccination_coverage',
+  'control_compliance',
+  'mortality_rate_30d',
+  'sales_rate_30d',
+  'treatments_intensity',
+  'controls_frequency',
+  'herd_growth_rate',
+  'alert_pressure',
+  'task_load_index',
+];
+
 const ApprenticeDashboard: React.FC = () => {
   const { stats, loading, error, refetch, lastUpdated } = useCompleteDashboardStats();
   const navigate = useNavigate();
   const kpiResumen = stats?.kpi_resumen;
-  const rawKpiCards: KpiCardSummary[] = kpiResumen?.cards ?? [];
-  const KPI_ORDER = [
-    'health_index',
-    'vaccination_coverage',
-    'control_compliance',
-    'mortality_rate_30d',
-    'sales_rate_30d',
-    'treatments_intensity',
-    'controls_frequency',
-    'herd_growth_rate',
-    'alert_pressure',
-    'task_load_index',
-  ];
+  const rawKpiCards: KpiCardSummary[] = useMemo(
+    () => kpiResumen?.cards ?? [],
+    [kpiResumen]
+  );
   const kpiCards = useMemo<KpiCardSummary[]>(() => {
     if (!rawKpiCards.length) return [];
     const indexOfId = (id: string) => KPI_ORDER.indexOf(id);

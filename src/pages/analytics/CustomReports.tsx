@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import analyticsService from '@/services/analyticsService';
 import {
   DocumentChartBarIcon,
   ArrowDownTrayIcon,

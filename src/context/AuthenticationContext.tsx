@@ -123,6 +123,17 @@ const invalidateUserCache = () => {
   console.log('[AuthContext] Caché de usuario invalidado')
 }
 
+const AUTO_LOGIN_BLOCK_KEY = 'auth:auto_login_block';
+const blockAutoLogin = () => {
+  try { sessionStorage.setItem(AUTO_LOGIN_BLOCK_KEY, '1'); } catch { /* noop */ }
+};
+const clearAutoLoginBlock = () => {
+  try { sessionStorage.removeItem(AUTO_LOGIN_BLOCK_KEY); } catch { /* noop */ }
+};
+const isAutoLoginBlocked = (): boolean => {
+  try { return sessionStorage.getItem(AUTO_LOGIN_BLOCK_KEY) === '1'; } catch { return false; }
+};
+
 const persistUser = (u: User | null) => {
   try {
     if (!u) {
@@ -173,6 +184,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setName(null)
     setIsAuthenticated(false)
     persistUser(null)
+    blockAutoLogin()
   }, [])
 
   // Controller para cancelar llamadas /auth/me en curso cuando cambie la vista o se dispare nuevamente
@@ -213,9 +225,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthenticated(true)
         setLoading(false)
         prefetchRoleRoutes(cachedUser.role)
+        clearAutoLoginBlock()
         console.log('[AuthContext] Usando usuario del caché (1h), evitando llamada a /auth/me')
         return
       }
+    }
+
+    if (isAutoLoginBlocked()) {
+      setLoading(false)
+      return
     }
 
     // Evitar revalidación inmediata justo después de persistir (p. ej. tras login)
@@ -287,6 +305,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setName(normalizedUser.fullname)
         setIsAuthenticated(true)
         persistUser(normalizedUser)
+        clearAutoLoginBlock()
         prefetchRoleRoutes(canonRole)
         // Compartir éxito con otras pestañas para evitar llamadas duplicadas
         postBC('me:success', { user: normalizedUser })
@@ -484,6 +503,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setName(normalizedUser.fullname)
           setIsAuthenticated(true)
           persistUser(normalizedUser)
+          clearAutoLoginBlock()
           prefetchRoleRoutes(canonRole)
           setLoading(false)
           break
@@ -536,6 +556,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setName(normalized.fullname)
       setIsAuthenticated(true)
       persistUser(normalized)
+      clearAutoLoginBlock()
 
       // Elegir destino por rol usando rutas que existen en AppRoutes
       const roleToPath: Record<Role, string> = {
@@ -563,6 +584,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setName(newUser.fullname)
     setIsAuthenticated(true)
     persistUser(newUser)
+    clearAutoLoginBlock()
     prefetchRoleRoutes(newUser.role)
     const roleToPath: Record<Role, string> = {
       [Role.Administrador]: '/admin/dashboard',

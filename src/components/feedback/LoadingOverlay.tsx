@@ -151,6 +151,7 @@ export function LoadingOverlay({
 /**
  * Hook personalizado para manejar estados de carga
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function useLoadingOverlay() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [message, setMessage] = React.useState<string>('Cargando...');

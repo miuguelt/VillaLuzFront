@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { getApiBaseURL, isDevelopment } from '@/utils/envConfig';
+import { getApiBaseURL } from '@/utils/envConfig';
+import { speciesService } from '@/services/speciesService';
+import { breedsService } from '@/services/breedsService';
+import { fieldService } from '@/services/fieldService';
+import { diseaseService } from '@/services/diseaseService';
+import { medicationsService } from '@/services/medicationsService';
+import { vaccinesService } from '@/services/vaccinesService';
+import { foodTypesService } from '@/services/foodTypesService';
+import { animalService } from '@/services/animalService';
 
 interface CacheEntry<T> {
   data: T;
@@ -34,51 +42,105 @@ interface CacheProviderProps {
   defaultTTL?: number; // Time to live en milisegundos
 }
 
-// Persistencia en sessionStorage con TTL
-const LS_PREFIX = 'app-cache:';
-const lsGet = (k: string): string | null => { try { return sessionStorage.getItem(k); } catch { return null; } };
-const lsSet = (k: string, v: string) => { try { sessionStorage.setItem(k, v); } catch { /* quota/disabled */ } };
-const lsRemove = (k: string) => { try { sessionStorage.removeItem(k); } catch { /* noop */ } };
-const lsKeys = (): string[] => { try { return Array.from({ length: sessionStorage.length }, (_, i) => sessionStorage.key(i)!).filter(Boolean) as string[]; } catch { return []; } };
+// Persistencia priorizando localStorage (fallback a sessionStorage) con TTL + tolerancia offline
+const CACHE_PREFIX = 'offline_cache_v2:';
+const OFFLINE_GRACE_MS = 24 * 60 * 60 * 1000; // 24h de gracia para redes intermitentes
+
+const getPreferredStorage = (): Storage | null => {
+  try {
+    if (typeof window === 'undefined') return null;
+    if (window.localStorage) return window.localStorage;
+    if (window.sessionStorage) return window.sessionStorage;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+const storageGet = (k: string): string | null => {
+  const storage = getPreferredStorage();
+  if (!storage) return null;
+  try { return storage.getItem(k); } catch { return null; }
+};
+const storageSet = (k: string, v: string) => {
+  const storage = getPreferredStorage();
+  if (!storage) return;
+  try { storage.setItem(k, v); } catch { /* quota/disabled */ }
+};
+const storageRemove = (k: string) => {
+  const storage = getPreferredStorage();
+  if (!storage) return;
+  try { storage.removeItem(k); } catch { /* noop */ }
+};
+const storageKeys = (): string[] => {
+  const storage = getPreferredStorage();
+  if (!storage) return [];
+  try {
+    return Array.from({ length: storage.length }, (_, i) => storage.key(i)!).filter(Boolean) as string[];
+  } catch {
+    return [];
+  }
+};
+
+const isOffline = (): boolean => {
+  try {
+    return typeof navigator !== 'undefined' && navigator.onLine === false;
+  } catch {
+    return false;
+  }
+};
 
 export const CacheProvider: React.FC<CacheProviderProps> = ({
   children,
   defaultTTL = 5 * 60 * 1000 // 5 minutos por defecto (optimizado para primera carga)
 }) => {
   const [cache, setCache] = useState<Map<string, CacheEntry<any>>>(new Map());
-  const [preloadQueue, setPreloadQueue] = useState<string[]>([]);
+  const [, setPreloadQueue] = useState<string[]>([]);
+  const { generateKey } = useCacheKey();
 
   const getCache = useCallback(<T,>(key: string): T | null => {
+    const now = Date.now();
+    const offline = isOffline();
+
+    const purgeKey = () => {
+      const mem = new Map(cache);
+      mem.delete(key);
+      setCache(mem);
+      storageRemove(CACHE_PREFIX + key);
+    };
+
     // 1) Intentar en memoria
     const inMem = cache.get(key);
     if (inMem) {
-      if (Date.now() > inMem.expiry) {
-        const mem = new Map(cache);
-        mem.delete(key);
-        setCache(mem);
-        // limpiar persistencia si expiró
-        lsRemove(LS_PREFIX + key);
+      const offlineAllowedUntil = inMem.expiry + OFFLINE_GRACE_MS;
+      const expired = now > inMem.expiry;
+      if (expired && !(offline && now <= offlineAllowedUntil)) {
+        purgeKey();
         return null;
       }
       return inMem.data as T;
     }
 
-    // 2) Intentar desde sessionStorage (hidratar si válido)
-    const raw = lsGet(LS_PREFIX + key);
+    // 2) Intentar desde storage persistente (hidratar si válido)
+    const raw = storageGet(CACHE_PREFIX + key);
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as CacheEntry<T>;
-        if (parsed && typeof parsed.expiry === 'number' && Date.now() <= parsed.expiry) {
+        if (parsed && typeof parsed.expiry === 'number') {
+          const offlineAllowedUntil = parsed.expiry + OFFLINE_GRACE_MS;
+          const expired = now > parsed.expiry;
+          if (expired && !(offline && now <= offlineAllowedUntil)) {
+            storageRemove(CACHE_PREFIX + key);
+            return null;
+          }
           const mem = new Map(cache);
           mem.set(key, parsed);
           setCache(mem);
           return parsed.data as T;
         }
-        // expirado: limpiar
-        lsRemove(LS_PREFIX + key);
+        storageRemove(CACHE_PREFIX + key);
       } catch {
-        // corrupto: limpiar
-        lsRemove(LS_PREFIX + key);
+        storageRemove(CACHE_PREFIX + key);
       }
     }
 
@@ -97,7 +159,7 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({
     newCache.set(key, entry);
     setCache(newCache);
     // persistencia
-    try { lsSet(LS_PREFIX + key, JSON.stringify(entry)); } catch { /* noop */ }
+    try { storageSet(CACHE_PREFIX + key, JSON.stringify(entry)); } catch { /* noop */ }
   }, [cache, defaultTTL]);
 
   const invalidateCache = useCallback((key: string): void => {
@@ -105,7 +167,7 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({
     newCache.delete(key);
     setCache(newCache);
     // eliminar persistencia
-    lsRemove(LS_PREFIX + key);
+    storageRemove(CACHE_PREFIX + key);
   }, [cache]);
 
   const invalidatePattern = useCallback((pattern: string): void => {
@@ -118,12 +180,12 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({
       }
     }
     setCache(newCache);
-    // sessionStorage (buscar por prefijo y probar la parte de la clave)
-    for (const k of lsKeys()) {
-      if (!k || !k.startsWith(LS_PREFIX)) continue;
-      const logicalKey = k.slice(LS_PREFIX.length);
+    // storage (buscar por prefijo y probar la parte de la clave)
+    for (const k of storageKeys()) {
+      if (!k || !k.startsWith(CACHE_PREFIX)) continue;
+      const logicalKey = k.slice(CACHE_PREFIX.length);
       if (regex.test(logicalKey)) {
-        lsRemove(k);
+        storageRemove(k);
       }
     }
   }, [cache]);
@@ -148,9 +210,9 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({
   const clearCache = useCallback((): void => {
     setCache(new Map());
     // remover todas las entradas del prefijo
-    for (const k of lsKeys()) {
-      if (k && k.startsWith(LS_PREFIX)) {
-        lsRemove(k);
+    for (const k of storageKeys()) {
+      if (k && k.startsWith(CACHE_PREFIX)) {
+        storageRemove(k);
       }
     }
   }, []);
@@ -184,65 +246,57 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({
     }
   }, [getCache, setCacheData]);
 
-  // Precarga en background de rutas críticas
+  // Precarga en background de rutas críticas usando servicios autenticados
   const preloadCriticalRoutes = useCallback(() => {
-    // DISABLED: Using native fetch() causes 400/500 errors because it bypasses
-    // Axios interceptors (no JWT, no CSRF tokens, no auth headers).
-    // TODO: Reimplement using Axios or preloadData() with proper fetch functions
+    if (isOffline()) {
+      console.debug('[CacheContext] Precarga omitida: sin conexión');
+      return;
+    }
 
-    console.debug('[CacheContext] preloadCriticalRoutes disabled - use react-query prefetching instead');
-    return;
+    const baseTtl = 45 * 60 * 1000; // 45 minutos para listas dinámicas
+    const masterTtl = 12 * 60 * 60 * 1000; // 12h para catálogos maestros
 
-    /* ORIGINAL CODE - DISABLED DUE TO AUTH ISSUES
-    // Nota: el gating por autenticación se realiza en GlobalNetworkHandlers usando isAuthenticated.
-    // Aquí mantenemos sólo la protección de mismo origen y la lógica de precarga.
-
-    // Forzar base relativa para precargas: evita CORS/cookies cruzadas tanto en dev (localhost) como en prod (mismo origen)
-    const apiBaseURL = '/api/v1';
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-
-    const routeMappings = {
-      'api:animals': `${apiBaseURL}/animals`,
-      'api:fields': `${apiBaseURL}/fields`,
-      'api:diseases': `${apiBaseURL}/diseases`
+    const toCachePayload = (resp: any) => {
+      const items = Array.isArray(resp?.data) ? resp.data : [];
+      return {
+        items,
+        data: items,
+        meta: {
+          page: resp?.page ?? 1,
+          limit: resp?.limit ?? items.length ?? 0,
+          total: resp?.total ?? items.length ?? 0,
+          totalPages: resp?.totalPages ?? resp?.pages ?? 1,
+          hasNextPage: resp?.hasNextPage ?? resp?.has_next ?? false,
+          hasPreviousPage: resp?.hasPreviousPage ?? resp?.has_prev ?? false,
+          rawMeta: resp?.rawMeta ?? resp?.meta,
+        },
+        timestamp: Date.now(),
+      };
     };
 
-    Object.entries(routeMappings).forEach(([cacheKey, realURL]) => {
-      const cached = getCache(cacheKey);
-      const shouldPreload = !cached || ((cached as any)?.expiry - Date.now() < 60000);
-      if (!shouldPreload) return;
+    const tasks: Array<{ key: string; fetchFn: () => Promise<any>; ttl: number }> = [
+      { key: generateKey('species', { limit: 200 }), fetchFn: () => speciesService.getPaginated({ limit: 200 }), ttl: masterTtl },
+      { key: generateKey('breeds', { limit: 200 }), fetchFn: () => breedsService.getPaginated({ limit: 200 }), ttl: masterTtl },
+      { key: generateKey('fields', { limit: 200 }), fetchFn: () => fieldService.getPaginated({ limit: 200 }), ttl: masterTtl },
+      { key: generateKey('diseases', { limit: 200 }), fetchFn: () => diseaseService.getPaginated({ limit: 200 }), ttl: masterTtl },
+      { key: generateKey('medications', { limit: 200 }), fetchFn: () => medicationsService.getPaginated({ limit: 200 }), ttl: masterTtl },
+      { key: generateKey('vaccines', { limit: 200 }), fetchFn: () => vaccinesService.getPaginated({ limit: 200 }), ttl: masterTtl },
+      { key: generateKey('food_types', { limit: 200 }), fetchFn: () => foodTypesService.getPaginated({ limit: 200 }), ttl: masterTtl },
+      { key: generateKey('animals', { page: 1, limit: 20 }), fetchFn: () => animalService.getPaginated({ page: 1, limit: 20 }), ttl: baseTtl },
+    ];
 
-      try {
-        const resolved = new URL(realURL, origin);
-        if (resolved.origin !== origin) {
-          console.warn(`[CacheContext] Skip preload ${cacheKey} (cross-origin): ${resolved.href}`);
-          return;
-        }
-      } catch {
-        if (!realURL.startsWith('/')) {
-          console.warn(`[CacheContext] Skip preload ${cacheKey} (non-relative): ${realURL}`);
-          return;
-        }
-      }
-
-      setTimeout(() => {
-        console.debug(`[CacheContext] Preloading ${cacheKey} -> ${realURL}`);
-        fetch(realURL, {
-          method: 'GET',
-          cache: 'force-cache',
-          credentials: 'include' as RequestCredentials,
-          priority: 'low' as any,
-          headers: { Accept: 'application/json' }
-        }).then(response => {
-          if (response.ok) return response.json();
-          throw new Error(`Failed to preload ${cacheKey}`);
-        }).then(data => {
-          setCacheData(cacheKey, data, 3 * 60 * 1000);
-        }).catch(() => { }); // silent
-      }, Math.random() * 5000);
+    tasks.forEach(({ key, fetchFn, ttl }) => {
+      if (getCache(key)) return; // ya en caché
+      void preloadData(
+        key,
+        async () => {
+          const resp = await fetchFn();
+          return toCachePayload(resp);
+        },
+        ttl
+      ).catch((err) => console.warn(`[CacheContext] Error en precarga de ${key}:`, err));
     });
-    */
-  }, []);
+  }, [generateKey, getCache, preloadData]);
 
   const value: CacheContextType = {
     getCache,

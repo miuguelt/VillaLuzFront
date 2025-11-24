@@ -19,7 +19,10 @@ export const useDescendantsTree = () => {
   const { animals } = useAnimals();
 
   // Construye el árbol hacia abajo (descendientes) a partir de un animal raíz
-  const buildDescendantsTree = async (animalId: number | undefined, maxDepth = 10) => {
+  const buildDescendantsTree = async (
+    animalId: number | undefined,
+    maxDepth = 10
+  ): Promise<{ animal: AnimalNode | null; levels: AnimalNode[][] }> => {
     if (animalId === undefined || animalId === null) return { animal: null, levels: [] };
 
     console.log(`[descendantsTree] === INICIANDO buildDescendantsTree para id=${animalId} ===`);
@@ -40,12 +43,12 @@ export const useDescendantsTree = () => {
       idMother: rootNode.mother_id,
     });
 
-    const levels: any[][] = [];
-    levels.push([rootNode]); // nivel 0
+    const levels: AnimalNode[][] = [];
+    levels.push([rootNode as AnimalNode]); // nivel 0
 
-    let currentLevel: any[] = [rootNode];
+    let currentLevel: AnimalNode[] = [rootNode as AnimalNode];
     for (let depth = 1; depth <= maxDepth; depth++) {
-      const nextLevel: any[] = [];
+      const nextLevel: AnimalNode[] = [];
       console.log(`[descendantsTree] --- Procesando nivel ${depth}, nodos padres actuales: ${currentLevel.length} ---`);
 
       for (const node of currentLevel) {
@@ -82,7 +85,7 @@ export const useDescendantsTree = () => {
           }
 
           return isChild;
-        });
+        }) as AnimalNode[];
 
         if (children.length > 0) {
           console.log(`[descendantsTree] 👶 Total hijos de id=${validId}: ${children.length}`);

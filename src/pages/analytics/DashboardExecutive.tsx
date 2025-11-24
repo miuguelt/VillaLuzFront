@@ -46,6 +46,19 @@ ChartJS.register(
   Filler
 );
 
+const KPI_ORDER = [
+  'health_index',
+  'vaccination_coverage',
+  'control_compliance',
+  'mortality_rate_30d',
+  'sales_rate_30d',
+  'treatments_intensity',
+  'controls_frequency',
+  'herd_growth_rate',
+  'alert_pressure',
+  'task_load_index',
+];
+
 const DashboardExecutive: React.FC = () => {
   const {
     useDashboard,
@@ -74,19 +87,10 @@ const DashboardExecutive: React.FC = () => {
   });
 
   const kpiResumen = dashboard?.kpi_resumen;
-  const rawKpiCards: KpiCardSummary[] = kpiResumen?.cards ?? [];
-  const KPI_ORDER = [
-    'health_index',
-    'vaccination_coverage',
-    'control_compliance',
-    'mortality_rate_30d',
-    'sales_rate_30d',
-    'treatments_intensity',
-    'controls_frequency',
-    'herd_growth_rate',
-    'alert_pressure',
-    'task_load_index',
-  ];
+  const rawKpiCards: KpiCardSummary[] = useMemo(
+    () => kpiResumen?.cards ?? [],
+    [kpiResumen]
+  );
   const kpiCards = useMemo<KpiCardSummary[]>(() => {
     if (!rawKpiCards.length) return [];
     const indexOfId = (id: string) => KPI_ORDER.indexOf(id);

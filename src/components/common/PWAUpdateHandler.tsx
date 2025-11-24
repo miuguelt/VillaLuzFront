@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/context/ToastContext';
-import { Wifi, WifiOff, RefreshCw, Download } from 'lucide-react';
+import { WifiOff, RefreshCw, Download } from 'lucide-react';
 
 export function PWAUpdateHandler() {
   const [updateAvailable, setUpdateAvailable] = useState(false);

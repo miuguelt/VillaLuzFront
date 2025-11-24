@@ -2,8 +2,7 @@ import { GenericModal } from "@/components/common/GenericModal";
 import { getAnimalLabel } from '@/utils/animalHelpers';
 import React from 'react';
 import { cn } from '@/components/ui/cn.ts';
-import { Users, Baby } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Baby } from 'lucide-react';
 import type { AnimalTreeSummary, AnimalTreeEdgeExamples } from '@/types/animalTreeTypes';
 import { TreeHelpTooltip } from './TreeHelpTooltip';
 
@@ -51,13 +50,6 @@ const DescendantsTreeModal = ({
 
   const [depthShown, setDepthShown] = React.useState<number>(Math.max(1, (levels?.length ?? 1)));
 
-  // Estado para colapsables y paginación de ejemplos
-  const [expandedSex, setExpandedSex] = React.useState<Record<'Macho' | 'Hembra' | 'Unknown', boolean>>({ Macho: true, Hembra: true, Unknown: false });
-  const [pageSex, setPageSex] = React.useState<Record<'Macho' | 'Hembra' | 'Unknown', number>>({ Macho: 0, Hembra: 0, Unknown: 0 });
-  const [expandedSpecies, setExpandedSpecies] = React.useState<Record<string, boolean>>({});
-  const [pageSpecies, setPageSpecies] = React.useState<Record<string, number>>({});
-  const pageSize = 5;
-
   const displayLevels = React.useMemo(() => {
     return Array.isArray(levels) ? levels.slice(0, Math.max(1, depthShown)) : [];
   }, [levels, depthShown]);
@@ -83,30 +75,6 @@ const DescendantsTreeModal = ({
   const getId = (n: any): number | undefined => {
     const id = n?.idAnimal ?? n?.id;
     return id && Number.isInteger(Number(id)) && Number(id) > 0 ? Number(id) : undefined;
-  };
-
-  const getSpeciesIcon = (name?: string) => {
-    const n = (name || '').toLowerCase();
-    if (n.includes('bov')) return '🐄';
-    if (n.includes('vac') || n.includes('res')) return '🐄';
-    if (n.includes('porc')) return '🐖';
-    if (n.includes('equ')) return '🐴';
-    if (n.includes('ov')) return '🐑';
-    if (n.includes('capr')) return '🐐';
-    if (n.includes('avic') || n.includes('gall') || n.includes('pollo')) return '🐓';
-    return '🦊';
-  };
-
-  const scrollToNode = (id?: number) => {
-    if (!id) return;
-    const el = document.getElementById(`node-${id}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.classList.add('ring-2', 'ring-purple-600', 'ring-offset-2');
-      setTimeout(() => {
-        el.classList.remove('ring-2', 'ring-purple-600', 'ring-offset-2');
-      }, 1500);
-    }
   };
 
   return (

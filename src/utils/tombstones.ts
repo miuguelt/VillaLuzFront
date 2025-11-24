@@ -7,6 +7,12 @@ const LS_PREFIX = 'tombstones:';
 
 const memoryStores = new Map<string, TombstoneStore>();
 
+const logTombstoneWarning = (label: string, error: unknown) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn(`[tombstones] ${label}`, error);
+  }
+};
+
 function storageKey(entity: string) {
   return `${LS_PREFIX}${entity.toLowerCase()}`;
 }
@@ -14,7 +20,8 @@ function storageKey(entity: string) {
 function hasLocalStorage() {
   try {
     return typeof window !== 'undefined' && !!window.localStorage;
-  } catch {
+  } catch (error) {
+    logTombstoneWarning('hasLocalStorage', error);
     return false;
   }
 }
@@ -34,7 +41,9 @@ function readStore(entity: string): TombstoneStore {
     try {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') return parsed as TombstoneStore;
-    } catch {}
+    } catch (error) {
+      logTombstoneWarning('readStore', error);
+    }
     return {};
   }
   return memoryStores.get(storageKey(entity)) || {};

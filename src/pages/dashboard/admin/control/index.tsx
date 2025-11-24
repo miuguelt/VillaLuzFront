@@ -6,15 +6,9 @@ import { animalsService } from '@/services/animalService';
 // Importar tipo ControlForm si no existe, lo definimos localmente arriba
 // Ajustar el tipo importado: ya no usamos ControlInput aquí
 import type { ControlResponse } from '@/types/swaggerTypes';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Edit, Activity, TrendingUp } from 'lucide-react';
+import { Activity, TrendingUp } from 'lucide-react';
 import { getTodayColombia } from '@/utils/dateUtils';
 import { AnimalLink } from '@/components/common/ForeignKeyHelpers';
 import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalStyles';

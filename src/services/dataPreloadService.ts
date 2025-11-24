@@ -128,6 +128,7 @@ class DataPreloadService {
   };
   private stateChangeCallbacks: ((state: PreloadState) => void)[] = [];
   private cacheExpiryTime = 5 * 60 * 1000; // 5 minutos
+  private offlineGraceMs = 24 * 60 * 60 * 1000; // Permitir usar caché hasta 24h cuando no hay red
 
   private constructor() {}
 
@@ -185,8 +186,16 @@ class DataPreloadService {
   /**
    * Verifica si los datos en caché aún son válidos
    */
-  private isCacheValid(timestamp: number): boolean {
-    return Date.now() - timestamp < this.cacheExpiryTime;
+  private isCacheValid(timestamp: number, allowOfflineStale: boolean = true): boolean {
+    const age = Date.now() - timestamp;
+    if (age < this.cacheExpiryTime) return true;
+
+    const offline = allowOfflineStale && typeof navigator !== 'undefined' && navigator.onLine === false;
+    if (offline && age < this.cacheExpiryTime + this.offlineGraceMs) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -264,29 +273,44 @@ class DataPreloadService {
         treatmentVaccinesService.getTreatmentVaccinesStats().catch(() => ({ } as any)),
         foodTypesService.getFoodTypesStats().catch(() => ({ } as any)),
         // Obtener datos de useModelStats
-        new Promise(async (resolve) => {
-          try {
-            const { data } = useModelStats('production');
-            resolve(data || {});
-          } catch {
-            resolve({});
-          }
+        new Promise((resolve) => {
+          Promise.resolve().then(() => {
+            try {
+              const { data } = useModelStats('production');
+              resolve(data || {});
+            } catch (error) {
+              if (process.env.NODE_ENV !== 'production') {
+                console.warn('[dataPreload] stats production', error);
+              }
+              resolve({});
+            }
+          });
         }),
-        new Promise(async (resolve) => {
-          try {
-            const { data } = useModelStats('health');
-            resolve(data || {});
-          } catch {
-            resolve({});
-          }
+        new Promise((resolve) => {
+          Promise.resolve().then(() => {
+            try {
+              const { data } = useModelStats('health');
+              resolve(data || {});
+            } catch (error) {
+              if (process.env.NODE_ENV !== 'production') {
+                console.warn('[dataPreload] stats health', error);
+              }
+              resolve({});
+            }
+          });
         }),
-        new Promise(async (resolve) => {
-          try {
-            const { data } = useModelStats('dashboard');
-            resolve(data || {});
-          } catch {
-            resolve({});
-          }
+        new Promise((resolve) => {
+          Promise.resolve().then(() => {
+            try {
+              const { data } = useModelStats('dashboard');
+              resolve(data || {});
+            } catch (error) {
+              if (process.env.NODE_ENV !== 'production') {
+                console.warn('[dataPreload] stats dashboard', error);
+              }
+              resolve({});
+            }
+          });
         }),
       ]);
 

@@ -1,39 +1,14 @@
 import React, { useMemo } from 'react';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection } from '@/components/common/AdminCRUDPage';
 import { geneticImprovementsService } from '@/services/geneticImprovementsService';
 import { animalsService } from '@/services/animalService';
 import type {
   AdminGeneticImprovementResponse,
   AdminGeneticImprovementInput,
-  GeneType,
-  EnhancementLevel,
 } from '@/types/adminGeneticImprovementsTypes';
 import { getTodayColombia } from '@/utils/dateUtils';
 
 // Opciones para selects
-const geneTypeOptions = [
-  { value: 'Resistencia a enfermedades', label: 'Resistencia a enfermedades' },
-  { value: 'Productividad láctea', label: 'Productividad láctea' },
-  { value: 'Crecimiento muscular', label: 'Crecimiento muscular' },
-  { value: 'Fertilidad', label: 'Fertilidad' },
-  { value: 'Calidad de carne', label: 'Calidad de carne' },
-  { value: 'Adaptación climática', label: 'Adaptación climática' },
-  { value: 'Otros', label: 'Otros' },
-];
-
-const enhancementLevelOptions = [
-  { value: 'Bajo', label: 'Bajo' },
-  { value: 'Medio', label: 'Medio' },
-  { value: 'Alto', label: 'Alto' },
-  { value: 'Experimental', label: 'Experimental' },
-];
-
-const statusOptions = [
-  { value: 'Activo', label: 'Activo' },
-  { value: 'Inactivo', label: 'Inactivo' },
-  { value: 'En desarrollo', label: 'En desarrollo' },
-  { value: 'Completado', label: 'Completado' },
-];
 
 // Configuración de secciones del formulario
 const formSections: CRUDFormSection<AdminGeneticImprovementInput>[] = [

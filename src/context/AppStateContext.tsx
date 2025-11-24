@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from './ToastContext';
 import dataPreloadService, { 
@@ -266,7 +266,7 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({
   autoStart = true
 }) => {
   const [state, dispatch] = useReducer(appStateReducer, initialState);
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user: _user } = useAuth();
   const { showToast } = useToast();
   const preloadPromiseRef = useRef<Promise<void> | null>(null);
 
@@ -316,51 +316,8 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({
     return unsubscribe;
   }, [state.hasCriticalErrors]);
 
-  // Manejar cambios en el estado de autenticación
-  useEffect(() => {
-    if (isAuthenticated) {
-      dispatch({ type: 'SET_STATUS', payload: AppStateStatus.INITIALIZING });
-      
-      if (autoStart) {
-        // Pequeño retraso para asegurar que todo esté inicializado
-        setTimeout(() => {
-          startPreload();
-        }, 100);
-      }
-    } else {
-      // Limpiar estado cuando el usuario no está autenticado
-      dispatch({ type: 'RESET_STATE' });
-    }
-  }, [isAuthenticated, autoStart]);
-
-  // Manejar cambios en el estado de conexión
-  useEffect(() => {
-    const handleOnline = () => {
-      dispatch({ type: 'SET_ONLINE_STATUS', payload: true });
-      showToast('Conexión restablecida', 'success');
-      
-      // Reintentar precarga automáticamente al recuperar conexión
-      if (isAuthenticated && state.dashboardLoaded) {
-        startPreload();
-      }
-    };
-
-    const handleOffline = () => {
-      dispatch({ type: 'SET_ONLINE_STATUS', payload: false });
-      showToast('Sin conexión a internet', 'warning');
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [isAuthenticated, state.dashboardLoaded, showToast]);
-
   // Función para iniciar la precarga
-  const startPreload = async () => {
+  const startPreload = useCallback(async () => {
     if (preloadPromiseRef.current) {
       return preloadPromiseRef.current;
     }
@@ -406,7 +363,50 @@ export const AppStateProvider: React.FC<AppStateProviderProps> = ({
     })();
 
     return preloadPromiseRef.current;
-  };
+  }, [isAuthenticated, showToast]);
+
+  // Manejar cambios en el estado de autenticación
+  useEffect(() => {
+    if (isAuthenticated) {
+      dispatch({ type: 'SET_STATUS', payload: AppStateStatus.INITIALIZING });
+      
+      if (autoStart) {
+        // Pequeño retraso para asegurar que todo esté inicializado
+        setTimeout(() => {
+          startPreload();
+        }, 100);
+      }
+    } else {
+      // Limpiar estado cuando el usuario no está autenticado
+      dispatch({ type: 'RESET_STATE' });
+    }
+  }, [isAuthenticated, autoStart, startPreload]);
+
+  // Manejar cambios en el estado de conexión
+  useEffect(() => {
+    const handleOnline = () => {
+      dispatch({ type: 'SET_ONLINE_STATUS', payload: true });
+      showToast('Conexión restablecida', 'success');
+      
+      // Reintentar precarga automáticamente al recuperar conexión
+      if (isAuthenticated && state.dashboardLoaded) {
+        startPreload();
+      }
+    };
+
+    const handleOffline = () => {
+      dispatch({ type: 'SET_ONLINE_STATUS', payload: false });
+      showToast('Sin conexión a internet', 'warning');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [isAuthenticated, state.dashboardLoaded, showToast, startPreload]);
 
   // Función para reintentar la precarga
   const retryPreload = async () => {

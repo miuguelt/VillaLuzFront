@@ -3,7 +3,6 @@ import {
   Image as ImageIcon,
   Star,
   Trash2,
-  X,
   ZoomIn,
   Download,
   Loader2,

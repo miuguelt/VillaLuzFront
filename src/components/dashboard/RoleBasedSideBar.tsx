@@ -4,7 +4,7 @@ import { sidebarItems, type Role as SidebarRole } from '@/components/dashboard/s
 import { Link } from 'react-router-dom';
 import { Loader } from '@/components/ui/Loader';
 import { normalizeRole } from '@/services/authService';
-import { ChevronDown, ChevronUp, X, LogOut, Leaf, Wheat, Mountain } from 'lucide-react';
+import { ChevronDown, ChevronUp, X, LogOut } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
 interface SidebarProps {
@@ -163,8 +163,6 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
   };
 
   const dynamicWidth = `min-w-[${sidebarWidth}px]`;
-  const waveAnimClass = isSidebarOpen ? 'animate-[waveFloat_8s_ease-in-out_infinite]' : '';
-  const stripeAnimClass = isSidebarOpen ? 'animate-[stripeGlow_6s_ease-in-out_infinite]' : '';
 
   return (
     <>

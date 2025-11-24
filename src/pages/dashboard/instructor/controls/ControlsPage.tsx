@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,12 +20,11 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Loader2, Plus, Search, Filter, Calendar, Weight, Activity, Eye, Edit, Trash2, X } from 'lucide-react';
+import { Loader2, Plus, Search, Filter, Calendar, Weight, Activity, Eye, Edit, Trash2 } from 'lucide-react';
 
 interface ControlsPageProps {}
 
 const ControlsPage: React.FC<ControlsPageProps> = () => {
-  const navigate = useNavigate();
   const { showToast } = useToast();
   
   // Estados principales

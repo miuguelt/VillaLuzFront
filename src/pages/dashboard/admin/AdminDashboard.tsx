@@ -1,16 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, memo } from 'react';
-import { useTranslation } from 'react-i18next';
+import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense, memo } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../../../context/ToastContext';
-import { useModelStats } from '../../../hooks/useModelStats';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { Badge } from '../../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import {
-  Loader2,
   Users,
   Building2,
   ClipboardList,
@@ -34,15 +31,22 @@ import { useT } from '@/i18n';
 import axios from 'axios';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SkeletonCard, SkeletonTable } from '@/components/ui/skeleton';
-// OPTIMIZACIÓN: Hooks PWA optimizados para backend
-import { useOptimizedList } from '@/hooks/useOptimizedData';
-import { DataSyncIndicator } from '@/components/common/DataSyncIndicator';
 import { DashboardStatsCard, DashboardStatsGrid } from '@/components/dashboard/DashboardStatsCard';
 import { useCompleteDashboardStats, KpiCardSummary } from '@/hooks/useCompleteDashboardStats';
 import KPICard from '@/components/analytics/KPICard';
 
-// Lazy load de componentes pesados para mejorar tiempo de carga inicial
-const StatisticsCard = lazy(() => import('../../../components/dashboard/StatisticsCard'));
+const KPI_ORDER = [
+  'health_index',
+  'vaccination_coverage',
+  'control_compliance',
+  'mortality_rate_30d',
+  'sales_rate_30d',
+  'treatments_intensity',
+  'controls_frequency',
+  'herd_growth_rate',
+  'alert_pressure',
+  'task_load_index',
+];
 
 // OPTIMIZACIÓN: Componente de alerta memoizado para evitar re-renders innecesarios
 const AlertItem = memo(({ alert, onMarkRead, onNavigate, colorToClasses, renderIcon }: {
@@ -127,20 +131,6 @@ interface SystemStats {
   systemAlerts: number;
 }
 
-interface DashboardCard {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  value: number | string;
-  trend?: {
-    value: number;
-    isPositive: boolean;
-  };
-  href?: string;
-  action?: React.ReactNode;
-}
-
 interface SystemAlert {
   id: string;
   type: 'health' | 'vaccination' | 'growth' | 'productivity' | 'system' | 'info' | 'warning' | 'error' | 'success' | string;
@@ -165,7 +155,7 @@ const AdminDashboard: React.FC = () => {
 
   // Estado local - declarar PRIMERO antes de usar
   const [users, setUsers] = useState<User[]>([]);
-  const [systemStats, setSystemStats] = useState<SystemStats>({
+  const [, setSystemStats] = useState<SystemStats>({
     totalUsers: 0,
     activeUsers: 0,
     totalAnimals: 0,
@@ -195,21 +185,12 @@ const AdminDashboard: React.FC = () => {
 
   // OPTIMIZACIÓN: Usar SOLO useCompleteDashboardStats que trae TODAS las métricas en una sola llamada
   // Esto elimina 3 llamadas HTTP redundantes (dashboard, health, production)
-  const { stats: completeStats, loading: completeLoading, error: completeError, refetch: refetchComplete, lastUpdated } = useCompleteDashboardStats(true);
+  const { stats: completeStats, loading: completeLoading, error: completeError, refetch: refetchComplete, lastUpdated: _lastUpdated } = useCompleteDashboardStats(true);
   const kpiResumen = completeStats?.kpi_resumen;
-  const rawKpiCards: KpiCardSummary[] = kpiResumen?.cards ?? [];
-  const KPI_ORDER = [
-    'health_index',
-    'vaccination_coverage',
-    'control_compliance',
-    'mortality_rate_30d',
-    'sales_rate_30d',
-    'treatments_intensity',
-    'controls_frequency',
-    'herd_growth_rate',
-    'alert_pressure',
-    'task_load_index',
-  ];
+  const rawKpiCards: KpiCardSummary[] = useMemo(
+    () => kpiResumen?.cards ?? [],
+    [kpiResumen]
+  );
   const kpiCards = useMemo<KpiCardSummary[]>(() => {
     if (!rawKpiCards.length) return [];
     const indexOfId = (id: string) => KPI_ORDER.indexOf(id);

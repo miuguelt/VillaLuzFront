@@ -35,18 +35,18 @@ export function useDebouncedCallback<T extends (...args: any[]) => any>(
   deps: DependencyList = []
 ): T {
   const callbackRef = useRef(callback);
+  const depsKey = useMemo(() => JSON.stringify(deps), [deps]);
 
   useEffect(() => {
     callbackRef.current = callback;
   }, [callback]);
 
-  return useMemo(
-    () =>
-      debounce((...args: Parameters<T>) => {
-        return callbackRef.current(...args);
-      }, delay) as T,
-    [delay, ...deps]
-  );
+  return useMemo(() => {
+    void depsKey;
+    return debounce((...args: Parameters<T>) => {
+      return callbackRef.current(...args);
+    }, delay) as T;
+  }, [delay, depsKey]);
 }
 
 // ============================================================================
@@ -87,18 +87,18 @@ export function useThrottledCallback<T extends (...args: any[]) => any>(
   deps: DependencyList = []
 ): T {
   const callbackRef = useRef(callback);
+  const depsKey = useMemo(() => JSON.stringify(deps), [deps]);
 
   useEffect(() => {
     callbackRef.current = callback;
   }, [callback]);
 
-  return useMemo(
-    () =>
-      throttle((...args: Parameters<T>) => {
-        return callbackRef.current(...args);
-      }, delay) as T,
-    [delay, ...deps]
-  );
+  return useMemo(() => {
+    void depsKey;
+    return throttle((...args: Parameters<T>) => {
+      return callbackRef.current(...args);
+    }, delay) as T;
+  }, [delay, depsKey]);
 }
 
 // ============================================================================
@@ -228,7 +228,7 @@ export function useIntersectionObserver(
     return () => {
       observer.disconnect();
     };
-  }, [elementRef, options.threshold, options.root, options.rootMargin]);
+  }, [elementRef, options]);
 
   return { isIntersecting, entry };
 }
@@ -270,7 +270,7 @@ export function useIdleCallback(
         }
       }
     };
-  }, [options?.timeout]);
+  }, [options]);
 }
 
 // ============================================================================

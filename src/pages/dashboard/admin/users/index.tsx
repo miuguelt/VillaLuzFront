@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { usersService } from '@/services/userService';
@@ -158,7 +158,7 @@ const validateForm = (formData: UserFormInput): string | null => {
     return '⚠️ El teléfono es obligatorio para contactar al usuario.';
   }
 
-  const phoneClean = formData.phone.replace(/[\s\-\(\)]/g, '');
+  const phoneClean = formData.phone.replace(/[\s()-]/g, '');
   if (phoneClean.length < 7) {
     return '⚠️ El número de teléfono parece incompleto. Debe tener al menos 7 dígitos.';
   }

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Image as ImageIcon, Upload, X, ZoomIn, Download, Star, Trash2, MoreVertical, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -61,7 +61,7 @@ export function ImageManager({
   onGalleryUpdate,
   showControls = true,
   refreshTrigger = 0,
-  bannerHeight = "300px",
+  bannerHeight: _bannerHeight = "300px",
   compact = false,
   allowMultipleSelection = false,
   onSelectionChange,
@@ -91,7 +91,10 @@ export function ImageManager({
   const [selectedImages, setSelectedImages] = useState<Set<number>>(new Set());
 
   // Tipos de archivo permitidos
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const allowedTypes = useMemo(
+    () => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    []
+  );
   const maxFileSize = 5 * 1024 * 1024; // 5MB
   const maxFiles = 10;
 
@@ -434,7 +437,11 @@ export function ImageManager({
           window.dispatchEvent(new CustomEvent('animal-images:updated', {
             detail: { animalId, uploaded: response.data.uploaded }
           }));
-        } catch {}
+        } catch (error) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[ImageManager] Error emitiendo evento de actualización', error);
+          }
+        }
       } else {
         throw new Error(response.message || 'Error al subir imágenes');
       }

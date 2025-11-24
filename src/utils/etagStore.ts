@@ -6,7 +6,6 @@
 import { getIndexedDBCache, setIndexedDBCache } from './indexedDBCache';
 
 const ETAG_STORAGE_KEY = 'http_etags_v1';
-const LAST_SYNC_PREFIX = 'last_sync:';
 
 interface ETagEntry {
   etag?: string;

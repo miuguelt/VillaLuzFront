@@ -45,6 +45,7 @@ export const HelpTooltip: React.FC<HelpTooltipProps> = ({
 /**
  * Mensajes de ayuda predefinidos para campos comunes
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const HELP_MESSAGES = {
   // Animales
   animal: {

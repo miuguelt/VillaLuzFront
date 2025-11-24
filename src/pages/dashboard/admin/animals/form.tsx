@@ -5,8 +5,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { animalsService } from '@/services/animalService';
 import { breedsService } from '@/services/breedsService';
 import { useSpecies } from '@/hooks/species/useSpecies';
-import { useBreeds } from '@/hooks/breed/useBreeds';
-import { useForeignKeySelect } from '@/hooks/useForeignKeySelect';
 import { Combobox } from '@/components/ui/combobox';
 import { Plus, Edit } from 'lucide-react';
 import { getTodayColombia } from '@/utils/dateUtils';

@@ -13,11 +13,10 @@ import { useAnimalTreeApi, graphToAncestorLevels, graphToDescendantLevels } from
 import DescendantsTreeModal from '@/components/dashboard/DescendantsTreeModal';
 import { useForeignKeySelect } from '@/hooks/useForeignKeySelect';
 import { ANIMAL_GENDERS, ANIMAL_STATES } from '@/constants/enums';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
 import { checkAnimalDependencies, clearAnimalDependencyCache } from '@/services/dependencyCheckService';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { GenericModal } from '@/components/common/GenericModal';
 import { AnimalActionsMenu } from '@/components/dashboard/AnimalActionsMenu';
 import { useAuth } from '@/hooks/useAuth';
@@ -112,7 +111,7 @@ const initialFormData: Partial<AnimalInput> = {
 function AdminAnimalsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [formData, setFormData] = useState<Partial<AnimalInput>>(initialFormData);
+  const [, setFormData] = useState<Partial<AnimalInput>>(initialFormData);
   const [viewMode, setViewMode] = useGlobalViewMode();
 
   // Estado para imágenes pre-seleccionadas durante la creación
@@ -123,8 +122,8 @@ function AdminAnimalsPage() {
   // Hook para razas - usar getPaginated con límite alto para obtener todas
   const {
     options: breedOptions,
-    loading: loadingBreeds,
-    handleSearch: handleSearchBreeds,
+    loading: _loadingBreeds,
+    handleSearch: _handleSearchBreeds,
   } = useForeignKeySelect(
     (params) => breedsService.getPaginated({ ...params, limit: 1000 }),
     (b: { id: number; name: string }) => ({ value: b.id, label: b.name }),
@@ -135,7 +134,7 @@ function AdminAnimalsPage() {
   // Hook para padres (solo machos) - cargar todos con límite alto
   const {
     options: fatherOptions,
-    loading: loadingFathers,
+    loading: _loadingFathers,
     refresh: refreshFathers,
   } = useForeignKeySelect(
     (params) => animalsService.getAnimalsPaginated({ ...params, limit: 1000 }),
@@ -153,7 +152,7 @@ function AdminAnimalsPage() {
   // Hook para madres (solo hembras) - cargar todas con límite alto
   const {
     options: motherOptions,
-    loading: loadingMothers,
+    loading: _loadingMothers,
     refresh: refreshMothers,
   } = useForeignKeySelect(
     (params) => animalsService.getAnimalsPaginated({ ...params, limit: 1000 }),
@@ -412,7 +411,7 @@ function AdminAnimalsPage() {
   };
 
   // Funciones para abrir modales de FK
-  const openBreedDetailModal = async (breedId: number) => {
+  const _openBreedDetailModal = async (breedId: number) => {
     try {
       const breed = await breedsService.getById(breedId);
       setSelectedBreed(breed);

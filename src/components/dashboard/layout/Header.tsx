@@ -10,7 +10,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ isSidebarOpen, onToggleSidebar }) => {
-  const { user, logout, impersonateRole } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleRoleNavigation = (role: Role) => {

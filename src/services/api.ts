@@ -616,7 +616,10 @@ async function readCache(key: string): Promise<any | null> {
 
   // 2. Fallback a IndexedDB (persistente entre sesiones)
   try {
-    const idbData = await getIndexedDBCache<any>(cacheKey);
+    const idbData = await getIndexedDBCache<any>(cacheKey, {
+      allowStaleWhenOffline: true,
+      offlineGraceMs: 10 * 60 * 1000, // hasta 10 minutos adicionales en modo offline
+    });
     if (idbData) {
       // Hidratar memoria con dato de IndexedDB
       memoryCache.set(cacheKey, {

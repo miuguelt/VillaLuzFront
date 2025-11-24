@@ -75,8 +75,6 @@ export function useDashboardCounts() {
     setLoading(true)
     setError(null)
 
-    const getTotal = (res: { total?: number } | undefined) => Number(res?.total || 0)
-
   const fetchAll = async () => {
       try {
         // Stats directos desde servicios (evita paginados y caché de listas)

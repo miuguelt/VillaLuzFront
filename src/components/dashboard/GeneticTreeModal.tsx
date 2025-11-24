@@ -154,7 +154,7 @@ const GeneticTreeModal = ({
 
         if (father || mother) {
           // Buscar si ya existe una pareja con este padre o madre
-          let existingCouple = couples.find(c =>
+          const existingCouple = couples.find(c =>
             (father && c.father && getId(c.father) === getId(father)) ||
             (mother && c.mother && getId(c.mother) === getId(mother))
           );

@@ -1,7 +1,7 @@
 import React from 'react';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { foodTypesService } from '@/services/foodTypesService';
-import type { FoodTypeResponse, FoodTypeInput } from '@/types/swaggerTypes';
+import type { FoodTypeResponse } from '@/types/swaggerTypes';
 
 // Columnas de la tabla (width numérico -> w-{n})
 const columns: CRUDColumn<FoodTypeResponse & { [k: string]: any }>[] = [

@@ -6,6 +6,7 @@
 const DB_NAME = 'VillaLuzCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'apiCache';
+const OFFLINE_STALE_GRACE_MS = 24 * 60 * 60 * 1000; // 24h de gracia para reutilizar datos en modo offline
 
 interface CacheEntry {
   key: string;
@@ -87,7 +88,10 @@ export async function setIndexedDBCache<T>(
 /**
  * Obtiene datos de IndexedDB (respeta TTL)
  */
-export async function getIndexedDBCache<T>(key: string): Promise<T | null> {
+export async function getIndexedDBCache<T>(
+  key: string,
+  options?: { allowStaleWhenOffline?: boolean; offlineGraceMs?: number }
+): Promise<T | null> {
   try {
     const db = await openDB();
     const transaction = db.transaction(STORE_NAME, 'readonly');
@@ -106,7 +110,13 @@ export async function getIndexedDBCache<T>(key: string): Promise<T | null> {
     // Verificar TTL si está definido
     if (entry.ttl) {
       const age = Date.now() - entry.timestamp;
+      const offlineGrace = options?.offlineGraceMs ?? OFFLINE_STALE_GRACE_MS;
+      const allowStaleOffline = options?.allowStaleWhenOffline && typeof navigator !== 'undefined' && navigator.onLine === false;
       if (age > entry.ttl) {
+        // Permitir usar datos vencidos si estamos offline y dentro de la ventana de gracia
+        if (allowStaleOffline && age <= entry.ttl + offlineGrace) {
+          return entry.data as T;
+        }
         // Expirado: eliminar en background
         void deleteIndexedDBCache(key);
         return null;
@@ -177,7 +187,9 @@ export async function invalidateIndexedDBCacheByPrefix(
 /**
  * Limpia entradas expiradas del cache
  */
-export async function clearExpiredIndexedDBCache(): Promise<number> {
+export async function clearExpiredIndexedDBCache(
+  options?: { allowStaleWhenOffline?: boolean; offlineGraceMs?: number }
+): Promise<number> {
   try {
     const db = await openDB();
     const transaction = db.transaction(STORE_NAME, 'readwrite');
@@ -190,12 +202,19 @@ export async function clearExpiredIndexedDBCache(): Promise<number> {
     });
 
     const now = Date.now();
+    const offlineGrace = options?.offlineGraceMs ?? OFFLINE_STALE_GRACE_MS;
+    const allowStaleOffline = options?.allowStaleWhenOffline && typeof navigator !== 'undefined' && navigator.onLine === false;
     let deletedCount = 0;
 
     for (const entry of entries) {
       if (entry.ttl) {
         const age = now - entry.timestamp;
-        if (age > entry.ttl) {
+        const hardExpired = age > entry.ttl;
+        if (hardExpired) {
+          // Si estamos offline y dentro de la ventana de gracia, conservar entrada
+          if (allowStaleOffline && age <= entry.ttl + offlineGrace) {
+            continue;
+          }
           await new Promise<void>((resolve, reject) => {
             const deleteRequest = store.delete(entry.key);
             deleteRequest.onsuccess = () => {
@@ -269,11 +288,11 @@ export function startIndexedDBCacheCleanup(intervalMs: number = 300000): void {
     return;
   }
   // Limpiar inmediatamente
-  void clearExpiredIndexedDBCache();
+  void clearExpiredIndexedDBCache({ allowStaleWhenOffline: true });
 
   // Limpiar cada X minutos (default: 5 min)
   setInterval(() => {
-    void clearExpiredIndexedDBCache().then(count => {
+    void clearExpiredIndexedDBCache({ allowStaleWhenOffline: true }).then(count => {
       if (count > 0) {
         console.log(`[IndexedDBCache] Limpiados ${count} registros expirados`);
       }

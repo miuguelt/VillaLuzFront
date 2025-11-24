@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { Upload, X, Image as ImageIcon, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -39,7 +39,10 @@ export function AnimalImageUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tipos de archivo permitidos
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const allowedTypes = useMemo(
+    () => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    []
+  );
   const maxFileSize = 5 * 1024 * 1024; // 5MB
 
   // Validar archivo
@@ -212,7 +215,11 @@ export function AnimalImageUpload({
           window.dispatchEvent(new CustomEvent('animal-images:updated', {
             detail: { animalId, uploaded: response.data.uploaded }
           }));
-        } catch {}
+        } catch (error) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[AnimalImageUpload] No se pudo emitir evento de actualización', error);
+          }
+        }
       } else {
         throw new Error(response.message || 'Error al subir imágenes');
       }

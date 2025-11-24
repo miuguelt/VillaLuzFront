@@ -112,11 +112,12 @@ export function useOptimalLimit(customOptions?: {
   minLimit?: number;
   maxLimit?: number;
 }): number {
-  if (typeof window === 'undefined') {
-    return 20; // SSR fallback
-  }
+  const isServer = typeof window === 'undefined';
 
   const [limit, setLimit] = React.useState(() => {
+    if (isServer) {
+      return 20;
+    }
     if (customOptions) {
       return calculateOptimalLimit(
         customOptions.rowHeight,
@@ -129,6 +130,7 @@ export function useOptimalLimit(customOptions?: {
   });
 
   React.useEffect(() => {
+    if (isServer) return;
     const handleResize = () => {
       const newLimit = customOptions
         ? calculateOptimalLimit(
@@ -156,7 +158,7 @@ export function useOptimalLimit(customOptions?: {
       window.removeEventListener('resize', debouncedResize);
       clearTimeout(timeoutId);
     };
-  }, [customOptions, limit]);
+  }, [customOptions, isServer, limit]);
 
   return limit;
 }

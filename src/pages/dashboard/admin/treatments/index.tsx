@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { treatmentsService } from '@/services/treatmentsService';
 import { animalsService } from '@/services/animalService';
@@ -67,7 +67,7 @@ const AdminTreatmentsPage: React.FC = () => {
     return map;
   }, [animalOptions]);
 
-  const refreshAssociations = async (treatmentId: number) => {
+  const refreshAssociations = useCallback(async (treatmentId: number) => {
     setLoadingAssoc(true);
     setAssocError(null);
     try {
@@ -82,9 +82,9 @@ const AdminTreatmentsPage: React.FC = () => {
     } finally {
       setLoadingAssoc(false);
     }
-  };
+  }, []);
 
-  const loadOptions = async () => {
+  const loadOptions = useCallback(async () => {
     try {
       const [vaccList, medList] = await Promise.all([
         (vaccinesService as any).getAll?.({ limit: 200 }).catch(async () => (vaccinesService as any).getVaccines?.({ limit: 200 })),
@@ -97,9 +97,9 @@ const AdminTreatmentsPage: React.FC = () => {
     } catch (e) {
       // noop
     }
-  };
+  }, []);
 
-  const openAssociations = async (item: TreatmentResponse) => {
+  const openAssociations = useCallback(async (item: TreatmentResponse) => {
     setSelectedTreatment(item);
     setAssocError(null);
     setVaccines([]);
@@ -111,7 +111,7 @@ const AdminTreatmentsPage: React.FC = () => {
     } finally {
       // refreshAssociations maneja loading
     }
-  };
+  }, [loadOptions, refreshAssociations]);
 
   const closeAssociations = () => {
     setAssocOpen(false);
@@ -222,7 +222,7 @@ const AdminTreatmentsPage: React.FC = () => {
     { key: 'frequency' as any, label: 'Frecuencia', render: (v) => v ?? '-' },
     { key: 'observations' as any, label: 'Observaciones', render: (v) => v ?? '-' },
     { key: 'created_at' as any, label: 'Creado', render: (v) => (v ? new Date(String(v)).toLocaleString('es-ES') : '-') },
-  ], [animalMap]);
+  ], [animalMap, openAssociations]);
 
   const formSectionsLocal: CRUDFormSection<TreatmentInput & { [k: string]: any }>[] = [
     {

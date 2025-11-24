@@ -1,5 +1,5 @@
 // Removed React import as JSX runtime is automatic with react-jsx
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -34,19 +34,23 @@ const queryClient = new QueryClient({
   },
 });
 
-const renderComponent = (initialEntries = ['/login']) => {
-  return render(
-    <MemoryRouter
-      initialEntries={initialEntries}
-      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
-    >
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <Index />
-        </AuthProvider>
-      </QueryClientProvider>
-    </MemoryRouter>
-  );
+const renderComponent = async (initialEntries = ['/login']) => {
+  let rendered;
+  await act(async () => {
+    rendered = render(
+      <MemoryRouter
+        initialEntries={initialEntries}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <Index />
+          </AuthProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+  });
+  return rendered!;
 };
 
 describe('Login Page', () => {
@@ -80,10 +84,10 @@ describe('Login Page', () => {
     // Make login resolution slightly delayed
     (mockAuthService.loginUser as jest.Mock).mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve({ status: 200, data: { access_token: 't', user: { id: 1, role: 'Administrador' } } } as any), 50)));
 
-    renderComponent();
+    await renderComponent();
 
-    await user.type(screen.getByLabelText(/identification number/i), '12345678');
-    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.type(screen.getByLabelText(/n[úu]mero de identificaci[óo]n/i), '12345678');
+    await user.type(screen.getByLabelText(/contrase[ñn]a/i), 'password123');
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     // Wait for loading overlay to take over (button should disappear)
@@ -93,10 +97,22 @@ describe('Login Page', () => {
   });
 
   it('renders login form correctly', () => {
-    renderComponent();
+    // No async user flow needed here
+    render(
+      <MemoryRouter
+        initialEntries={['/login']}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <Index />
+          </AuthProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
 
-    expect(screen.getByLabelText(/identification number/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/n[úu]mero de identificaci[óo]n/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/contrase[ñn]a/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /iniciar sesión/i })).toBeInTheDocument();
   });
 
@@ -110,10 +126,10 @@ describe('Login Page', () => {
       isLoading: false,
     } as any);
 
-    renderComponent();
+    await renderComponent();
 
-    await user.type(screen.getByLabelText(/identification number/i), '12345678');
-    await user.type(screen.getByLabelText(/password/i), 'password123');
+    await user.type(screen.getByLabelText(/n[úu]mero de identificaci[óo]n/i), '12345678');
+    await user.type(screen.getByLabelText(/contrase[ñn]a/i), 'password123');
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {
@@ -127,10 +143,10 @@ describe('Login Page', () => {
     const user = userEvent.setup();
     (mockAuthService.loginUser as jest.Mock).mockRejectedValue({ response: { status: 401, data: {} } });
 
-    renderComponent();
+    await renderComponent();
 
-    await user.type(screen.getByLabelText(/identification number/i), '1234');
-    await user.type(screen.getByLabelText(/password/i), 'wrongpassword');
+    await user.type(screen.getByLabelText(/n[úu]mero de identificaci[óo]n/i), '1234');
+    await user.type(screen.getByLabelText(/contrase[ñn]a/i), 'wrongpassword');
     await user.click(screen.getByRole('button', { name: /iniciar sesión/i }));
 
     await waitFor(() => {

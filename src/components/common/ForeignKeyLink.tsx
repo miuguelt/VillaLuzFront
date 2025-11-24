@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Eye, ExternalLink } from 'lucide-react';
+import React, { useState } from 'react';
+import { ExternalLink } from 'lucide-react';
 import { GenericModal } from './GenericModal';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

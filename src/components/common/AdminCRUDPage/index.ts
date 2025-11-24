@@ -13,7 +13,6 @@ export { default as CRUDForm } from './CRUDForm';
 export { default as CRUDPagination } from './CRUDPagination';
 export { default as CRUDSearch } from './CRUDSearch';
 export { default as CRUDToolbar } from './CRUDToolbar';
-export { default as CRUDModals } from './CRUDModals';
 
 // Interfaces y tipos (reexportar del componente original)
 export type {

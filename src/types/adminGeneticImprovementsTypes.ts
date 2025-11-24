@@ -1,8 +1,6 @@
 // Tipos extendidos para la vista admin de mejoras genéticas
 // Extiende los tipos base con Potreros específicos para gestión administrativa
 
-import { GeneticImprovementResponse, GeneticImprovementInput } from './swaggerTypes';
-
 /**
  * Tipos de genes disponibles para mejoras genéticas
  */

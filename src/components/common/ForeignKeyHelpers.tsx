@@ -670,6 +670,7 @@ export const UserLink: React.FC<{ id: number | string; label: string; role?: str
 /**
  * Hook genérico para usar ForeignKeyLink en columnas de tablas
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useForeignKeyColumn = (
   type: 'animal' | 'breed' | 'species' | 'field' | 'foodType' | 'vaccine' | 'medication' | 'disease' | 'user',
   labelMap: Map<number, string>

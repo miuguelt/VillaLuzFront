@@ -36,7 +36,7 @@ export function useForeignKeySelect(
   React.useEffect(() => { mapToOptionRef.current = mapToOption; }, [mapToOption]);
   React.useEffect(() => { filterFnRef.current = filterFn; }, [filterFn]);
 
-  const toList = (response: any) => {
+  const toList = React.useCallback((response: any) => {
     // Si es una respuesta paginada con data
     if (response && typeof response === 'object' && 'data' in response && Array.isArray(response.data)) {
       return response.data;
@@ -48,7 +48,7 @@ export function useForeignKeySelect(
     // Usar unwrapArray como fallback
     const unwrapped = unwrapArray(response);
     return unwrapped;
-  };
+  }, []);
 
   const loadOptions = React.useCallback(async (params: Record<string, any> = {}) => {
     setLoading(true);
@@ -70,7 +70,7 @@ export function useForeignKeySelect(
         setLoading(false);
       }
     }
-  }, [initialLimit]);
+  }, [initialLimit, toList]);
 
   // Carga inicial
   React.useEffect(() => {
@@ -115,7 +115,7 @@ export function useForeignKeySelect(
         }
       }
     }, 250);
-  }, [initialLimit, searchLimit, toList]);
+  }, [initialLimit, searchLimit, toList, loadOptions]);
 
   // Cleanup de debounce al desmontar
   React.useEffect(() => {

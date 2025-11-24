@@ -10,8 +10,7 @@ import { GenericModal } from '@/components/common/GenericModal';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Edit, Eye } from 'lucide-react';
-import { cn } from '@/components/ui/cn.ts';
+import { ChevronLeft, ChevronRight, Edit } from 'lucide-react';
 import { useT } from '@/i18n';
 
 // Interfaces
@@ -26,7 +25,7 @@ function DetailModalComponent<T extends { id: number }>({
   config,
   onEdit,
   customDetailContent,
-  showDetailTimestamps = true,
+  showDetailTimestamps: _showDetailTimestamps = true,
   detailIndex,
   setDetailIndex,
   items,
@@ -256,11 +255,3 @@ export const ConfirmDeleteDialog = memo<{
 });
 
 ConfirmDeleteDialog.displayName = 'ConfirmDeleteDialog';
-
-// Objeto que exporta todos los modales
-export const CRUDModals = {
-  DetailModal,
-  ConfirmDeleteDialog,
-};
-
-export default CRUDModals;

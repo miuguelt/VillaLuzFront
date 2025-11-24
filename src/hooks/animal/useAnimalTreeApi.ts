@@ -1,20 +1,8 @@
 import { useState, useCallback } from 'react';
 import { animalsService } from '@/services/animalService';
 import { animalDependenciesService } from '@/services/animalDependenciesService';
-import type { AnimalTreeGraph, TreeQueryParams, TreeLoadMoreOptions } from '@/types/animalTreeTypes';
+import type { AnimalTreeGraph, TreeLoadMoreOptions } from '@/types/animalTreeTypes';
 import { getIndexedDBCache, setIndexedDBCache } from '@/utils/indexedDBCache';
-
-// Tipo para las dependencias de animales
-interface AnimalDependencies {
-  father_id: number;
-  mother_id: number;
-  children_as_father: number;
-  children_as_mother: number;
-  total_children: number;
-  has_parents: boolean;
-  has_children: boolean;
-  has_any_relations: boolean;
-}
 
 const DEFAULT_TTL_MS = 8 * 60 * 1000; // 8 minutos (recomendado 5–10 min)
 

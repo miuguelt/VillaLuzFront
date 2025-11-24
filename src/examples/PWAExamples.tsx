@@ -270,7 +270,7 @@ export function MultiResourceMetadataExample() {
     // Verificar cada minuto
     const interval = setInterval(checkAll, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [checkAll]);
 
   return (
     <Card>
@@ -354,7 +354,7 @@ export function DirectClientExample() {
   const testIncremental = async () => {
     setStatus('Sincronización incremental...');
     try {
-      const { data, newSync } = await client.syncSince();
+      const { data } = await client.syncSince();
       setStatus(`✅ ${data.length} cambios desde última sync`);
     } catch (error: any) {
       setStatus(`❌ Error: ${error.message}`);

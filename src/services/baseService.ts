@@ -83,6 +83,8 @@ export class BaseService<T> {
   protected cache: Map<string, { data: any; timestamp: number }>;
   protected options: ServiceOptions;
 
+  private static readonly OFFLINE_STALE_GRACE_MS = 24 * 60 * 60 * 1000; // 24h para reutilizar datos cuando no hay red
+
   // private static readonly OFFLINE_QUEUE_KEY = 'offline_queue_v1';
   // private static cacheStorageKey(endpoint: string) { return `offline_cache_v1:${endpoint}`; }
 
@@ -135,9 +137,12 @@ export class BaseService<T> {
     // 2. Cache en IndexedDB (persistente)
     try {
       const idbKey = `service:${key}`;
-      const idbData = await getIndexedDBCache<any>(idbKey);
+      const idbData = await getIndexedDBCache<any>(idbKey, {
+        allowStaleWhenOffline: true,
+        offlineGraceMs: BaseService.OFFLINE_STALE_GRACE_MS,
+      });
       if (idbData) {
-        // Hidratar memoria
+        // Hidratar memoria (se renueva timestamp para evitar lecturas repetidas en offline)
         this.cache.set(key, { data: idbData, timestamp: Date.now() });
         return idbData;
       }
@@ -231,8 +236,8 @@ export class BaseService<T> {
     if (!hasExplicitPage) delete sanitizedParams.page;
     if (!hasExplicitLimit) delete sanitizedParams.limit;
 
-    if (hasExplicitLimit) {
-      sanitizedParams.limit = sanitizedParams.limit;
+    if (hasExplicitLimit && (sanitizedParams.limit == null) && sanitizedParams.per_page != null) {
+      sanitizedParams.limit = sanitizedParams.per_page;
     }
     delete sanitizedParams.per_page;
     sanitizedParams.sort_dir = sanitizedParams.sort_dir ?? sanitizedParams.sort_order;

@@ -7,11 +7,9 @@ import api from '@/services/api';
 import { getBackendBaseURL } from '@/utils/envConfig';
 
 // Resolved base URL for logging
-const env: Record<string, any> = ((globalThis as any)?.import?.meta?.env)
+const _env: Record<string, any> = ((globalThis as any)?.import?.meta?.env)
   ?? ((typeof (globalThis as any).process !== 'undefined' ? ((globalThis as any).process as any).env : undefined) as any)
   ?? {};
-const FORCE_ABSOLUTE = String(env?.VITE_FORCE_ABSOLUTE_BASE_URL ?? '').toLowerCase() === 'true';
-const resolvedApiBaseURL = FORCE_ABSOLUTE ? (env?.VITE_API_BASE_URL || '/api/v1/') : '/api/v1/';
 
 // Helper: obtiene base root sin el sufijo /api/... para llamadas como /health
 const getRootBaseURL = (base?: string) => {

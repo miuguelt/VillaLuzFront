@@ -4,7 +4,6 @@ import {
 	AnimalStatistics,
 	HealthStatistics,
 	ProductionStatistics,
-	SystemAlert,
 	FilterOptions,
 } from '@/types/swaggerTypes';
 

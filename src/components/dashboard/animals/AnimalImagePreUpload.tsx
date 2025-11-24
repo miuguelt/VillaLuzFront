@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -19,7 +19,7 @@ interface AnimalImagePreUploadProps {
  * Las imágenes se almacenan localmente y se subirán después de crear el animal
  */
 export function AnimalImagePreUpload({
-  files: externalFiles,
+  files: _externalFiles,
   onChange,
   maxFiles = 20,
 }: AnimalImagePreUploadProps) {
@@ -29,7 +29,10 @@ export function AnimalImagePreUpload({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tipos de archivo permitidos
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const allowedTypes = useMemo(
+    () => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+    []
+  );
   const maxFileSize = 5 * 1024 * 1024; // 5MB
 
   // Validar archivo
@@ -45,7 +48,7 @@ export function AnimalImagePreUpload({
 
       return null;
     },
-    []
+    [allowedTypes, maxFileSize]
   );
 
   // Procesar archivos seleccionados
@@ -152,12 +155,12 @@ export function AnimalImagePreUpload({
     setError(null);
   }, [filePreviews, onChange]);
 
-  // Limpiar previews al desmontar
+  // Limpiar previews al desmontar o cuando cambien
   React.useEffect(() => {
     return () => {
       filePreviews.forEach((f) => URL.revokeObjectURL(f.preview));
     };
-  }, []);
+  }, [filePreviews]);
 
   return (
     <div className="space-y-4">

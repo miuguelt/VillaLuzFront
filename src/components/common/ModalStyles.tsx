@@ -10,6 +10,7 @@ import React from 'react';
 /**
  * Clases de estilo comunes para modales
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const modalStyles = {
   // Espaciado
   spacing: {

@@ -7,6 +7,7 @@ import LoadingScreen from '@/components/common/LoadingScreen';
 
 const DashboardLayout: React.FC = () => {
   const { loading, isAuthenticated } = useAuth();
+  const { pathname: path } = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -49,7 +50,6 @@ const DashboardLayout: React.FC = () => {
   }
 
   // Estándar de pantallas CRUD full-bleed: usar prefijos canónicos por rol y módulo
-  const { pathname: path } = useLocation();
   const roles = ['/admin', '/apprentice', '/instructor'] as const;
   const modules = [
     'animals',

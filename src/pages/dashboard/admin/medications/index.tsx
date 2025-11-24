@@ -3,8 +3,6 @@ import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/compon
 import { medicationsService } from '@/services/medicationsService';
 import type { MedicationResponse } from '@/types/swaggerTypes';
 import { routeAdministrationsService } from '@/services/routeAdministrationsService';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalStyles';
 

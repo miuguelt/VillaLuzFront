@@ -26,7 +26,7 @@ class MockBroadcastChannel {
   postMessage(_msg: any) { /* noop */ }
   close() { /* noop */ }
 }
-// @ts-ignore
+// @ts-expect-error Mock BroadcastChannel for test environment
 (global as any).BroadcastChannel = MockBroadcastChannel as any
 
 describe('AuthProvider (smoke)', () => {
@@ -96,4 +96,3 @@ describe('AuthProvider', () => {
     });
   });
 });
-

@@ -14,8 +14,7 @@ import {
   clearETag,
   getLastSync,
   setLastSync,
-  normalizeResourceKey,
-  hasETagChanged
+  normalizeResourceKey
 } from '@/utils/etagStore';
 import type { PaginatedResponse } from '@/types/swaggerTypes';
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { animalFieldsService } from '@/services/animalFieldsService';
 import { AnimalFields } from '@/types/animalFieldsTypes';
 import type { AnimalFieldResponse, AnimalFieldInput } from '@/types/swaggerTypes';
@@ -8,20 +8,22 @@ export const useAnimalFields = () => {
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [refreshing, setRefreshing] = useState<boolean>(false);
+    const hasDataRef = useRef(false);
 
-    const fetchAnimalFields = async () => {
-      const hasData = Array.isArray(animalFields) && animalFields.length > 0;
+    const fetchAnimalFields = useCallback(async () => {
+      const hasData = hasDataRef.current;
       if (hasData) setRefreshing(true); else setLoading(true);
       try {
   const data = await animalFieldsService.getAll();
   const normalized: AnimalFields[] = (Array.isArray(data) ? data : []).map(mapAnimalFieldResponseToLocal);
   setAnimalFields(normalized);
+  hasDataRef.current = normalized.length > 0;
       } catch (err) {
         setError('Error al cargar los Potreros de animales');
       } finally {
         if (hasData) setRefreshing(false); else setLoading(false);
       }
-    };
+    }, []);
 
     const addAnimalFields = async (animalFieldData: AnimalFields) => {
         setLoading(true);
@@ -73,7 +75,7 @@ export const useAnimalFields = () => {
 
       useEffect(() => {
         fetchAnimalFields();
-      }, []);
+      }, [fetchAnimalFields]);
 
   return { animalFields, data: animalFields, loading, refreshing, error, fetchAnimalFields, addAnimalFields, editAnimalFields, deleteAnimalFields, deleteItem: deleteAnimalFields, createItem: addAnimalFields, updateItem: editAnimalFields };
 };

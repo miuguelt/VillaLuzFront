@@ -95,7 +95,7 @@ if (ENABLE_PWA && 'serviceWorker' in navigator) {
   const registerServiceWorker = async () => {
     try {
       const { registerSW } = await import('virtual:pwa-register');
-      const unregisterSW = registerSW({
+      registerSW({
         immediate: true,
         onRegistered(swReg) {
           console.log('[PWA] Service Worker registrado', swReg);

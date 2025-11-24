@@ -15,7 +15,11 @@ export function useGlobalViewMode(initial?: ViewMode): [ViewMode, (mode: ViewMod
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved === 'table' || saved === 'cards') return saved;
-    } catch {}
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[useGlobalViewMode] No se pudo leer de localStorage', error);
+      }
+    }
     return initial ?? 'cards';
   };
 
@@ -25,10 +29,18 @@ export function useGlobalViewMode(initial?: ViewMode): [ViewMode, (mode: ViewMod
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, mode);
-    } catch {}
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[useGlobalViewMode] No se pudo persistir el modo', error);
+      }
+    }
     try {
       window.dispatchEvent(new CustomEvent('admin:view-mode-changed', { detail: { mode } }));
-    } catch {}
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[useGlobalViewMode] No se pudo emitir evento de modo', error);
+      }
+    }
   }, [mode]);
 
   // Escuchar cambios externos (otras secciones o pestañas)
@@ -52,4 +64,3 @@ export function useGlobalViewMode(initial?: ViewMode): [ViewMode, (mode: ViewMod
 
   return [mode, setMode];
 }
-

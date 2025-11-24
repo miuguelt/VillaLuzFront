@@ -9,18 +9,13 @@
 
 import { animalsService } from './animalService';
 import { breedsService } from './breedsService';
-import { speciesService } from './speciesService';
 import { treatmentsService } from './treatmentsService';
 import { vaccinationsService } from './vaccinationsService';
 import { animalDiseasesService } from './animalDiseasesService';
 import { animalFieldsService } from './animalFieldsService';
 import { treatmentMedicationService } from './treatmentMedicationService';
 import { treatmentVaccinesService } from './treatmentVaccinesService';
-import { fieldService } from './fieldService';
-import { diseaseService } from './diseaseService';
-import { medicationsService } from './medicationsService';
 import { vaccinesService } from './vaccinesService';
-import { foodTypesService } from './foodTypesService';
 import { geneticImprovementsService } from './geneticImprovementsService';
 
 interface CacheEntry {
@@ -90,26 +85,6 @@ export function clearDependencyCache(): void {
   dependencyCache.clear();
 }
 
-/**
- * Verifica si un animal es recién creado (basado en la fecha de creación)
- */
-async function isRecentlyCreatedAnimal(animalId: number): Promise<boolean> {
-  try {
-    const animal = await animalsService.getAnimalById(animalId);
-    if (!animal?.created_at) return false;
-    
-    const createdAt = new Date(animal.created_at);
-    const now = new Date();
-    const diffMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
-    
-    // Considerar recién creado si tiene menos de 5 minutos
-    return diffMinutes < 5;
-  } catch (error) {
-    console.error('[isRecentlyCreatedAnimal] Error:', error);
-    return false;
-  }
-}
-
 export interface DependencyCheckResult {
   hasDependencies: boolean;
   message?: string;
@@ -144,14 +119,14 @@ function validateAndFilterDependencies<T extends Record<string, any>>(
     // Buscar el valor en cualquiera de las variantes del campo
     const itemValue = filterKeys.map(k => item[k]).find(v => v != null);
     // Comparación loose para manejar string vs number
-    return itemValue == expectedValue; // eslint-disable-line eqeqeq
+    return itemValue == expectedValue;  
   });
 
   const invalidCount = items.length - validItems.length;
   if (invalidCount > 0) {
     const invalidItems = items.filter(item => {
       const itemValue = filterKeys.map(k => item[k]).find(v => v != null);
-      return itemValue != expectedValue; // eslint-disable-line eqeqeq
+      return itemValue != expectedValue;  
     });
 
     console.error(`[${context}] ⚠️ BACKEND BUG DETECTADO: Filtrado incorrecto`, {
@@ -246,7 +221,7 @@ export async function checkBreedDependencies(breedId: number): Promise<Dependenc
     if (allAnimals.length > 0) {
       const allHaveWrongBreedId = allAnimals.every(a => {
         const animalBreedId = (a as any).breed_id ?? (a as any).breeds_id;
-        return animalBreedId != breedId; // eslint-disable-line eqeqeq
+        return animalBreedId != breedId;  
       });
 
       if (allHaveWrongBreedId) {
@@ -342,7 +317,7 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
   try {
     const dependencies: DependencyCheckResult['dependencies'] = [];
     let totalDeps = 0;
-    let detailParts: string[] = [];
+    const detailParts: string[] = [];
 
     // EJECUTAR TODAS LAS VERIFICACIONES EN PARALELO PARA OPTIMIZAR RENDIMIENTO
     const [
@@ -629,7 +604,7 @@ export async function checkVaccineDependencies(vaccineId: number): Promise<Depen
   try {
     const dependencies: DependencyCheckResult['dependencies'] = [];
     let totalDeps = 0;
-    let detailParts: string[] = [];
+    const detailParts: string[] = [];
 
     // 1. Verificar vacunaciones
     const vaccinationsResp = await vaccinationsService.getPaginated({ vaccine_id: vaccineId, limit: 5, page: 1, fields: 'id,animal_id,vaccination_date' });
@@ -812,7 +787,7 @@ export async function checkTreatmentDependencies(treatmentId: number): Promise<D
   try {
     const dependencies: DependencyCheckResult['dependencies'] = [];
     let totalDeps = 0;
-    let detailParts: string[] = [];
+    const detailParts: string[] = [];
 
     // 1. Verificar medicamentos asociados
     const treatmentMedsResp = await treatmentMedicationService.getPaginated({ treatment_id: treatmentId, limit: 5, page: 1, fields: 'id,medication_id' });
@@ -905,7 +880,7 @@ export async function checkUserDependencies(userId: number): Promise<DependencyC
   try {
     const dependencies: DependencyCheckResult['dependencies'] = [];
     let totalDeps = 0;
-    let detailParts: string[] = [];
+    const detailParts: string[] = [];
 
     // 1. Verificar tratamientos como instructor
     const treatmentsResp = await treatmentsService.getPaginated({ instructor_id: userId, limit: 5, page: 1, fields: 'id,treatment_date' });

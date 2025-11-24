@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MoreVertical, Activity, Syringe, Eye, Plus } from 'lucide-react';
 import {
   DropdownMenu,
@@ -47,16 +47,16 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
     if (openModal && modalMode === 'create') {
       loadOptions();
     }
-  }, [openModal, modalMode]);
+  }, [openModal, modalMode, loadOptions]);
 
   // Cargar lista cuando se abre un modal de lista
   useEffect(() => {
     if (openModal && modalMode === 'list') {
       loadListData();
     }
-  }, [openModal, modalMode, user.id]);
+  }, [openModal, modalMode, user.id, loadListData]);
 
-  const loadOptions = async () => {
+  const loadOptions = useCallback(async () => {
     try {
       const [animals, diseases, vaccines] = await Promise.all([
         animalsService.getAnimals({ page: 1, limit: 1000 }).catch(() => []),
@@ -84,9 +84,9 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
     } catch (err) {
       console.error('Error loading options:', err);
     }
-  };
+  }, []);
 
-  const loadListData = async () => {
+  const loadListData = useCallback(async () => {
     setLoadingList(true);
     try {
       let data: any[] = [];
@@ -124,7 +124,7 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
     } finally {
       setLoadingList(false);
     }
-  };
+  }, [openModal, user.id]);
 
   const handleOpenModal = (type: ModalType, mode: ModalMode) => {
     setOpenModal(type);

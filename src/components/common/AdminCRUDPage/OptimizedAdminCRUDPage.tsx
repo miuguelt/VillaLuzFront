@@ -20,7 +20,7 @@
  * ```
  */
 
-import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useResource } from '@/hooks/useResource';
 import { useToast } from '@/context/ToastContext';
@@ -30,8 +30,7 @@ import { useT } from '@/i18n';
 import { CRUDTable } from './CRUDTable';
 import { CRUDForm } from './CRUDForm';
 import { CRUDPagination } from './CRUDPagination';
-import { CRUDSearch } from './CRUDSearch';
-import { CRUDModals } from './CRUDModals';
+import { DetailModal, ConfirmDeleteDialog } from './CRUDModals';
 import { CRUDToolbar } from './CRUDToolbar';
 
 // Componentes de UI
@@ -42,11 +41,10 @@ import { ErrorState } from '@/components/feedback/ErrorState';
 import { SkeletonTable } from '@/components/feedback/SkeletonTable';
 
 // Utilidades
-import { cn } from '@/components/ui/cn.ts';
 import { addTombstone, getTombstoneIds, clearExpired } from '@/utils/tombstones';
 
 // Interfaces
-import { CRUDColumn, CRUDFormField, CRUDFormSection, CRUDConfig } from '../AdminCRUDPage';
+import { CRUDConfig } from '../AdminCRUDPage';
 
 interface OptimizedAdminCRUDPageProps<T extends { id: number }, TInput extends Record<string, any>> {
   config: CRUDConfig<T, TInput>;
@@ -72,7 +70,7 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
   mapResponseToForm,
   validateForm,
   customDetailContent,
-  onFormDataChange,
+  onFormDataChange: _onFormDataChange,
   realtime,
   pollIntervalMs,
   refetchOnFocus,
@@ -117,7 +115,7 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
     error,
     meta,
     setPage,
-    setLimit,
+    setLimit: _setLimit,
     setSearch,
     createItem,
     updateItem,
@@ -485,7 +483,7 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
       
       {/* Detail Modal */}
       {config.enableDetailModal !== false && (
-        <CRUDModals.DetailModal
+        <DetailModal
           isOpen={isDetailOpen}
           onOpenChange={setIsDetailOpen}
           title={detailItem ? `Detalle del ${config.entityName}${config.showIdInDetailTitle === false ? '' : `: ${detailItem.id}`}` : `Detalle del ${config.entityName}`}
@@ -503,7 +501,7 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
       )}
       
       {/* Confirm Delete Dialog */}
-      <CRUDModals.ConfirmDeleteDialog
+      <ConfirmDeleteDialog
         open={confirmOpen}
         onOpenChange={setConfirmOpen}
         title={config.confirmDeleteTitle || '⚠️ Confirmar eliminación'}

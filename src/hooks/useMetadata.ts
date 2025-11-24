@@ -161,7 +161,7 @@ export function useMetadata(
     if (autoCheck) {
       check();
     }
-  }, [autoCheck]); // Solo al montar
+  }, [autoCheck, check]); // Solo al montar
 
   // Intervalo de verificación
   useEffect(() => {

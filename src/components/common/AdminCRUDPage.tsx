@@ -56,7 +56,7 @@
  * ========================================
  */
 import { EmptyState } from '@/components/feedback/EmptyState';
-import React, { useEffect, useState, useRef, useMemo, memo } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Search, ChevronLeft, ChevronRight, Loader2, Eye, Edit, Trash2, Plus } from 'lucide-react';
 import { cn } from '@/components/ui/cn.ts';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -76,7 +76,6 @@ import { useT } from '@/i18n';
 import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { SkeletonTable } from '@/components/feedback/SkeletonTable';
 import { LoadingOverlay } from '@/components/feedback/LoadingOverlay';
-import { animalsService } from '@/services/animalService';
 import { Combobox } from '@/components/ui/combobox';
 import { addTombstone, getTombstoneIds, clearExpired } from '@/utils/tombstones';
 import { globalSearch, createSearchCache } from '@/utils/globalSearch';
@@ -252,7 +251,7 @@ const {
   // Estado para controlar la primera carga y evitar parpadeo
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [displayItems, setDisplayItems] = useState<T[]>([]);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [, setIsTransitioning] = useState(false);
   const [deletingItems, setDeletingItems] = useState<Set<number | string>>(new Set());
   const [newItems, setNewItems] = useState<Set<number | string>>(new Set());
   const [updatedItems, setUpdatedItems] = useState<Set<number | string>>(new Set());
@@ -329,12 +328,15 @@ const {
       previousDisplayItemsRef.current = [];
     }
     // IMPORTANTE: NO incluir displayItems en las dependencias para evitar loop infinito
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [items, loading, error, isFirstLoad]);
   
   // Mantener datos anteriores durante refresco para evitar parpadeo
   // PERO: displayItems siempre tiene prioridad (porque puede contener actualizaciones optimistas)
-  const currentItems = displayItems.length > 0 ? displayItems : (items || []);
+  const currentItems = useMemo(
+    () => (displayItems.length > 0 ? displayItems : (items || [])),
+    [displayItems, items]
+  );
   
   // No mostrar skeleton durante refrescos suaves
   const showSkeleton = loading && isFirstLoad && !refreshing;
@@ -375,6 +377,9 @@ const {
 
   // Filter items to exclude only tombstones; keep deleting items visible to show effect
   const filteredItems = useMemo(() => {
+    // Usar tombstoneVersion para forzar el recomputo cuando cambie,
+    // incluso si su valor no se utiliza directamente en el filtrado.
+    void tombstoneVersion;
     const tombstoneIds = getTombstoneIds(entityKey);
     const filtered = (currentItems || []).filter((i: T) => {
       const idStr = String((i as any).id);
@@ -469,7 +474,7 @@ const {
         setDetailItem(updatedItem);
       }
     }
-  }, [items, isDetailOpen, detailItem?.id, visibleItems]);
+  }, [items, isDetailOpen, detailItem, visibleItems]);
 
   // Log de debugging para paginación (DEBE estar después de visibleItems)
   useEffect(() => {

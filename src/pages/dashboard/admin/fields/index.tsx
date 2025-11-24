@@ -112,7 +112,7 @@ function AdminFieldsPage() {
   const { data: alertsData } = useAlerts({ limit: 100 });
   const allAlerts: any[] = (alertsData as any)?.alerts ?? (Array.isArray(alertsData) ? (alertsData as any[]) : []);
 
-  const matchesField = (animal: AnimalResponse & { [k: string]: any }, fieldId: number): boolean => {
+  const matchesField = useCallback((animal: AnimalResponse & { [k: string]: any }, fieldId: number): boolean => {
     if (!animal || !fieldId) return false;
     const candidates = [
       animal.field_id,
@@ -124,7 +124,7 @@ function AdminFieldsPage() {
       (animal as any).latest_field_assignment?.field_id,
     ];
     return candidates.some((value) => value != null && Number(value) === fieldId);
-  };
+  }, []);
 
   const dedupeAnimals = (items: AnimalResponse[]): AnimalResponse[] => {
     const seen = new Set<number>();
@@ -159,7 +159,7 @@ function AdminFieldsPage() {
   };
 
   // Cargar animales asociados a un potrero (puede usarse para modal o para el detalle inline)
-  const loadAnimalsForField = async (field: FieldResponse & { [k: string]: any }, options?: { openModal?: boolean }) => {
+  const loadAnimalsForField = useCallback(async (field: FieldResponse & { [k: string]: any }, options?: { openModal?: boolean }) => {
     const { openModal = false } = options || {};
     if (openModal) {
       setModalField(field);
@@ -221,12 +221,12 @@ function AdminFieldsPage() {
     } finally {
       setAnimalsLoading(false);
     }
-  };
+  }, [matchesField]);
 
   // Abrir modal y asegurar listado de animales del potrero
-  const openAnimalsForField = async (field: FieldResponse & { [k: string]: any }) => {
+  const openAnimalsForField = useCallback(async (field: FieldResponse & { [k: string]: any }) => {
     await loadAnimalsForField(field, { openModal: true });
-  };
+  }, [loadAnimalsForField]);
 
   // Crear mapa de búsqueda optimizado para tipos de alimento
   const foodTypeMap = useMemo(() => {
@@ -297,7 +297,7 @@ function AdminFieldsPage() {
       }
     },
     { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
-  ], [foodTypeMap]);
+  ], [foodTypeMap, openAnimalsForField]);
 
 // Configuración CRUD base
 const crudConfig: CRUDConfig<FieldResponse & { [k: string]: any }, FieldFormInput> = {
@@ -361,7 +361,11 @@ const initialFormData: FieldFormInput = {
   useEffect(() => {
     try {
       localStorage.setItem('adminFieldsViewMode', viewMode);
-    } catch {}
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[Fields] No se pudo persistir viewMode', error);
+      }
+    }
   }, [viewMode]);
 
   useEffect(() => {

@@ -3,8 +3,7 @@ import { useAppState, AppStateProvider } from '@/context/AppStateContext';
 import { useAuth } from '@/hooks/useAuth';
 import { 
   DashboardSkeleton, 
-  InitialLoadingSkeleton, 
-  CriticalErrorSkeleton 
+  InitialLoadingSkeleton 
 } from './DashboardSkeleton';
 import { 
   PreloadErrorHandler, 
@@ -54,7 +53,7 @@ export const OptimizedDashboard: React.FC<OptimizedDashboardProps> = ({
     refreshDashboard,
     isDataFresh
   } = useAppState();
-  const { user, isAuthenticated } = useAuth();
+  const { user: _user, isAuthenticated } = useAuth();
   const [showNonCriticalBanner, setShowNonCriticalBanner] = useState(true);
 
   // Efecto para manejar errores no críticos
@@ -259,9 +258,10 @@ export const OptimizedDashboardProvider: React.FC<{
  * Hook personalizado para facilitar el uso del OptimizedDashboard
  * Proporciona acceso al estado y acciones comunes
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useOptimizedDashboard = () => {
   const appState = useAppState();
-  const auth = useAuth();
+  const _auth = useAuth();
   
   return {
     // Estado

@@ -112,7 +112,7 @@ const LoginForm = () => {
       
       // Extraer datos del usuario y token de forma optimizada
       const _res: any = response;
-      let userData = _res.user || _res.data?.user || _res.data?.data?.user;
+      const userData = _res.user || _res.data?.user || _res.data?.data?.user;
       const token = _res.access_token || _res.data?.access_token || _res.data?.data?.access_token;
       let isCookieOnlySession = false;
 
@@ -150,8 +150,8 @@ const LoginForm = () => {
           }
 
           // Determinar rol canónico antes de llamar a login() para evitar navegación intermedia
-          let finalUserData = completeUserData as any;
-          let canonBefore = normalizeRole((finalUserData as any).role);
+          const finalUserData = completeUserData as any;
+          const canonBefore = normalizeRole((finalUserData as any).role);
           // No volver a llamar /auth/me aquí para normalizar rol, reducimos llamadas
 
           if (!canonBefore) {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
 import { diseaseService } from '@/services/diseaseService';
-import type { DiseaseResponse, DiseaseInput } from '@/types/swaggerTypes';
+import type { DiseaseResponse } from '@/types/swaggerTypes';
 
 // Columnas de la tabla (width numérico -> w-{n})
 const columns: CRUDColumn<DiseaseResponse & { [k: string]: any }>[] = [

@@ -60,7 +60,7 @@ export const CRUDPagination = memo<CRUDPaginationProps>(({
     }
 
     // Agregar puntos suspensivos donde haya saltos
-    range.forEach((i, index) => {
+    range.forEach((i) => {
       if (l) {
         if (i - l === 2) {
           rangeWithDots.push(l + 1);

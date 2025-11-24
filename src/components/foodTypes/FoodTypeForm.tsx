@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FoodTypes } from '../../types/foodTypes';
-import { Plus, Edit, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { getTodayColombia } from '@/utils/dateUtils';
 
 interface FoodTypeFormProps {

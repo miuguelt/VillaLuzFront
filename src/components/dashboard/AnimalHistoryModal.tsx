@@ -9,7 +9,6 @@ import { getAnimalLabel } from '@/utils/animalHelpers';
 import { Clock, Activity, MapPin, Stethoscope, Syringe } from "lucide-react";
 import { Modal, ModalContent, ModalHeader, ModalBody } from "@/components/common/UnifiedModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableCaption } from "@/components/ui/table";
 import { format, differenceInCalendarDays } from "date-fns";
 
 // Interfaces for data types - removed unused interfaces
@@ -77,7 +76,7 @@ export const AnimalHistoryModal = ({ animal, onClose, refreshTrigger }: AnimalHi
         }
       };
       refreshAllData();
-    }, []); // Solo al montar
+    }, [refetchDiseases, refetchFields, refetchTreatments, refetchControls]); // Solo al montar
 
     // Estado para vista previa
     const [previewOpen, setPreviewOpen] = useState(false);

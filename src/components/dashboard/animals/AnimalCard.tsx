@@ -33,10 +33,18 @@ export function AnimalCard({
   const ageMonths = animal.age_in_months ?? '-';
   const weight = animal.weight ?? '-';
   const status = animal.status || '-';
-  const isAdult = animal.is_adult === true ? 'Sí' : animal.is_adult === false ? 'No' : '-';
+
+  const handleCardClick = () => {
+    if (onCardClick) {
+      onCardClick();
+    }
+  };
 
   return (
-    <div className="h-full w-full flex flex-col overflow-hidden">
+    <div
+      className="h-full w-full flex flex-col overflow-hidden"
+      onClick={onCardClick ? handleCardClick : undefined}
+    >
       {/* Banner de imágenes - LO PRIMERO, sin padding, ocupa 100% del ancho de la card */}
       <div className="relative w-full flex-shrink-0">
         <AnimalImageBanner

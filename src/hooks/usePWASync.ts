@@ -167,7 +167,7 @@ export function usePWASync<T = any>(
     if (autoSync) {
       sync();
     }
-  }, [autoSync]); // Solo ejecutar una vez al montar
+  }, [autoSync, sync]); // Solo ejecutar una vez al montar
 
   // Intervalo de auto-sync
   useEffect(() => {

@@ -14,6 +14,12 @@ const ENV: Record<string, any> = ((globalThis as any)?.['import']?.['meta']?.['e
 const IS_DEV: boolean = (typeof ENV.DEV !== 'undefined' ? !!ENV.DEV : (ENV.NODE_ENV !== 'production'));
 const DEBUG_LOG: boolean = IS_DEV && String(ENV.VITE_DEBUG_MODE || '').toLowerCase() === 'true';
 
+const logAuthWarning = (context: string, error: unknown) => {
+  if (DEBUG_LOG) {
+    console.warn(`[AuthService] ${context}`, error);
+  }
+};
+
 // Asegurarse de que no se duplique /api/v1 en las URLs
 const AUTH_URL = "auth";
 // Single-flight compartido para /auth/me: reutiliza la misma promesa entre consumidores
@@ -22,7 +28,7 @@ let inflightMePromise: Promise<any> | null = null;
 const ME_TTL_MS = 120_000; // 2 minutos
 let meCache: { ts: number; data: UserProfileResponse | null } = { ts: 0, data: null };
 // Registro de cooldown tras 429 (Rate Limit)
-let meRateLimitUntil: number = 0;
+const _meRateLimitUntil: number = 0;
 
 // Clave de almacenamiento para token
 const AUTH_STORAGE_KEY = ENV.VITE_AUTH_STORAGE_KEY || 'finca_access_token';
@@ -30,30 +36,31 @@ const AUTH_STORAGE_KEY = ENV.VITE_AUTH_STORAGE_KEY || 'finca_access_token';
 // Helpers de caché para recordar la última ruta de login válida (usar sessionStorage: no sensible)
 const LOGIN_PATH_CACHE_KEY = (ENV?.VITE_AUTH_LOGIN_PATH_CACHE_KEY || 'finca_auth_login_path');
 
-function getCachedLoginPath(): string | null {
+function _getCachedLoginPath(): string | null {
   try {
     const v = sessionStorage.getItem(LOGIN_PATH_CACHE_KEY);
     return v && v.trim() ? v : null;
-  } catch {
+  } catch (error) {
+    logAuthWarning('getCachedLoginPath', error);
     return null;
   }
 }
 
-function setCachedLoginPath(path: string): void {
+function _setCachedLoginPath(path: string): void {
   try {
     if (typeof path === 'string' && path.trim().length > 0) {
       sessionStorage.setItem(LOGIN_PATH_CACHE_KEY, path.trim());
     }
-  } catch {
-    // ignore storage errors (SSR / privacy modes)
+  } catch (error) {
+    logAuthWarning('setCachedLoginPath', error);
   }
 }
 
 function clearCachedLoginPath(): void {
   try {
     sessionStorage.removeItem(LOGIN_PATH_CACHE_KEY);
-  } catch {
-    // ignore
+  } catch (error) {
+    logAuthWarning('clearCachedLoginPath', error);
   }
 }
 
@@ -207,7 +214,9 @@ class AuthService {
         const t = localStorage.getItem(AUTH_STORAGE_KEY);
         return t && t.length ? t : null;
       }
-    } catch {}
+    } catch (error) {
+      logAuthWarning('getTokenFromStorage', error);
+    }
     return null;
   }
 
@@ -240,7 +249,11 @@ class AuthService {
       const rawTokenCandidate = _r ? findTokenCandidate(_r) : undefined;
       const normalizedToken = extractJWT(rawTokenCandidate);
       if (normalizedToken && isValidTokenFormat(normalizedToken)) {
-        try { if (typeof localStorage !== 'undefined') localStorage.setItem(AUTH_STORAGE_KEY, normalizedToken); } catch {}
+        try {
+          if (typeof localStorage !== 'undefined') localStorage.setItem(AUTH_STORAGE_KEY, normalizedToken);
+        } catch (error) {
+          logAuthWarning('refreshToken:setItem', error);
+        }
       }
     } catch (error) {
       this.clearAuthData();
@@ -277,7 +290,11 @@ class AuthService {
         if (!tokenMetadata.isExpired) {
           finalAccessToken = normalizedToken;
           // Persistir JWT para usarlo en Authorization
-          try { if (typeof localStorage !== 'undefined') localStorage.setItem(AUTH_STORAGE_KEY, normalizedToken); } catch {}
+        try {
+          if (typeof localStorage !== 'undefined') localStorage.setItem(AUTH_STORAGE_KEY, normalizedToken);
+        } catch (error) {
+          logAuthWarning('login:setItem', error);
+        }
           if (!finalUser && (tokenMetadata as any).userId) {
             finalUser = getUserFromToken(normalizedToken);
           }
@@ -359,7 +376,22 @@ class AuthService {
   private clearAuthData(): void {
     try {
       if (typeof localStorage !== 'undefined') localStorage.removeItem(AUTH_STORAGE_KEY);
-    } catch {}
+    } catch (error) {
+      logAuthWarning('clearAuthData:localStorage', error);
+    }
+    try {
+      if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(AUTH_STORAGE_KEY);
+    } catch (error) {
+      logAuthWarning('clearAuthData:sessionStorage', error);
+    }
+    try {
+      if (typeof document !== 'undefined') {
+        document.cookie = `${AUTH_STORAGE_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
+        document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;';
+      }
+    } catch (error) {
+      logAuthWarning('clearAuthData:cookie', error);
+    }
   }
 
   /**
@@ -506,7 +538,8 @@ export const isAuthenticated = async () => {
   try {
     const profile = await authService.getUserProfile();
     return !!profile?.user;
-  } catch {
+  } catch (error) {
+    logAuthWarning('isAuthenticated', error);
     return false;
   }
 };
@@ -569,7 +602,9 @@ export function normalizeRole(role: any): string | null {
   // Remove diacritics and normalize separators
   try {
     s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  } catch { /* older engines may not support normalize, ignore */ }
+  } catch (error) { /* older engines may not support normalize, ignore */ 
+    logAuthWarning('normalizeRole', error);
+  }
   const sn = s
     .replace(/[_-]+/g, ' ') // underscores/hyphens to spaces
     .replace(/[^a-z0-9\s]/g, '') // strip punctuation

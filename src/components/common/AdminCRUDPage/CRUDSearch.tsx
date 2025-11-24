@@ -5,11 +5,10 @@
  * Implementa debouncing eficiente y mejor experiencia de usuario.
  */
 
-import React, { memo, useCallback, useEffect, useRef } from 'react';
+import React, { memo, useCallback } from 'react';
 import { Search, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/components/ui/cn.ts';
 
 interface CRUDSearchProps {
   searchQuery: string;
@@ -26,29 +25,10 @@ export const CRUDSearch = memo<CRUDSearchProps>(({
   onOpenCreate,
   customToolbar,
 }) => {
-  // Referencia para el timeout de debounce
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
   // Manejar cambio de búsqueda con debounce
   const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
-    
-    // Limpiar timeout anterior
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-    
-    // No se necesita debounce aquí ya que se maneja en el componente padre
   }, [setSearchQuery]);
-  
-  // Limpiar timeout al desmontar
-  useEffect(() => {
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-    };
-  }, []);
   
   return (
     <div className="flex items-center gap-2">

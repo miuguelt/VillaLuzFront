@@ -15,7 +15,6 @@ const DashboardContent: React.FC = () => {
   const { 
     isLoading, 
     isReady, 
-    hasErrors, 
     hasCriticalErrors, 
     dashboardData,
     refresh,
@@ -320,6 +319,7 @@ export const SimplePreloadIntegration: React.FC = () => {
  * Hook personalizado para facilitar el acceso a los datos del dashboard
  * con la estrategia de precarga implementada
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const useDashboardData = () => {
   const { dashboardData, isLoading, isReady, hasErrors } = useOptimizedDashboard();
   

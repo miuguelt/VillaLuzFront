@@ -73,10 +73,6 @@ export function useFields(): UseFieldsResult {
     return mappedUpdated;
   };
 
-  // Mantener compatibilidad con consumidores actuales que usan createItem/updateItem
-  const createItem = addField;
-  const updateItem = editField;
-
   return {
     fields: mapped,
     data: mapped,

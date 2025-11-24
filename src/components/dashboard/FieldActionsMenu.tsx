@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MoreVertical, Beef, Plus, Eye, LogOut, MoveRight } from 'lucide-react';
 import {
   DropdownMenu,
@@ -50,16 +50,16 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
     if (openModal && modalMode === 'create') {
       loadOptions();
     }
-  }, [openModal, modalMode]);
+  }, [openModal, modalMode, loadOptions]);
 
   // Cargar lista cuando se abre un modal de lista
   useEffect(() => {
     if (openModal && modalMode === 'list') {
       loadListData();
     }
-  }, [openModal, modalMode, field.id]);
+  }, [openModal, modalMode, field.id, loadListData]);
 
-  const loadOptions = async () => {
+  const loadOptions = useCallback(async () => {
     try {
       const animals = await animalsService.getAnimals({ page: 1, limit: 1000 }).catch(() => []);
       const animalsData = animals || [];
@@ -81,9 +81,9 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
     } catch (err) {
       console.error('Error loading options:', err);
     }
-  };
+  }, [field.id]);
 
-  const loadListData = async () => {
+  const loadListData = useCallback(async () => {
     setLoadingList(true);
     try {
       let data: any[] = [];
@@ -102,7 +102,7 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
     } finally {
       setLoadingList(false);
     }
-  };
+  }, [field.id]);
 
   const handleOpenModal = (type: ModalType, mode: ModalMode) => {
     setOpenModal(type);

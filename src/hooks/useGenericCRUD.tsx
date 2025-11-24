@@ -83,7 +83,7 @@ export function useGenericCRUD<T extends { id?: number }>(
   const [hasNextPage, setHasNextPage] = useState<boolean>(false);
   const [hasPreviousPage, setHasPreviousPage] = useState<boolean>(false);
   
-  const { getCache, setCache, invalidatePattern, invalidateByEndpoint } = useCache();
+  const { getCache, setCache, invalidateByEndpoint } = useCache();
   const { generateKey } = useCacheKey();
   
   // Helper para construir mensajes de error más útiles
@@ -320,7 +320,7 @@ export function useGenericCRUD<T extends { id?: number }>(
     } finally {
       setLoading(false);
     }
-  }, [service, entityName, enableCache, invalidatePattern]);
+  }, [service, entityName, enableCache, invalidateByEndpoint]);
 
   // Actualizar un elemento existente e invalidar caché
   const updateItem = useCallback(async (id: number, itemData: Partial<T>): Promise<T | null> => {
@@ -350,7 +350,7 @@ export function useGenericCRUD<T extends { id?: number }>(
     } finally {
       setLoading(false);
     }
-  }, [service, entityName, enableCache, invalidatePattern]);
+  }, [service, entityName, enableCache, invalidateByEndpoint]);
 
   // Eliminar un elemento e invalidar caché
   const deleteItem = useCallback(async (id: number): Promise<boolean> => {
@@ -378,7 +378,7 @@ export function useGenericCRUD<T extends { id?: number }>(
     } finally {
       setLoading(false);
     }
-  }, [service, entityName, enableCache, invalidatePattern]);
+  }, [service, entityName, enableCache, invalidateByEndpoint]);
 
   // Recargar datos forzando refresh
   const refreshItems = useCallback(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { MoreVertical, Dna, Activity, Syringe, Pill, MapPin, ClipboardList, Eye, Plus, History, GitBranch, Baby, Edit2, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
 import { GenericModal } from '@/components/common/GenericModal';
 import { AnimalResponse } from '@/types/swaggerTypes';
 import { getTodayColombia } from '@/utils/dateUtils';
-import { SectionCard, InfoField } from '@/components/common/ModalStyles';
+import { InfoField } from '@/components/common/ModalStyles';
 import { Badge } from '@/components/ui/badge';
 import { resolveRecordId } from '@/utils/recordIdUtils';
 
@@ -98,16 +98,16 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
     if (openModal && modalMode === 'create') {
       loadOptions();
     }
-  }, [openModal, modalMode]);
+  }, [openModal, modalMode, loadOptions]);
 
   // Cargar lista cuando se abre un modal de lista
   useEffect(() => {
     if (openModal && modalMode === 'list') {
       loadListData();
     }
-  }, [openModal, modalMode, animal.id]);
+  }, [openModal, modalMode, animal.id, loadListData]);
 
-  const loadOptions = async () => {
+  const loadOptions = useCallback(async () => {
     try {
       const [diseases, fields, vaccines, users] = await Promise.all([
         diseaseService.getDiseases({ page: 1, limit: 1000 }).catch(() => []),
@@ -142,9 +142,9 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
     } catch (err) {
       console.error('Error loading options:', err);
     }
-  };
+  }, []);
 
-  const loadListData = async () => {
+  const loadListData = useCallback(async () => {
     setLoadingList(true);
     try {
       let data: any[] = [];
@@ -241,7 +241,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
     } finally {
       setLoadingList(false);
     }
-  };
+  }, [animal.id, openModal]);
 
   const handleOpenModal = (type: ModalType, mode: ModalMode) => {
     setOpenModal(type);

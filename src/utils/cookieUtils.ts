@@ -1,10 +1,5 @@
 // Utilities for handling auth token in cookies
 
-// Safe ENV accessor compatible with Jest (CJS) and browser (Vite)
-const ENV: Record<string, any> = ((globalThis as any)?.import?.meta?.env)
-  ?? ((typeof (globalThis as any).process !== 'undefined' ? ((globalThis as any).process as any).env : undefined) as any)
-  ?? {};
-
 // Eliminada getAuthTokenFromCookie y referencias a deleteAuthTokenCookie
 
 // Funciones genéricas de cookies para compatibilidad
