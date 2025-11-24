@@ -431,7 +431,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 await authServiceLogout()
                 clearAuthState()
                 postBC('logout')
-                navigate('/login')
+                navigate('/', { replace: true })
+                if (typeof window !== 'undefined') {
+                  window.setTimeout(() => window.location.replace('/'), 50)
+                }
               } catch {
                 // noop
               }
@@ -492,7 +495,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               await authServiceLogout();
               clearAuthState();
               postBC('logout');
-              navigate('/login');
+              navigate('/', { replace: true });
+              if (typeof window !== 'undefined') {
+                window.setTimeout(() => window.location.replace('/'), 50);
+              }
             } catch {
               // noop
             }
@@ -543,7 +549,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (dest) navigate(dest)
     } else {
       clearAuthState()
-      navigate('/login')
+      navigate('/')
     }
   }, [clearAuthState, navigate])
 
@@ -589,6 +595,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       clearAuthState()
       postBC('logout')
       navigate('/', { replace: true })
+      if (typeof window !== 'undefined') {
+        window.setTimeout(() => window.location.replace('/'), 50)
+      }
     }
   }, [clearAuthState, navigate])
 

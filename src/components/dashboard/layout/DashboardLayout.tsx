@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import RoleBasedSideBar from '../RoleBasedSideBar';
 import Header from './Header';
 import LoadingScreen from '@/components/common/LoadingScreen';
 
 const DashboardLayout: React.FC = () => {
-  const { loading } = useAuth();
+  const { loading, isAuthenticated } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
@@ -42,6 +42,10 @@ const DashboardLayout: React.FC = () => {
 
   if (loading) {
     return <LoadingScreen />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/" replace />;
   }
 
   // Estándar de pantallas CRUD full-bleed: usar prefijos canónicos por rol y módulo

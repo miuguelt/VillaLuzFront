@@ -76,10 +76,10 @@ export default function NavBar() {
   }, [menuItems]);
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-border bg-surface text-text-primary">
+    <nav className="sticky top-0 z-50 w-full border-b border-border bg-background text-foreground shadow-sm">
       <div className="container mx-auto flex h-14 items-center justify-between px-4">
         {/* Brand */}
-        <div className="flex items-center gap-3 text-text-primary">
+        <div className="flex items-center gap-3 text-foreground">
           <img
             src={logoSenaOrange}
             width={35}
@@ -89,7 +89,7 @@ export default function NavBar() {
             decoding="async"
             className="block"
           />
-          <a href="/#inicio" className="font-bold text-text-primary">
+          <a href="/#inicio" className="font-bold text-foreground tracking-tight">
             Finca Villa Luz
           </a>
         </div>
@@ -99,7 +99,7 @@ export default function NavBar() {
           {menuItems.map((item) => (
             <a
               key={item.id}
-              className={`text-text-secondary hover:text-primary ${
+              className={`text-muted-foreground hover:text-primary ${
                 activeSection === item.id ? "font-bold border-b border-primary" : ""
               }`}
               href={`/#${item.id}`}
@@ -141,7 +141,7 @@ export default function NavBar() {
 
         {/* Mobile toggle */}
         <button
-          className="sm:hidden inline-flex items-center justify-center rounded-md p-2 text-text-primary hover:bg-ghost-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+          className="sm:hidden inline-flex items-center justify-center rounded-md p-2 text-foreground hover:bg-ghost-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
           aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
           onClick={() => setIsMenuOpen((v) => !v)}
         >
@@ -157,7 +157,7 @@ export default function NavBar() {
 
       {/* Mobile menu */}
       {isMenuOpen && (
-        <div className="sm:hidden space-y-1 px-4 pb-3 pt-2 bg-surface text-text-primary border-t border-border">
+        <div className="sm:hidden space-y-1 px-4 pb-3 pt-2 bg-background text-foreground border-t border-border shadow-lg">
           {menuItems.map((item) => (
             <a
               key={item.id}
