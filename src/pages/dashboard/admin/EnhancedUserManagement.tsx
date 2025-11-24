@@ -113,23 +113,49 @@ const EnhancedUserManagement: React.FC = () => {
   };
 
   const handleCreateUser = async (fd: UserFormData) => {
+    const identification = fd.identification.trim();
+    const fullname = fd.fullname.trim();
+    const email = fd.email.trim();
+    const password = (fd.password || "").trim();
+
+    if (!identification || !fullname || !email) {
+      showToast("Los campos de identificación, nombre y email son obligatorios.", "error");
+      return;
+    }
+
+    if (!password) {
+      showToast("Debes definir una contraseña para el nuevo usuario.", "error");
+      return;
+    }
+
     try {
       const payload: UserInput = {
-        identification: fd.identification,
-        fullname: fd.fullname,
-        email: fd.email,
-        phone: fd.phone || "",
-        address: fd.address || "",
+        identification,
+        fullname,
+        email,
+        phone: fd.phone?.trim() || "",
+        address: fd.address?.trim() || "",
         role: fd.role,
-        password: fd.password || "",
-        status: fd.status,
+        password,
+        password_confirmation: password,
+        status: Boolean(fd.status),
       };
-      await createItem(payload);
+
+      const created = await createItem(payload);
+      if (!created) {
+        throw new Error("La API no confirmó la creación del usuario.");
+      }
+
       showToast("Usuario creado exitosamente", "success");
       setIsCreateDialogOpen(false);
       resetForm();
-    } catch (e) {
-      showToast("Error al crear el usuario", "error");
+    } catch (e: any) {
+      const errorMessage =
+        e?.response?.data?.message ||
+        e?.response?.data?.detail ||
+        e?.message ||
+        "Error al crear el usuario";
+      showToast(errorMessage, "error");
       console.error("Error creating user:", e);
     }
   };

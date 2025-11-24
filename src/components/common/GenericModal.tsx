@@ -102,8 +102,8 @@ export const GenericModal: React.FC<GenericModalProps> = ({
   hasNext = false,
 }) => {
   const overlayClasses = enableBackdropBlur
-    ? '!bg-black/80 backdrop-blur-md sm:backdrop-blur-lg motion-safe:transition-all motion-safe:duration-300 motion-reduce:transition-none'
-    : '!bg-black/75 motion-safe:transition-all motion-safe:duration-300 motion-reduce:transition-none';
+    ? '!bg-overlay-strong backdrop-blur-md sm:backdrop-blur-lg motion-safe:transition-all motion-safe:duration-300 motion-reduce:transition-none'
+    : '!bg-overlay-soft motion-safe:transition-all motion-safe:duration-300 motion-reduce:transition-none';
 
   // IDs estables para accesibilidad
   const titleId = React.useId();
@@ -198,15 +198,9 @@ export const GenericModal: React.FC<GenericModalProps> = ({
     // ≥sm: modal flotante con altura automática que se ajusta al contenido
     'sm:w-full sm:h-auto',
     computedFullScreen ? 'sm:h-[98vh] sm:max-h-[98vh] sm:rounded-none sm:p-0' : 'sm:max-h-[95vh] sm:rounded-2xl sm:p-0',
-    // Diseño futurista con glassmorphism y sombras profundas
-    'bg-gradient-to-br from-background/98 via-card/96 to-muted/90',
-    'backdrop-blur-xl backdrop-saturate-150',
-    'border-2 border-border/60 shadow-2xl',
-    // Sombra múltiple para efecto de elevación y profundidad
-    'shadow-[0_10px_40px_rgba(0,0,0,0.15),0_30px_60px_rgba(0,0,0,0.25),0_0_2px_rgba(255,255,255,0.1)_inset]',
-    // Ring con gradiente para borde luminoso más pronunciado
-    'ring-2 ring-primary/30',
-    'dark:ring-primary/40 dark:shadow-[0_10px_40px_rgba(0,0,0,0.4),0_30px_80px_rgba(0,0,0,0.6)]',
+    'bg-surface text-text-primary',
+    'border border-border shadow-xl',
+    'ring-1 ring-border-strong',
     // Ancho máximo en ≥sm según size
     sizeClasses[size],
     // Transiciones suaves
@@ -234,9 +228,8 @@ export const GenericModal: React.FC<GenericModalProps> = ({
       >
         <DialogHeader
           className={cn(
-            "relative bg-gradient-to-br from-primary/10 via-muted/50 to-muted/40",
-            "border-b border-primary/20",
-            "shadow-sm",
+            "relative bg-surface-secondary border-b border-border",
+            "shadow-none",
             // Más espacio a la derecha cuando hay botón de pantalla completa
             variant === 'compact'
               ? allowFullScreenToggle ? "px-4 sm:px-5 py-1.5 pr-16 sm:pr-20" : "px-4 sm:px-5 py-1.5 pr-10 sm:pr-11"
@@ -271,7 +264,7 @@ export const GenericModal: React.FC<GenericModalProps> = ({
                 <button
                   type="button"
                   aria-label={computedFullScreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-                  className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-primary/30 bg-gradient-to-br from-primary/10 to-primary/5 hover:from-primary/20 hover:to-primary/10 text-foreground hover:text-primary shadow-sm motion-safe:transition-all duration-200 hover:scale-105 active:scale-95"
+                  className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-border bg-surface-tertiary text-text-secondary hover:text-primary hover:bg-state-hover shadow-sm motion-safe:transition-all duration-200 hover:scale-105 active:scale-95"
                   onClick={(e) => {
                     e.stopPropagation();
                     const next = !fsInternal;

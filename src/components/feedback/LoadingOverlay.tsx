@@ -27,41 +27,48 @@ export function LoadingOverlay({
 }: LoadingOverlayProps) {
   if (!show) return null;
 
-  // Colores según el código de colores de la aplicación
-  const variantStyles = {
+  const tokens: Record<NonNullable<LoadingOverlayProps['variant']>, {
+    spinnerClass: string;
+    accentVar: string;
+    ghostVar: string;
+    ghostStrongVar: string;
+  }> = {
     default: {
       spinnerClass: 'text-primary',
-      progressBg: 'from-primary/60 via-primary to-primary/60',
-      borderColor: 'rgba(59, 130, 246, 0.3)',
-      bgGradient: 'from-blue-50/95 to-indigo-50/95',
+      accentVar: '--color-primary',
+      ghostVar: '--primary-ghost',
+      ghostStrongVar: '--primary-ghost-strong',
     },
     success: {
-      spinnerClass: 'text-green-600',
-      progressBg: 'from-green-500/60 via-green-600 to-green-500/60',
-      borderColor: 'rgba(34, 197, 94, 0.4)',
-      bgGradient: 'from-green-50/95 to-emerald-50/95',
+      spinnerClass: 'text-success',
+      accentVar: '--color-success',
+      ghostVar: '--success-ghost',
+      ghostStrongVar: '--success-ghost-strong',
     },
     warning: {
-      spinnerClass: 'text-yellow-600',
-      progressBg: 'from-yellow-500/60 via-amber-500 to-yellow-500/60',
-      borderColor: 'rgba(251, 191, 36, 0.4)',
-      bgGradient: 'from-yellow-50/95 to-amber-50/95',
+      spinnerClass: 'text-warning',
+      accentVar: '--color-warning',
+      ghostVar: '--warning-ghost',
+      ghostStrongVar: '--warning-ghost-strong',
     },
     danger: {
-      spinnerClass: 'text-red-600',
-      progressBg: 'from-red-500/60 via-red-600 to-red-500/60',
-      borderColor: 'rgba(239, 68, 68, 0.4)',
-      bgGradient: 'from-red-50/95 to-rose-50/95',
+      spinnerClass: 'text-danger',
+      accentVar: '--color-danger',
+      ghostVar: '--danger-ghost',
+      ghostStrongVar: '--danger-ghost-strong',
     },
     info: {
-      spinnerClass: 'text-blue-600',
-      progressBg: 'from-blue-500/60 via-cyan-500 to-blue-500/60',
-      borderColor: 'rgba(59, 130, 246, 0.4)',
-      bgGradient: 'from-blue-50/95 to-cyan-50/95',
+      spinnerClass: 'text-info',
+      accentVar: '--color-info',
+      ghostVar: '--info-ghost',
+      ghostStrongVar: '--info-ghost-strong',
     },
   };
 
-  const styles = variantStyles[variant];
+  const selected = tokens[variant];
+  const accentColor = `hsl(var(${selected.accentVar}))`;
+  const ghostColor = `hsl(var(${selected.ghostVar}))`;
+  const ghostStrongColor = `hsl(var(${selected.ghostStrongVar}))`;
 
   return (
     <div
@@ -70,37 +77,36 @@ export function LoadingOverlay({
       }`}
       style={{
         backgroundColor: opaque
-          ? 'rgba(0, 0, 0, 0.35)'
+          ? `hsl(var(--overlay-strong))`
           : allowInteraction
-            ? 'rgba(0, 0, 0, 0.07)'
-            : 'rgba(0, 0, 0, 0.15)',
-        backdropFilter: show ? 'blur(8px)' : 'blur(0px)',
-        WebkitBackdropFilter: show ? 'blur(8px)' : 'blur(0px)',
+            ? `hsl(var(--overlay-muted))`
+            : `hsl(var(--overlay-soft))`,
+        backdropFilter: show ? 'blur(14px)' : 'blur(0px)',
+        WebkitBackdropFilter: show ? 'blur(14px)' : 'blur(0px)',
         opacity: show ? 1 : 0,
       }}
     >
       {/* Contenedor del indicador - siempre encima con mejor visibilidad */}
       <div
-        className={`flex flex-col items-center gap-4 px-8 py-6 rounded-2xl shadow-2xl border-2 transform transition-all duration-300 ease-out animate-scale-in ${
+        className={`flex flex-col items-center gap-4 px-8 py-6 rounded-2xl shadow-xl border transform transition-all duration-300 ease-out animate-scale-in bg-surface ${
           show ? 'scale-100 opacity-100 translate-y-0' : 'scale-90 opacity-0 translate-y-4'
-        } ${allowInteraction ? 'pointer-events-auto' : ''} bg-gradient-to-br ${styles.bgGradient}`}
+        } ${allowInteraction ? 'pointer-events-auto' : ''}`}
         style={{
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderColor: styles.borderColor,
-          boxShadow: `0 20px 40px -10px ${styles.borderColor}, 0 10px 20px -5px ${styles.borderColor}`,
+          borderColor: ghostStrongColor,
+          boxShadow: `0 25px 55px -20px ${ghostStrongColor}, 0 12px 30px -12px ${ghostColor}`,
+          backgroundColor: `hsl(var(--surface-primary))`,
         }}
       >
         {/* Spinner animado con color temático */}
         <div className="relative">
           <Loader2
-            className={`w-12 h-12 ${styles.spinnerClass} animate-spin`}
+            className={`w-12 h-12 ${selected.spinnerClass} animate-spin`}
             strokeWidth={2.5}
           />
           {/* Anillo pulsante de fondo */}
           <div
-            className={`absolute inset-0 rounded-full border-4 ${styles.spinnerClass} opacity-20 animate-pulse`}
-            style={{ borderStyle: 'dashed' }}
+            className="absolute inset-0 rounded-full border-4 opacity-30 animate-pulse"
+            style={{ borderStyle: 'dashed', borderColor: accentColor }}
           />
         </div>
 
@@ -117,10 +123,11 @@ export function LoadingOverlay({
         )}
 
         {/* Barra de progreso indeterminada mejorada */}
-        <div className="w-32 h-1.5 bg-muted/30 rounded-full overflow-hidden shadow-inner">
+        <div className="w-32 h-1.5 bg-surface-secondary rounded-full overflow-hidden shadow-inner">
           <div
-            className={`h-full bg-gradient-to-r ${styles.progressBg} rounded-full`}
+            className="h-full rounded-full"
             style={{
+              backgroundColor: ghostStrongColor,
               animation: 'progressIndeterminate 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite',
             }}
           />
@@ -128,18 +135,13 @@ export function LoadingOverlay({
 
         {/* Dots loading animation */}
         <div className="flex gap-1.5">
-          <span
-            className={`w-2 h-2 ${styles.spinnerClass} bg-current rounded-full animate-bounce`}
-            style={{ animationDelay: '0s' }}
-          />
-          <span
-            className={`w-2 h-2 ${styles.spinnerClass} bg-current rounded-full animate-bounce`}
-            style={{ animationDelay: '0.15s' }}
-          />
-          <span
-            className={`w-2 h-2 ${styles.spinnerClass} bg-current rounded-full animate-bounce`}
-            style={{ animationDelay: '0.3s' }}
-          />
+          {[0, 0.15, 0.3].map((delay) => (
+            <span
+              key={delay}
+              className={`w-2 h-2 rounded-full animate-bounce ${selected.spinnerClass}`}
+              style={{ animationDelay: `${delay}s`, backgroundColor: accentColor }}
+            />
+          ))}
         </div>
       </div>
     </div>

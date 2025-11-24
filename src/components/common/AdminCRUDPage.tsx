@@ -1376,14 +1376,14 @@ const {
           )}
         />
       ) : (
-        <div className="bg-card/95 backdrop-blur-sm border-2 border-border/50 rounded-xl shadow-2xl shadow-primary/10 overflow-hidden flex-1 flex flex-col min-h-0 mt-1">
+        <div className="bg-surface border border-border rounded-xl shadow-lg overflow-hidden flex-1 flex flex-col min-h-0 mt-1">
           <div
             ref={tableWrapperRef}
             className={cn(
               'overflow-x-auto overflow-y-auto flex-1 transition-colors',
               config.viewMode === 'cards'
-                ? 'bg-gradient-to-br from-muted/60 via-background/80 to-muted/50 dark:from-slate-950/80 dark:via-slate-900/70 dark:to-slate-950/80'
-                : 'bg-muted/40'
+                ? 'bg-surface-secondary'
+                : 'bg-surface'
             )}
             style={{
               maxHeight: wrapperMaxHeight != null ? `${wrapperMaxHeight}px` : undefined,
@@ -1403,16 +1403,13 @@ const {
                        <Card
                          key={item.id}
                          className={cn(
-                           'cursor-pointer transition-all duration-300 flex flex-col overflow-hidden rounded-2xl',
-                           'border border-border/40 dark:border-slate-800/70',
-                           'bg-gradient-to-b from-white via-card to-slate-50/80 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950',
-                           'shadow-[0_20px_55px_rgba(15,23,42,0.12)] hover:shadow-[0_25px_65px_rgba(15,23,42,0.18)] dark:shadow-[0_25px_65px_rgba(0,0,0,0.65)]',
-                           'backdrop-blur-[2px]',
-                           enhancedHover ? 'hover:border-primary/60 hover:bg-primary/5 hover:scale-[1.02] hover:-translate-y-1' : '',
-                           isDeleting ? 'ring-4 ring-red-400 bg-red-50 shadow-red-200' : '',
-                           isNew ? 'ring-4 ring-green-400 bg-green-50 shadow-green-200' : '',
-                           isUpdated ? 'ring-4 ring-amber-400 bg-amber-50/30 shadow-amber-200' : '',
-                           'dark:shadow-gray-800/20'
+                           'cursor-pointer transition-all duration-200 flex flex-col overflow-hidden rounded-2xl',
+                           'border border-border bg-surface shadow-md hover:shadow-lg',
+                           enhancedHover ? 'hover:border-ghost-primary-strong hover:bg-ghost-primary hover:-translate-y-0.5' : '',
+                           isDeleting && 'ring-2 ring-ghost-danger-strong bg-ghost-danger',
+                           isNew && 'ring-2 ring-ghost-success-strong bg-ghost-success',
+                           isUpdated && 'ring-2 ring-ghost-warning-strong bg-ghost-warning',
+                           'text-text-primary'
                          )}
                          onClick={() => { config.enableDetailModal !== false && openDetail(item); }}
                          role="button"

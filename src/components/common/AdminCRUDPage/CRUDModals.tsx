@@ -86,9 +86,7 @@ function DetailModalComponent<T extends { id: number }>({
   
   // Footer con navegación y acciones
   const footer = (
-    <div className="relative border-t-2 border-primary/20 bg-gradient-to-br from-primary/10 via-muted/50 to-muted/40 shadow-[0_-2px_8px_rgba(0,0,0,0.1),0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur-md px-5 sm:px-6 py-2.5 sm:py-3">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
+    <div className="relative border-t border-border bg-surface-secondary px-5 sm:px-6 py-2.5 sm:py-3">
       <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
         <div className="flex gap-2 sm:flex-1">
           <Button
@@ -97,7 +95,7 @@ function DetailModalComponent<T extends { id: number }>({
             type="button"
             onClick={handlePrevDetail}
             disabled={!items || items.length <= 1}
-            className="flex-1 sm:flex-initial transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 font-semibold border-primary/30 hover:border-primary/50 hover:bg-primary/5"
+            className="flex-1 sm:flex-initial transition-all duration-150 font-semibold border-border hover:border-ghost-primary-strong hover:bg-ghost-primary"
           >
             <ChevronLeft className="h-4 w-4 sm:mr-1.5" />
             <span className="hidden sm:inline">Anterior</span>
@@ -108,7 +106,7 @@ function DetailModalComponent<T extends { id: number }>({
             type="button"
             onClick={handleNextDetail}
             disabled={!items || items.length <= 1}
-            className="flex-1 sm:flex-initial transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 font-semibold border-primary/30 hover:border-primary/50 hover:bg-primary/5"
+            className="flex-1 sm:flex-initial transition-all duration-150 font-semibold border-border hover:border-ghost-primary-strong hover:bg-ghost-primary"
           >
             <span className="hidden sm:inline">Siguiente</span>
             <ChevronRight className="h-4 w-4 sm:ml-1.5" />
@@ -120,7 +118,7 @@ function DetailModalComponent<T extends { id: number }>({
             size="sm"
             type="button"
             onClick={() => { onOpenChange(false); setDetailIndex(null); }}
-            className="flex-1 sm:flex-initial transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 font-semibold border-primary/30 hover:border-primary/50 hover:bg-primary/5"
+            className="flex-1 sm:flex-initial transition-all duration-150 font-semibold border-border hover:border-ghost-primary-strong hover:bg-ghost-primary"
           >
             {t('modal.close', 'Cerrar')}
           </Button>
@@ -129,7 +127,7 @@ function DetailModalComponent<T extends { id: number }>({
               size="sm"
               type="button"
               onClick={() => { onEdit(item); onOpenChange(false); setDetailIndex(null); }}
-              className="flex-1 sm:flex-initial transition-all duration-200 hover:shadow-lg hover:scale-105 active:scale-95 font-semibold bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary"
+              className="flex-1 sm:flex-initial font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-150"
             >
               <Edit className="h-4 w-4 sm:mr-1.5" />
               <span className="hidden sm:inline">{t('common.edit', 'Editar')}</span>

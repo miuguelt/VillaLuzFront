@@ -5,11 +5,11 @@ const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className="relative w-full h-full overflow-auto rounded-lg shadow-md">
+  <div className="relative w-full h-full overflow-auto rounded-lg border border-border bg-surface shadow-sm">
     <table
       ref={ref}
       className={cn(
-        "w-full caption-bottom text-sm text-left table-fixed [&_td:last-child]:text-right [&_th:last-child]:text-right",
+        "w-full caption-bottom text-sm text-left table-fixed [&_td:last-child]:text-right [&_th:last-child]:text-right text-text-primary",
         className
       )}
       {...props}
@@ -25,7 +25,7 @@ const TableHeader = React.forwardRef<
   <thead
     ref={ref}
     className={cn(
-      "sticky top-0 z-10 bg-primary text-primary-foreground shadow-sm",
+      "sticky top-0 z-10 bg-surface-secondary text-text-secondary border-b border-border shadow-sm",
       className
     )}
     {...props}
@@ -66,9 +66,9 @@ const TableRow = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <tr
     ref={ref}
-    data-table-row
     className={cn(
-      "border-b border-border transition-all duration-500 ease-in-out data-[state=selected]:bg-muted even:bg-muted hover:bg-gradient-to-r hover:from-blue-400 hover:to-blue-700 hover:border-8 hover:border-blue-900 hover:shadow-[0_25px_50px_-12px_rgba(59,130,246,0.5),0_0_0_4px_rgba(37,99,235,0.8),inset_0_0_20px_rgba(59,130,246,0.3)] hover:relative hover:z-50 hover:scale-110 hover:font-bold hover:text-white cursor-pointer transform-gpu hover:backdrop-blur-sm",
+      "border-b border-border bg-surface-primary transition-colors duration-200 ease-out data-[state=selected]:bg-ghost-primary even:bg-surface-secondary hover:bg-state-hover focus-within:bg-state-hover",
+      "text-text-primary",
       className
     )}
     {...props}
@@ -83,7 +83,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-primary-foreground whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+      "h-12 px-4 text-left align-middle font-medium text-text-secondary whitespace-nowrap [&:has([role=checkbox])]:pr-0",
       className
     )}
     {...props}

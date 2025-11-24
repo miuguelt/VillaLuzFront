@@ -171,7 +171,7 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
       <aside
         ref={sidebarRef}
         id="dashboard-sidebar"
-        className={`fixed inset-y-0 left-0 z-40 h-screen bg-gradient-to-b from-emerald-950 to-gray-900 text-gray-100 border-r border-gray-800 transform transition-all duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} w-72 ${dynamicWidth} shadow-2xl shadow-gray-900/50 flex flex-col overflow-hidden ${dynamicWidth}`}
+        className={`fixed inset-y-0 left-0 z-40 h-screen bg-surface-tertiary text-text-primary border-r border-border transform transition-all duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} w-72 ${dynamicWidth} shadow-2xl shadow-black/20 flex flex-col overflow-hidden ${dynamicWidth}`}
         style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${sidebarWidth}px` : 'auto' }}
         aria-hidden={!isSidebarOpen ? "true" : "false"}
         role="navigation"
@@ -179,10 +179,10 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
       >
       {/* Capa global de textura tipo papel/grano (sutil) */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.05]"
+        className="pointer-events-none absolute inset-0 opacity-[0.08]"
         style={{
           backgroundImage:
-            'radial-gradient(rgba(255,255,255,0.10) 1px, transparent 1px), radial-gradient(rgba(0,0,0,0.10) 1px, transparent 1px)',
+            'radial-gradient(hsl(var(--overlay-soft)) 1px, transparent 1px), radial-gradient(hsl(var(--overlay-muted)) 1px, transparent 1px)',
           backgroundSize: '3px 3px, 4px 4px',
           backgroundPosition: '0 0, 1px 1px',
         }}
@@ -190,7 +190,7 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
       />
  
       {/* Header del sidebar */}
-      <div className="p-3 sm:p-4 border-b border-gray-800 bg-gray-900">
+      <div className="p-3 sm:p-4 border-b border-border bg-surface">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 relative z-10">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25">
@@ -198,7 +198,7 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
             </div>
             <div className="flex flex-col leading-tight z-10">
               <span className="font-semibold text-sm">{currentRole}</span>
-              <span className="text-xs text-gray-400">Panel de control</span>
+              <span className="text-xs text-text-secondary">Panel de control</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -206,7 +206,7 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
             <button
               type="button"
               ref={closeBtnRef}
-              className="lg:hidden p-2 rounded-md hover:bg-gray-800 text-gray-300 transition-all duration-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-gray-900"
+              className="lg:hidden p-2 rounded-md hover:bg-state-hover text-text-secondary transition-all duration-200 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
               onClick={() => setIsSidebarOpen(false)}
               aria-label="Cerrar menú lateral"
             >
@@ -217,7 +217,7 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
       </div>
 
       {/* Navegación principal */}
-        <nav className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent" role="menu" aria-label="Categorías del menú">
+        <nav className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent" role="menu" aria-label="Categorías del menú">
           {filteredCategories.map((category) => {
             const isOpen = openGroups[category.title] ?? false;
             return (
@@ -226,17 +226,17 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
                 <button
                   type="button"
                   onClick={() => toggleGroup(category.title)}
-                  className="w-full flex items-center justify-between py-3 px-4 rounded-lg bg-gray-800/70 hover:bg-gray-800 text-gray-200 transition-all duration-200 hover:shadow-lg hover:shadow-gray-900/30 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-gray-900 group"
+                  className="w-full flex items-center justify-between py-3 px-4 rounded-lg bg-surface-secondary hover:bg-state-hover text-text-primary transition-all duration-200 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface group"
                   aria-expanded={isOpen}
                   aria-controls={`category-${category.title.replace(/\s+/g, '-').toLowerCase()}`}
                   aria-label={`Toggle ${category.title} category`}
                 >
-                  <div className="flex items-center gap-3 text-gray-200 group-hover:text-white transition-colors duration-200">
+                  <div className="flex items-center gap-3 text-text-primary group-hover:text-primary transition-colors duration-200">
                     <span className="transition-transform duration-200 group-hover:scale-110">{category.icon}</span>
                     <span className="font-medium text-sm">{category.title}</span>
                   </div>
-                  <div className="transition-transform duration-200 group-hover:scale-110">
-                    {isOpen ? <ChevronUp className="h-4 w-4 text-gray-200" /> : <ChevronDown className="h-4 w-4 text-gray-200" />}
+                  <div className="transition-transform duration-200 group-hover:scale-110 text-text-secondary">
+                    {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </div>
                 </button>
                 {/* Children */}

@@ -139,6 +139,21 @@ export default {
           DEFAULT: 'hsl(var(--destructive))',
           foreground: 'hsl(var(--destructive-foreground))'
         },
+        // Info palette for neutral alerts
+        info: {
+          50: 'hsl(var(--info-50))',
+          100: 'hsl(var(--info-100))',
+          200: 'hsl(var(--info-200))',
+          300: 'hsl(var(--info-300))',
+          400: 'hsl(var(--info-400))',
+          500: 'hsl(var(--info-500))',
+          600: 'hsl(var(--info-600))',
+          700: 'hsl(var(--info-700))',
+          800: 'hsl(var(--info-800))',
+          900: 'hsl(var(--info-900))',
+          DEFAULT: 'hsl(var(--info))',
+          foreground: 'hsl(var(--info-foreground))'
+        },
         // Neutral palette
         neutral: {
           50: 'hsl(var(--neutral-50))',
@@ -158,6 +173,18 @@ export default {
           DEFAULT: 'hsl(var(--muted))',
           foreground: 'hsl(var(--muted-foreground))'
         },
+        // Surfaces for layout layers
+        surface: {
+          DEFAULT: 'hsl(var(--surface-primary))',
+          primary: 'hsl(var(--surface-primary))',
+          secondary: 'hsl(var(--surface-secondary))',
+          tertiary: 'hsl(var(--surface-tertiary))'
+        },
+        // Text tokens
+        text: {
+          primary: 'hsl(var(--text-primary))',
+          secondary: 'hsl(var(--text-secondary))'
+        },
         // Accent palette
         accent: {
           DEFAULT: 'hsl(var(--accent))',
@@ -172,6 +199,31 @@ export default {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--color-input))',
         ring: 'hsl(var(--color-ring))',
+        // State colors for interactions
+        state: {
+          hover: 'hsl(var(--surface-hover))',
+          active: 'hsl(var(--surface-active))',
+          disabled: 'hsl(var(--surface-disabled))'
+        },
+        // Overlay transparencies
+        overlay: {
+          strong: 'hsl(var(--overlay-strong))',
+          soft: 'hsl(var(--overlay-soft))',
+          muted: 'hsl(var(--overlay-muted))'
+        },
+        // Ghost tones for badges/alerts
+        ghost: {
+          primary: 'hsl(var(--primary-ghost))',
+          'primary-strong': 'hsl(var(--primary-ghost-strong))',
+          success: 'hsl(var(--success-ghost))',
+          'success-strong': 'hsl(var(--success-ghost-strong))',
+          warning: 'hsl(var(--warning-ghost))',
+          'warning-strong': 'hsl(var(--warning-ghost-strong))',
+          danger: 'hsl(var(--danger-ghost))',
+          'danger-strong': 'hsl(var(--danger-ghost-strong))',
+          info: 'hsl(var(--info-ghost))',
+          'info-strong': 'hsl(var(--info-ghost-strong))'
+        },
         // Chart colors for data visualization
         chart: {
           1: 'hsl(var(--chart-1))',
