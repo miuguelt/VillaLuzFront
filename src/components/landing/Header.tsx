@@ -4,6 +4,7 @@ import { AuthContext } from "@/context/AuthenticationContext";
 import { Button } from "@/components/ui/button";
 import { LogIn, LogOut } from 'lucide-react';
 import { normalizeRole } from "@/services/authService";
+import logoSenaOrange from "@/assets/logoSenaOrange.svg";
 
 interface MenuItem {
   id: string;
@@ -29,6 +30,14 @@ export default function NavBar() {
   const dashboardRoute = isAuthenticated && authReady
     ? preferredDashboardRoute || '/dashboard'
     : null;
+
+  const handleGoToPanel = () => {
+    if (isAuthenticated && dashboardRoute) {
+      navigate(dashboardRoute);
+      return;
+    }
+    window.alert('Debes iniciar sesión para acceder al panel.');
+  };
 
   const menuItems: MenuItem[] = useMemo(
     () => [
@@ -67,12 +76,22 @@ export default function NavBar() {
   }, [menuItems]);
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-border bg-green-800/95 backdrop-blur supports-[backdrop-filter]:bg-green-800/75">
-      <div className="container mx-auto flex h-14 items-center justify-between px-4">
+    <nav className="sticky top-0 z-50 w-full border-b border-border bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/80">
+      <div className="container mx-auto flex h-14 items-center justify-between px-4 text-text-primary">
         {/* Brand */}
-        <div className="flex items-center gap-3 text-white">
-          <img src="/assets/logoSenaOrange.svg" width={35} height={35} alt="Logo Sena" loading="lazy" decoding="async" fetchPriority="low" />
-          <a href="/#inicio" className="font-bold text-white ml-2">Finca Villa Luz</a>
+        <div className="flex items-center gap-3 text-text-primary">
+          <img
+            src={logoSenaOrange}
+            width={35}
+            height={35}
+            alt="Logo SENA"
+            loading="lazy"
+            decoding="async"
+            className="block"
+          />
+          <a href="/#inicio" className="font-bold text-text-primary">
+            Finca Villa Luz
+          </a>
         </div>
 
         {/* Desktop menu */}
@@ -80,29 +99,29 @@ export default function NavBar() {
           {menuItems.map((item) => (
             <a
               key={item.id}
-              className={`text-white hover:text-green-400 ${
-                activeSection === item.id ? "font-bold border-b border-green-500" : ""
+              className={`text-text-secondary hover:text-primary ${
+                activeSection === item.id ? "font-bold border-b border-primary" : ""
               }`}
               href={`/#${item.id}`}
             >
               {item.label}
             </a>
           ))}
-          {dashboardRoute && (
-            <Button
-              className="bg-orange-600 text-white font-semibold ml-2"
-              onClick={() => navigate(dashboardRoute)}
-            >
-              Ir al panel
-            </Button>
-          )}
+          <Button
+            className={`bg-primary text-primary-foreground font-semibold ml-2 ${!isAuthenticated ? 'opacity-75' : ''}`}
+            onClick={handleGoToPanel}
+            type="button"
+            aria-disabled={!isAuthenticated}
+          >
+            Ir al panel
+          </Button>
         </div>
 
         {/* Desktop auth actions */}
         <div className="hidden sm:flex items-center gap-2">
           {!isAuthenticated ? (
             <Button
-              className="bg-green-600 text-white font-semibold"
+              className="bg-success text-success-foreground font-semibold"
               onClick={() => navigate("/login")}
               aria-label="Iniciar sesión"
             >
@@ -110,7 +129,7 @@ export default function NavBar() {
             </Button>
           ) : (
             <Button
-              className="bg-gray-700 text-white font-semibold"
+              className="bg-destructive text-destructive-foreground font-semibold"
               onClick={auth?.logout}
               aria-label="Cerrar sesión"
             >
@@ -121,7 +140,7 @@ export default function NavBar() {
 
         {/* Mobile toggle */}
         <button
-          className="sm:hidden inline-flex items-center justify-center rounded-md p-2 text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20"
+          className="sm:hidden inline-flex items-center justify-center rounded-md p-2 text-text-primary hover:bg-ghost-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
           aria-label={isMenuOpen ? "Cerrar menú" : "Abrir menú"}
           onClick={() => setIsMenuOpen((v) => !v)}
         >
@@ -137,12 +156,12 @@ export default function NavBar() {
 
       {/* Mobile menu */}
       {isMenuOpen && (
-        <div className="sm:hidden space-y-1 px-4 pb-3 pt-2 bg-green-800 text-white">
+        <div className="sm:hidden space-y-1 px-4 pb-3 pt-2 bg-surface text-text-primary border-t border-border">
           {menuItems.map((item) => (
             <a
               key={item.id}
               className={`block w-full py-2 ${
-                activeSection === item.id ? "font-bold text-green-200" : ""
+                activeSection === item.id ? "font-bold text-primary" : ""
               }`}
               href={`/#${item.id}`}
               onClick={() => setIsMenuOpen(false)}
@@ -150,20 +169,20 @@ export default function NavBar() {
               {item.label}
             </a>
           ))}
-          {dashboardRoute && (
-            <Button
-              className="w-full bg-orange-600 text-white font-semibold mt-2"
-              onClick={() => {
-                setIsMenuOpen(false);
-                navigate(dashboardRoute);
-              }}
-            >
-              Ir al panel
-            </Button>
-          )}
+          <Button
+            className="w-full bg-primary text-primary-foreground font-semibold mt-2"
+            onClick={() => {
+              setIsMenuOpen(false);
+              handleGoToPanel();
+            }}
+            type="button"
+            aria-disabled={!isAuthenticated}
+          >
+            Ir al panel
+          </Button>
           {!isAuthenticated ? (
             <Button
-              className="w-full bg-green-600 text-white font-semibold"
+              className="w-full bg-success text-success-foreground font-semibold"
               onClick={() => {
                 setIsMenuOpen(false);
                 navigate('/login');
@@ -173,7 +192,7 @@ export default function NavBar() {
             </Button>
           ) : (
             <Button
-              className="w-full bg-gray-700 text-white font-semibold"
+              className="w-full bg-destructive text-destructive-foreground font-semibold"
               onClick={() => {
                 setIsMenuOpen(false);
                 auth?.logout?.();

@@ -243,7 +243,7 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
                 {isOpen && (
                   <div
                     id={`category-${category.title.replace(/\s+/g, '-').toLowerCase()}`}
-                    className="mt-2 ml-4 border-l border-primary/40 pl-4 space-y-1 animate-in slide-in-from-top-2 duration-200"
+                    className="mt-2 ml-4 border-l border-border pl-4 space-y-1 animate-in slide-in-from-top-2 duration-200"
                     role="menu"
                     aria-label={`${category.title} items`}
                   >
@@ -252,7 +252,7 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
                         key={`${category.title}-${child.title}-${child.path}`}
                         to={`${rolePrefix}/${child.path}`}
                         onClick={handleItemClick}
-                        className="flex items-center py-2.5 px-3 hover:bg-gray-800 rounded-lg text-gray-200 transition-all duration-200 hover:shadow-md hover:shadow-gray-900/20 hover:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-gray-900 group"
+                        className="flex items-center py-2.5 px-3 rounded-lg text-text-secondary transition-all duration-200 hover:bg-ghost-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface group"
                         role="menuitem"
                         aria-label={`Ir a ${child.title}`}
                       >
@@ -266,20 +266,20 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
             );
           })}
           {filteredCategories.length === 0 && (
-            <div className="p-4 text-center text-gray-400 bg-gray-800/30 rounded-lg" role="status" aria-live="polite">
+            <div className="p-4 text-center text-text-secondary bg-surface rounded-lg border border-border" role="status" aria-live="polite">
               No hay items disponibles para tu rol: {currentRole}
             </div>
           )}
         </nav>
 
         {/* Pie de menú con acciones (sin elementos decorativos) */}
-        <div className="mt-auto border-t border-gray-800 bg-gray-900 p-2 sm:p-4">
+        <div className="mt-auto border-t border-border bg-surface p-2 sm:p-4">
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <button
               type="button"
               onClick={() => signOut?.()}
-              className="ml-auto inline-flex items-center gap-2 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-md text-xs sm:text-sm bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-gray-900"
+              className="ml-auto inline-flex items-center gap-2 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-md text-xs sm:text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
             >
               <LogOut className="h-4 w-4" />
               Cerrar sesión
