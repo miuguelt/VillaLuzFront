@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { getApiBaseURL } from '@/utils/envConfig';
+import { hasSessionCookies } from '@/utils/cookieUtils';
 import { speciesService } from '@/services/speciesService';
 import { breedsService } from '@/services/breedsService';
 import { fieldService } from '@/services/fieldService';
@@ -250,6 +251,10 @@ export const CacheProvider: React.FC<CacheProviderProps> = ({
   const preloadCriticalRoutes = useCallback(() => {
     if (isOffline()) {
       console.debug('[CacheContext] Precarga omitida: sin conexión');
+      return;
+    }
+    if (!hasSessionCookies()) {
+      console.debug('[CacheContext] Precarga omitida: sin cookies de sesión');
       return;
     }
 

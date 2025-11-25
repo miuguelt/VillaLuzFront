@@ -10,6 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { useIdleCallback, useNetworkStatus } from '@/hooks/usePerformance';
 import { isLowEndDevice } from '@/utils/performance';
+import { hasSessionCookies } from '@/utils/cookieUtils';
 import { animalService } from '@/services/animalService';
 import { fieldService } from '@/services/fieldService';
 import { breedsService } from '@/services/breedsService';
@@ -90,6 +91,8 @@ export const PrefetchManager: React.FC = () => {
   const prefetchRoute = useCallback(async (route: string) => {
     // Solo si está autenticado y online
     if (!isAuthenticated || !online) return;
+    // Requiere cookies de sesión visibles para evitar 401 masivos
+    if (!hasSessionCookies()) return;
 
     // No prefetch en modo ahorro de datos
     if (saveData) return;
@@ -156,7 +159,7 @@ export const PrefetchManager: React.FC = () => {
    * Prefetch inteligente basado en la ruta actual
    */
   useEffect(() => {
-    if (!isAuthenticated || !online) return;
+    if (!isAuthenticated || !online || !hasSessionCookies()) return;
 
     // Prefetch datos para la ruta actual
     prefetchRoute(location.pathname);
@@ -266,7 +269,7 @@ export const PrefetchManager: React.FC = () => {
    * Prefetch de datos críticos al iniciar sesión
    */
   useIdleCallback(() => {
-    if (!isAuthenticated || !online) return;
+    if (!isAuthenticated || !online || !hasSessionCookies()) return;
 
     // Prefetch datos maestros inmediatamente
     const criticalData = ['species', 'breeds'];

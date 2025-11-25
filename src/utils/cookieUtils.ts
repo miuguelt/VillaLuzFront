@@ -12,6 +12,20 @@ export const getCookie = (name: string): string | null => {
   return null;
 };
 
+// Verifica si existen cookies de sesión emitidas por el backend
+export const hasSessionCookies = (): boolean => {
+  try {
+    return !!(
+      getCookie('access_token_cookie') ||
+      getCookie('csrf_access_token') ||
+      getCookie('csrf_refresh_token') ||
+      getCookie('refresh_token_cookie')
+    );
+  } catch {
+    return false;
+  }
+};
+
 export const setCookie = (name: string, value: string, days?: number): void => {
   let expires = '';
   if (days) {

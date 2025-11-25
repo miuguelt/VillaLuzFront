@@ -12,6 +12,7 @@ import { I18nProvider } from './i18n'
 import { useToast } from './context/ToastContext'
 import { useCache } from './context/CacheContext'
 import { useAuth } from '@/hooks/useAuth'
+import { hasSessionCookies } from '@/utils/cookieUtils'
 import { refetchAllResources } from './hooks/useResource'
 import { PWAUpdateHandler } from './components/common/PWAUpdateHandler'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -233,6 +234,7 @@ function GlobalNetworkHandlers() {
   const { isAuthenticated } = useAuth();
   const preloadStartedRef = useRef(false);
   const lastRateLimitAtRef = useRef<number>(0);
+  const cookiesReadyRef = useRef(false);
 
   useEffect(() => {
     const onOnline = async () => {
@@ -301,6 +303,19 @@ function GlobalNetworkHandlers() {
   useEffect(() => {
     if (preloadStartedRef.current) return;
     if (!isAuthenticated) return; // Gate por auth: sin sesión no se precargan endpoints protegidos
+    // Gate adicional: requerir cookies de sesión visibles
+    if (!cookiesReadyRef.current && !hasSessionCookies()) {
+      // Reintentar en breve para dar tiempo a que el navegador persista las cookies HttpOnly
+      setTimeout(() => {
+        cookiesReadyRef.current = hasSessionCookies();
+        if (cookiesReadyRef.current && !preloadStartedRef.current) {
+          preloadStartedRef.current = true;
+          preloadCriticalRoutes();
+          console.log('[Cache] Precarga inteligente activada tras detectar cookies de sesión');
+        }
+      }, 1500);
+      return;
+    }
     preloadStartedRef.current = true;
 
     // OPTIMIZACIÓN: Reducir delay para precarga más rápida (1s vs 5s)
