@@ -51,6 +51,9 @@ const logDebugError = (prefix: string, error: unknown) => {
 const baseURL = getApiBaseURL();
 const refreshBaseURL = getApiBaseURL();
 
+// Asegurar credenciales en todas las llamadas axios (cookies/CSRF)
+axios.defaults.withCredentials = true;
+
 // Cliente principal con credenciales habilitadas (cookies)
 const api: AxiosInstance = axios.create({
   baseURL,
@@ -550,6 +553,11 @@ api.interceptors.response.use(
       const tokenStatus = shouldForceLogout(error);
       const hasStoredAuth = hasClientSession();
       const isAuthMeRequest = path.startsWith('auth/me');
+      // Si no hay indicios de sesión en cookies/storage, no intentes refresh en bucle: fuerza logout limpio
+      if (!hasStoredAuth && !isAuthMeRequest) {
+        await forceClientLogout('missing', { logoutUrl: tokenStatus.logoutUrl, loginUrl: tokenStatus.loginUrl });
+        return Promise.reject(error);
+      }
       if (tokenStatus.shouldForce && hasStoredAuth && !isAuthMeRequest) {
         await forceClientLogout('expired', { logoutUrl: tokenStatus.logoutUrl, loginUrl: tokenStatus.loginUrl });
         return Promise.reject(error);

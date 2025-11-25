@@ -89,13 +89,14 @@ export default defineConfig(({ command, mode }) => {
         },
         workbox: {
           navigateFallback: '/index.html',
+          cleanupOutdatedCaches: true,
           globPatterns: ['**/*.{js,css,html,svg,ico,png,jpg,jpeg,webp,woff,woff2}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           runtimeCaching: [
             {
               urlPattern: ({ url }) => url.pathname.startsWith('/api/v1/auth'),
               handler: 'NetworkOnly',
-              options: { cacheName: 'auth-api-bypass' }
+              options: { cacheName: 'auth-api-bypass', fetchOptions: { credentials: 'include' } }
             },
             {
               urlPattern: ({ url }) => {
@@ -107,6 +108,7 @@ export default defineConfig(({ command, mode }) => {
               handler: 'CacheFirst',
               options: {
                 cacheName: 'api-master-data',
+                fetchOptions: { credentials: 'include' },
                 expiration: { maxEntries: 100, maxAgeSeconds: 1800 },
               }
             },
@@ -115,6 +117,7 @@ export default defineConfig(({ command, mode }) => {
               handler: 'NetworkFirst',
               options: {
                 cacheName: 'api-fallback',
+                fetchOptions: { credentials: 'include' },
                 networkTimeoutSeconds: 5,
                 expiration: { maxEntries: 200, maxAgeSeconds: 300 },
               }
@@ -122,12 +125,12 @@ export default defineConfig(({ command, mode }) => {
             {
               urlPattern: ({ request }) => request.destination === 'image',
               handler: 'StaleWhileRevalidate',
-              options: { cacheName: 'images-cache', expiration: { maxEntries: 100, maxAgeSeconds: 604800 } }
+              options: { cacheName: 'images-cache', fetchOptions: { credentials: 'include' }, expiration: { maxEntries: 100, maxAgeSeconds: 604800 } }
             },
             {
               urlPattern: ({ request }) => ['style', 'script', 'font'].includes(request.destination),
               handler: 'CacheFirst',
-              options: { cacheName: 'assets-cache', expiration: { maxEntries: 60, maxAgeSeconds: 2592000 } }
+              options: { cacheName: 'assets-cache', fetchOptions: { credentials: 'include' }, expiration: { maxEntries: 60, maxAgeSeconds: 2592000 } }
             }
           ],
           skipWaiting: true,

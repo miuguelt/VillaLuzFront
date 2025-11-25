@@ -57,6 +57,61 @@ const queryClient = new QueryClient({
 
 // CSS principal cargado desde index.html para evitar FOUC
 
+// Recuperación defensiva ante fallos de carga de chunks (MIME incorrecto / módulo no encontrado)
+(function registerChunkRecovery() {
+  if (typeof window === 'undefined') return;
+  const RECOVERY_FLAG = 'chunk-recovery-at';
+  const now = Date.now();
+  const last = Number(sessionStorage.getItem(RECOVERY_FLAG) || '0');
+  // Evitar bucles infinitos: solo intentar una vez cada 90s
+  if (now - last < 90_000) return;
+
+  const recover = async () => {
+    try {
+      sessionStorage.setItem(RECOVERY_FLAG, String(Date.now()));
+      // Limpiar caches del Service Worker y desregistrarlo
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
+      }
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
+      }
+    } catch (err) {
+      console.warn('[Recovery] Error limpiando caches/SW tras fallo de chunk', err);
+    } finally {
+      window.location.reload();
+    }
+  };
+
+  const shouldRecover = (reason: any): boolean => {
+    const msg = typeof reason === 'string'
+      ? reason
+      : reason?.message || reason?.toString?.() || '';
+    return msg.includes('Failed to fetch dynamically imported module')
+      || msg.includes('Expected a JavaScript or Wasm module script');
+  };
+
+  window.addEventListener('unhandledrejection', (event) => {
+    if (shouldRecover(event?.reason)) {
+      event?.preventDefault?.();
+      recover();
+    }
+  });
+
+  window.addEventListener('error', (event) => {
+    // Detectar errores de módulo o scripts con MIME incorrecto
+    const target = event?.target as any;
+    const isScriptTag = target && target.tagName === 'SCRIPT';
+    const msg = event?.message || '';
+    if (shouldRecover(msg) || (isScriptTag && msg.includes('Failed to load module script'))) {
+      event?.preventDefault?.();
+      recover();
+    }
+  }, true);
+})();
+
 // Eliminar persistencia de autenticación en sessionStorage en main.tsx
 // Limpieza one-time de claves legacy en localStorage (solo lectura/eliminación; no se vuelve a usar para persistencia)
 (function legacyLocalStorageCleanup() {
