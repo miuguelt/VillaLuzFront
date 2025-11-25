@@ -81,32 +81,6 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
   const [vaccineOptions, setVaccineOptions] = useState<Array<{ value: number; label: string }>>([]);
   const [userOptions, setUserOptions] = useState<Array<{ value: number; label: string }>>([]);
 
-  // Sincronizar con props externos
-  useEffect(() => {
-    if (externalOpenModal) {
-      setOpenModal(externalOpenModal);
-      setModalMode(externalModalMode || 'create');
-      if (externalEditingItem) {
-        setEditingItem(externalEditingItem);
-        setFormData(externalEditingItem);
-      }
-    }
-  }, [externalOpenModal, externalModalMode, externalEditingItem]);
-
-  // Cargar opciones cuando se abre un modal de creación
-  useEffect(() => {
-    if (openModal && modalMode === 'create') {
-      loadOptions();
-    }
-  }, [openModal, modalMode, loadOptions]);
-
-  // Cargar lista cuando se abre un modal de lista
-  useEffect(() => {
-    if (openModal && modalMode === 'list') {
-      loadListData();
-    }
-  }, [openModal, modalMode, animal.id, loadListData]);
-
   const loadOptions = useCallback(async () => {
     try {
       const [diseases, fields, vaccines, users] = await Promise.all([
@@ -242,6 +216,32 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
       setLoadingList(false);
     }
   }, [animal.id, openModal]);
+
+  // Sincronizar con props externos
+  useEffect(() => {
+    if (externalOpenModal) {
+      setOpenModal(externalOpenModal);
+      setModalMode(externalModalMode || 'create');
+      if (externalEditingItem) {
+        setEditingItem(externalEditingItem);
+        setFormData(externalEditingItem);
+      }
+    }
+  }, [externalOpenModal, externalModalMode, externalEditingItem]);
+
+  // Cargar opciones cuando se abre un modal de creación
+  useEffect(() => {
+    if (openModal && modalMode === 'create') {
+      loadOptions();
+    }
+  }, [openModal, modalMode, loadOptions]);
+
+  // Cargar lista cuando se abre un modal de lista
+  useEffect(() => {
+    if (openModal && modalMode === 'list') {
+      loadListData();
+    }
+  }, [openModal, modalMode, animal.id, loadListData]);
 
   const handleOpenModal = (type: ModalType, mode: ModalMode) => {
     setOpenModal(type);
