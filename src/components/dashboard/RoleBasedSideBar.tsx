@@ -169,52 +169,52 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
       <aside
         ref={sidebarRef}
         id="dashboard-sidebar"
-        className={`fixed inset-y-0 left-0 z-40 h-screen bg-surface-tertiary text-text-primary border-r border-border transform transition-all duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} w-72 ${dynamicWidth} shadow-2xl shadow-black/20 flex flex-col overflow-hidden ${dynamicWidth}`}
+        className={`fixed inset-y-0 left-0 z-40 h-screen bg-background text-text-primary border-r border-border transform transition-all duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} w-72 ${dynamicWidth} shadow-2xl shadow-black/20 flex flex-col overflow-hidden ${dynamicWidth}`}
         style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? `${sidebarWidth}px` : 'auto' }}
         aria-hidden={!isSidebarOpen ? "true" : "false"}
         role="navigation"
         aria-label="Menú de navegación principal"
       >
-      {/* Capa global de textura tipo papel/grano (sutil) */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.08]"
-        style={{
-          backgroundImage:
-            'radial-gradient(hsl(var(--overlay-soft)) 1px, transparent 1px), radial-gradient(hsl(var(--overlay-muted)) 1px, transparent 1px)',
-          backgroundSize: '3px 3px, 4px 4px',
-          backgroundPosition: '0 0, 1px 1px',
-        }}
-        aria-hidden="true"
-      />
- 
-      {/* Header del sidebar */}
-      <div className="p-3 sm:p-4 border-b border-border bg-surface">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 relative z-10">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25">
-              <span className="font-semibold text-xs">{currentRole?.toString?.()?.charAt?.(0) ?? '?'}</span>
+        {/* Capa global de textura tipo papel/grano (sutil) */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.08]"
+          style={{
+            backgroundImage:
+              'radial-gradient(hsl(var(--overlay-soft)) 1px, transparent 1px), radial-gradient(hsl(var(--overlay-muted)) 1px, transparent 1px)',
+            backgroundSize: '3px 3px, 4px 4px',
+            backgroundPosition: '0 0, 1px 1px',
+          }}
+          aria-hidden="true"
+        />
+
+        {/* Header del sidebar */}
+        <div className="p-3 sm:p-4 border-b border-border bg-surface">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25">
+                <span className="font-semibold text-xs">{currentRole?.toString?.()?.charAt?.(0) ?? '?'}</span>
+              </div>
+              <div className="flex flex-col leading-tight z-10">
+                <span className="font-semibold text-sm">{currentRole}</span>
+                <span className="text-xs text-text-secondary">Panel de control</span>
+              </div>
             </div>
-            <div className="flex flex-col leading-tight z-10">
-              <span className="font-semibold text-sm">{currentRole}</span>
-              <span className="text-xs text-text-secondary">Panel de control</span>
+            <div className="flex items-center gap-2">
+              {/* Toggle de tema se movió al pie del menú para un diseño más coherente */}
+              <button
+                type="button"
+                ref={closeBtnRef}
+                className="lg:hidden p-2 rounded-md hover:bg-state-hover text-text-secondary transition-all duration-200 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
+                onClick={() => setIsSidebarOpen(false)}
+                aria-label="Cerrar menú lateral"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Toggle de tema se movió al pie del menú para un diseño más coherente */}
-            <button
-              type="button"
-              ref={closeBtnRef}
-              className="lg:hidden p-2 rounded-md hover:bg-state-hover text-text-secondary transition-all duration-200 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-surface"
-              onClick={() => setIsSidebarOpen(false)}
-              aria-label="Cerrar menú lateral"
-            >
-              <X className="h-5 w-5" />
-            </button>
           </div>
         </div>
-      </div>
 
-      {/* Navegación principal */}
+        {/* Navegación principal */}
         <nav className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 space-y-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent" role="menu" aria-label="Categorías del menú">
           {filteredCategories.map((category) => {
             const isOpen = openGroups[category.title] ?? false;
@@ -283,7 +283,7 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
               Cerrar sesión
             </button>
           </div>
-         </div>
+        </div>
 
         {/* Resizer deshabilitado (oculto) */}
         <div

@@ -45,20 +45,7 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
   const [animalOptions, setAnimalOptions] = useState<Array<{ value: number; label: string }>>([]);
   const [fieldOptions, setFieldOptions] = useState<Array<{ value: number; label: string }>>([]);
 
-  // Cargar opciones cuando se abre un modal de creación
-  useEffect(() => {
-    if (openModal && modalMode === 'create') {
-      loadOptions();
-    }
-  }, [openModal, modalMode, loadOptions]);
-
-  // Cargar lista cuando se abre un modal de lista
-  useEffect(() => {
-    if (openModal && modalMode === 'list') {
-      loadListData();
-    }
-  }, [openModal, modalMode, field.id, loadListData]);
-
+  // Cargar opciones
   const loadOptions = useCallback(async () => {
     try {
       const animals = await animalsService.getAnimals({ page: 1, limit: 1000 }).catch(() => []);
@@ -83,6 +70,7 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
     }
   }, [field.id]);
 
+  // Cargar lista de datos
   const loadListData = useCallback(async () => {
     setLoadingList(true);
     try {
@@ -103,6 +91,20 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
       setLoadingList(false);
     }
   }, [field.id]);
+
+  // Cargar opciones cuando se abre un modal de creación
+  useEffect(() => {
+    if (openModal && modalMode === 'create') {
+      loadOptions();
+    }
+  }, [openModal, modalMode, loadOptions]);
+
+  // Cargar lista cuando se abre un modal de lista
+  useEffect(() => {
+    if (openModal && modalMode === 'list') {
+      loadListData();
+    }
+  }, [openModal, modalMode, field.id, loadListData]);
 
   const handleOpenModal = (type: ModalType, mode: ModalMode) => {
     setOpenModal(type);

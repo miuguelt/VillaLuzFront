@@ -55,13 +55,6 @@ export const sidebarItems: SidebarItemConfig[] = [
         roles: ['Administrador', 'Instructor', 'Aprendiz'],
         badge: 'Nuevo'
       },
-      {
-        title: 'Análisis de Potreros',
-        icon: <MapPin className="h-4 w-4" />,
-        path: 'analytics/fields',
-        roles: ['Administrador'],
-        badge: 'Nuevo'
-      },
     ],
   },
 
@@ -194,12 +187,6 @@ export const sidebarItems: SidebarItemConfig[] = [
         title: 'Gestión de Usuarios',
         icon: <Users className="h-4 w-4" />,
         path: 'users',
-        roles: ['Administrador']
-      },
-      {
-        title: 'Modelos del Sistema',
-        icon: <Database className="h-4 w-4" />,
-        path: 'base_model',
         roles: ['Administrador']
       },
     ],

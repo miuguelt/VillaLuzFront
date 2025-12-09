@@ -42,20 +42,7 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
   const [diseaseOptions, setDiseaseOptions] = useState<Array<{ value: number; label: string }>>([]);
   const [vaccineOptions, setVaccineOptions] = useState<Array<{ value: number; label: string }>>([]);
 
-  // Cargar opciones cuando se abre un modal de creación
-  useEffect(() => {
-    if (openModal && modalMode === 'create') {
-      loadOptions();
-    }
-  }, [openModal, modalMode, loadOptions]);
-
-  // Cargar lista cuando se abre un modal de lista
-  useEffect(() => {
-    if (openModal && modalMode === 'list') {
-      loadListData();
-    }
-  }, [openModal, modalMode, user.id, loadListData]);
-
+  // Cargar opciones
   const loadOptions = useCallback(async () => {
     try {
       const [animals, diseases, vaccines] = await Promise.all([
@@ -86,6 +73,7 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
     }
   }, []);
 
+  // Cargar lista de datos
   const loadListData = useCallback(async () => {
     setLoadingList(true);
     try {
@@ -125,6 +113,20 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
       setLoadingList(false);
     }
   }, [openModal, user.id]);
+
+  // Cargar opciones cuando se abre un modal de creación
+  useEffect(() => {
+    if (openModal && modalMode === 'create') {
+      loadOptions();
+    }
+  }, [openModal, modalMode, loadOptions]);
+
+  // Cargar lista cuando se abre un modal de lista
+  useEffect(() => {
+    if (openModal && modalMode === 'list') {
+      loadListData();
+    }
+  }, [openModal, modalMode, user.id, loadListData]);
 
   const handleOpenModal = (type: ModalType, mode: ModalMode) => {
     setOpenModal(type);
@@ -268,26 +270,26 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
         {
           const roleLabel = item.instructor_id === user.id ? 'Instructor' : item.apprentice_id === user.id ? 'Aprendiz' : 'N/A';
           return (
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Animal:</span>
-              <span className="text-muted-foreground">{item.animal_id ? getAnimalLabel(item.animal_id) : '-'}</span>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="font-medium text-foreground">Animal:</span>
+                <span className="text-muted-foreground">{item.animal_id ? getAnimalLabel(item.animal_id) : '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium text-foreground">Vacuna ID:</span>
+                <span className="text-muted-foreground">{item.vaccine_id || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium text-foreground">Fecha:</span>
+                <span className="text-muted-foreground">
+                  {item.vaccination_date ? new Date(item.vaccination_date).toLocaleDateString('es-ES') : '-'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium text-foreground">Rol:</span>
+                <span className="text-muted-foreground">{roleLabel}</span>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Vacuna ID:</span>
-              <span className="text-muted-foreground">{item.vaccine_id || '-'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Fecha:</span>
-              <span className="text-muted-foreground">
-                {item.vaccination_date ? new Date(item.vaccination_date).toLocaleDateString('es-ES') : '-'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-medium text-foreground">Rol:</span>
-              <span className="text-muted-foreground">{roleLabel}</span>
-            </div>
-          </div>
           );
         }
 

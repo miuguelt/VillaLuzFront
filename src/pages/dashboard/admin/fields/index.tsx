@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
@@ -299,64 +299,64 @@ function AdminFieldsPage() {
     { key: 'created_at', label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
   ], [foodTypeMap, openAnimalsForField]);
 
-// Configuración CRUD base
-const crudConfig: CRUDConfig<FieldResponse & { [k: string]: any }, FieldFormInput> = {
-  title: 'Potreros',
-  entityName: 'Campo',
-  columns,
-  formSections: [],
-  searchPlaceholder: 'Buscar Potreros...',
-  emptyStateMessage: 'No hay Potreros',
-  emptyStateDescription: 'Crea el primero para comenzar',
-  enableDetailModal: true,
-  enableCreateModal: true,
-  enableEditModal: true,
-  enableDelete: true,
-};
+  // Configuración CRUD base
+  const crudConfig: CRUDConfig<FieldResponse & { [k: string]: any }, FieldFormInput> = {
+    title: 'Potreros',
+    entityName: 'Campo',
+    columns,
+    formSections: [],
+    searchPlaceholder: 'Buscar Potreros...',
+    emptyStateMessage: 'No hay Potreros',
+    emptyStateDescription: 'Crea el primero para comenzar',
+    enableDetailModal: true,
+    enableCreateModal: true,
+    enableEditModal: true,
+    enableDelete: true,
+  };
 
-// Mapear respuesta a formulario (usando claves reales del backend)
-const mapResponseToForm = (item: FieldResponse & { [k: string]: any }): FieldFormInput => ({
-  name: item.name || '',
-  ubication: item.ubication || item.location || '',
-  area: item.area || '',
-  capacity: item.capacity || '',
-  state: item.state || 'Disponible',
-  handlings: item.handlings || item.management || '',
-  gauges: item.gauges || item.measurements || '',
-  food_type_id: item.food_type_id,
-});
+  // Mapear respuesta a formulario (usando claves reales del backend)
+  const mapResponseToForm = (item: FieldResponse & { [k: string]: any }): FieldFormInput => ({
+    name: item.name || '',
+    ubication: item.ubication || item.location || '',
+    area: item.area || '',
+    capacity: item.capacity || '',
+    state: item.state || 'Disponible',
+    handlings: item.handlings || item.management || '',
+    gauges: item.gauges || item.measurements || '',
+    food_type_id: item.food_type_id,
+  });
 
-// Validación
-const validateForm = (formData: FieldFormInput): string | null => {
-  if (!formData.name || !formData.name.trim()) return 'El nombre es obligatorio.';
-  if (!formData.area || !formData.area.trim()) return 'El área es obligatoria.';
-  if (!formData.state) return 'El estado es obligatorio.';
+  // Validación
+  const validateForm = (formData: FieldFormInput): string | null => {
+    if (!formData.name || !formData.name.trim()) return 'El nombre es obligatorio.';
+    if (!formData.area || !formData.area.trim()) return 'El área es obligatoria.';
+    if (!formData.state) return 'El estado es obligatorio.';
 
-  // Validación del campo capacidad: solo números
-  if (formData.capacity && formData.capacity.trim()) {
-    const capacityNum = parseInt(formData.capacity);
-    if (isNaN(capacityNum) || !/^\d+$/.test(formData.capacity.trim())) {
-      return 'La capacidad debe ser un número entero válido (ej: 50).';
+    // Validación del campo capacidad: solo números
+    if (formData.capacity && formData.capacity.trim()) {
+      const capacityNum = parseInt(formData.capacity);
+      if (isNaN(capacityNum) || !/^\d+$/.test(formData.capacity.trim())) {
+        return 'La capacidad debe ser un número entero válido (ej: 50).';
+      }
+      if (capacityNum <= 0) {
+        return 'La capacidad debe ser mayor a 0.';
+      }
     }
-    if (capacityNum <= 0) {
-      return 'La capacidad debe ser mayor a 0.';
-    }
-  }
 
-  return null;
-};
+    return null;
+  };
 
-// Datos iniciales (alineados al JSON real)
-const initialFormData: FieldFormInput = {
-  name: '',
-  ubication: '',
-  area: '',
-  capacity: '',
-  state: 'Disponible',
-  handlings: '',
-  gauges: '',
-  food_type_id: undefined,
-};
+  // Datos iniciales (alineados al JSON real)
+  const initialFormData: FieldFormInput = {
+    name: '',
+    ubication: '',
+    area: '',
+    capacity: '',
+    state: 'Disponible',
+    handlings: '',
+    gauges: '',
+    food_type_id: undefined,
+  };
 
   useEffect(() => {
     try {
@@ -406,45 +406,45 @@ const initialFormData: FieldFormInput = {
             {animalCount > 0 && (
               <Badge variant="default" className="text-xs px-3 py-1 bg-primary/90">
                 {animalCount} {animalCount === 1 ? 'Animal' : 'Animales'}
-            </Badge>
-          )}
-        </div>
+              </Badge>
+            )}
+          </div>
 
-        {/* Barra de ocupación */}
-        <div className="col-span-2 min-w-0">
-          <div className="text-muted-foreground text-[10px] mb-1">Ocupación del Potrero</div>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); openAnimalsModal(item); }}
-            className="w-full group cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-md"
-            title="Ver animales en este potrero"
-          >
-            <div className="transition-transform duration-150 group-hover:scale-[1.01]">
-              <FieldOccupancyBar animalCount={animalCount} capacity={capacity} />
-            </div>
-          </button>
-        </div>
+          {/* Barra de ocupación */}
+          <div className="col-span-2 min-w-0">
+            <div className="text-muted-foreground text-[10px] mb-1">Ocupación del Potrero</div>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); openAnimalsModal(item); }}
+              className="w-full group cursor-pointer text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 rounded-md"
+              title="Ver animales en este potrero"
+            >
+              <div className="transition-transform duration-150 group-hover:scale-[1.01]">
+                <FieldOccupancyBar animalCount={animalCount} capacity={capacity} />
+              </div>
+            </button>
+          </div>
 
-        <div className="min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Ubicación</div>
-          <div className="truncate font-medium text-[13px]" title={location}>{location}</div>
-        </div>
-        <div className="min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Área</div>
-          <div className="truncate text-[12px]">{item.area || '-'}</div>
-        </div>
-        <div className="min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Tipo de Alimento</div>
-          <div className="truncate text-[13px]" title={foodTypeLabel}>{foodTypeLabel}</div>
-        </div>
-        <div className="col-span-2 min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Manejo</div>
-          <div className="truncate text-[12px]" title={management}>{management}</div>
-        </div>
-        <div className="col-span-2 min-w-0 overflow-hidden">
-          <div className="text-muted-foreground text-[10px] mb-0.5">Mediciones</div>
-          <div className="truncate text-[12px]" title={measurements}>{measurements}</div>
-        </div>
+          <div className="min-w-0 overflow-hidden">
+            <div className="text-muted-foreground text-[10px] mb-0.5">Ubicación</div>
+            <div className="truncate font-medium text-[13px]" title={location}>{location}</div>
+          </div>
+          <div className="min-w-0 overflow-hidden">
+            <div className="text-muted-foreground text-[10px] mb-0.5">Área</div>
+            <div className="truncate text-[12px]">{item.area || '-'}</div>
+          </div>
+          <div className="min-w-0 overflow-hidden">
+            <div className="text-muted-foreground text-[10px] mb-0.5">Tipo de Alimento</div>
+            <div className="truncate text-[13px]" title={foodTypeLabel}>{foodTypeLabel}</div>
+          </div>
+          <div className="col-span-2 min-w-0 overflow-hidden">
+            <div className="text-muted-foreground text-[10px] mb-0.5">Manejo</div>
+            <div className="truncate text-[12px]" title={management}>{management}</div>
+          </div>
+          <div className="col-span-2 min-w-0 overflow-hidden">
+            <div className="text-muted-foreground text-[10px] mb-0.5">Mediciones</div>
+            <div className="truncate text-[12px]" title={measurements}>{measurements}</div>
+          </div>
         </div>
       </div>
     );
@@ -524,11 +524,11 @@ const initialFormData: FieldFormInput = {
       const avgWeight =
         visibleAnimals.length > 0
           ? (
-              visibleAnimals.reduce(
-                (sum, a) => sum + (Number((a as any).weight) || 0),
-                0
-              ) / visibleAnimals.length
-            ).toFixed(1)
+            visibleAnimals.reduce(
+              (sum, a) => sum + (Number((a as any).weight) || 0),
+              0
+            ) / visibleAnimals.length
+          ).toFixed(1)
           : null;
 
       const fieldAlerts = allAlerts.filter((alert: any) => {
@@ -634,11 +634,10 @@ const initialFormData: FieldFormInput = {
                         key={sex}
                         type="button"
                         onClick={() => setAnimalFilterSex(sex)}
-                        className={`px-2 py-0.5 rounded-full border text-[11px] ${
-                          animalFilterSex === sex
+                        className={`px-2 py-0.5 rounded-full border text-[11px] ${animalFilterSex === sex
                             ? 'bg-primary text-primary-foreground border-primary'
                             : 'bg-card text-muted-foreground border-border hover:bg-muted'
-                        }`}
+                          }`}
                       >
                         {sex === 'all' ? 'Todos' : sex}
                       </button>
@@ -651,11 +650,10 @@ const initialFormData: FieldFormInput = {
                         key={status}
                         type="button"
                         onClick={() => setAnimalFilterStatus(status)}
-                        className={`px-2 py-0.5 rounded-full border text-[11px] ${
-                          animalFilterStatus === status
+                        className={`px-2 py-0.5 rounded-full border text-[11px] ${animalFilterStatus === status
                             ? 'bg-primary text-primary-foreground border-primary'
                             : 'bg-card text-muted-foreground border-border hover:bg-muted'
-                        }`}
+                          }`}
                       >
                         {status === 'all' ? 'Todos' : status}
                       </button>

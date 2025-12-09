@@ -357,7 +357,7 @@ export function AnimalModalContent({
             title="Mejoras Genéticas"
             icon={<TrendingUp className="h-5 w-5" />}
             data={geneticImprovements}
-            colorClass="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 border-green-200 dark:border-green-800"
+            colorClass="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-emerald-900/70 dark:to-emerald-950/60 border-green-200 dark:border-emerald-700"
             renderItem={(item) => (
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
@@ -393,7 +393,7 @@ export function AnimalModalContent({
             title="Enfermedades"
             icon={<Activity className="h-5 w-5" />}
             data={diseases}
-            colorClass="bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-950/30 dark:to-rose-950/30 border-red-200 dark:border-red-800"
+            colorClass="bg-gradient-to-br from-red-50 to-rose-50 dark:from-rose-900/70 dark:to-rose-950/60 border-red-200 dark:border-rose-700"
             renderItem={(item) => (
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
@@ -429,7 +429,7 @@ export function AnimalModalContent({
             title="Campos Asignados"
             icon={<MapPin className="h-5 w-5" />}
             data={fields}
-            colorClass="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-950/30 dark:to-amber-950/30 border-yellow-200 dark:border-yellow-800"
+            colorClass="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-amber-900/70 dark:to-amber-950/60 border-yellow-200 dark:border-amber-700"
             renderItem={(item) => (
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
@@ -468,7 +468,7 @@ export function AnimalModalContent({
             title="Vacunaciones"
             icon={<Syringe className="h-5 w-5" />}
             data={vaccinations}
-            colorClass="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30 border-blue-200 dark:border-blue-800"
+            colorClass="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-sky-900/70 dark:to-cyan-950/60 border-blue-200 dark:border-sky-700"
             renderItem={(item) => (
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
@@ -504,7 +504,7 @@ export function AnimalModalContent({
             title="Tratamientos"
             icon={<Pill className="h-5 w-5" />}
             data={treatments}
-            colorClass="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/30 dark:to-violet-950/30 border-purple-200 dark:border-purple-800"
+            colorClass="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-violet-900/70 dark:to-purple-950/60 border-purple-200 dark:border-violet-700"
             renderItem={(item) => (
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
