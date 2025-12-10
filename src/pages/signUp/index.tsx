@@ -168,6 +168,46 @@ const SignUpForm: React.FC = () => {
         setErrors({ 
           general: 'Ya existe un usuario con este correo o número de identificación' 
         });
+      } else if (error.response?.status === 400) {
+        // Extraer mensaje detallado del backend para errores 400
+        const data = error?.response?.data;
+        const errorMessage = error?.message || data?.message || data?.detail || data?.error || 
+          'Error al crear el usuario. Por favor verifica los datos ingresados.';
+        
+        // Intentar extraer errores de validación por campo
+        const fieldErrors = data?.errors || data?.error_details || data?.validation_errors || data?.details;
+        const newFieldErrors: FormErrors = {};
+        
+        if (fieldErrors && typeof fieldErrors === 'object' && !Array.isArray(fieldErrors)) {
+          const map: Record<string, keyof FormErrors> = {
+            fullname: 'name',
+            name: 'name',
+            email: 'email',
+            phone: 'phone',
+            identification: 'identification_number',
+            identification_number: 'identification_number',
+            password: 'password',
+            confirmPassword: 'confirmPassword',
+          };
+          Object.entries(fieldErrors as Record<string, any>).forEach(([key, val]) => {
+            const uiKey = map[key] || undefined;
+            const messages = Array.isArray(val) ? val : [val];
+            const msg = messages
+              .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
+              .filter(Boolean)
+              .join(' • ');
+            if (uiKey && msg) {
+              newFieldErrors[uiKey] = msg;
+            }
+          });
+        }
+        
+        // Si hay errores de campo, usarlos; si no, mostrar mensaje general
+        if (Object.keys(newFieldErrors).length > 0) {
+          setErrors(newFieldErrors);
+        } else {
+          setErrors({ general: errorMessage });
+        }
       } else {
         // Extraer mensaje detallado del backend si está disponible
         const data = error?.response?.data;

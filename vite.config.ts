@@ -128,7 +128,22 @@ export default defineConfig(({ command, mode }) => {
               options: { cacheName: 'images-cache', fetchOptions: { credentials: 'include' }, expiration: { maxEntries: 100, maxAgeSeconds: 604800 } }
             },
             {
-              urlPattern: ({ request }) => ['style', 'script', 'font'].includes(request.destination),
+              // Excluir fuentes de Google Fonts del cacheo con credenciales para evitar errores de CORS
+              urlPattern: ({ url }) => url.origin.includes('fonts.gstatic.com') || url.origin.includes('fonts.googleapis.com'),
+              handler: 'CacheFirst',
+              options: { 
+                cacheName: 'google-fonts-cache', 
+                fetchOptions: { credentials: 'omit' }, // Sin credenciales para evitar CORS
+                expiration: { maxEntries: 30, maxAgeSeconds: 2592000 } 
+              }
+            },
+            {
+              urlPattern: ({ request, url }) => {
+                // Solo cachear fuentes locales, no externas
+                const isFont = request.destination === 'font';
+                const isLocal = !url.origin.includes('fonts.gstatic.com') && !url.origin.includes('fonts.googleapis.com');
+                return ['style', 'script'].includes(request.destination) || (isFont && isLocal);
+              },
               handler: 'CacheFirst',
               options: { cacheName: 'assets-cache', fetchOptions: { credentials: 'include' }, expiration: { maxEntries: 60, maxAgeSeconds: 2592000 } }
             }

@@ -53,15 +53,42 @@ class UsersService extends BaseService<UserResponse> {
       // Si falla el registro público (403), intentar con el endpoint normal
       if (error.response?.status === 403) {
         console.warn('Registro público no disponible, intentando registro normal...');
-        const createdAt = (await import('@/utils/dateUtils')).getNowColombiaISO?.() || new Date().toISOString();
-        const normalizedCreatedAt = String(createdAt).replace('T', ' ').split('.')[0];
-        const payload = {
-          ...(userData as any),
-          created_at: normalizedCreatedAt,
-          password_confirmation:
-            (userData as any).password_confirmation ?? (userData as any).password,
-        } as any;
-        return await this.create(payload);
+        try {
+          const createdAt = (await import('@/utils/dateUtils')).getNowColombiaISO?.() || new Date().toISOString();
+          const normalizedCreatedAt = String(createdAt).replace('T', ' ').split('.')[0];
+          const payload = {
+            ...(userData as any),
+            created_at: normalizedCreatedAt,
+            password_confirmation:
+              (userData as any).password_confirmation ?? (userData as any).password,
+          } as any;
+          return await this.create(payload);
+        } catch (createError: any) {
+          // Mejorar el mensaje de error para errores 400
+          if (createError.response?.status === 400) {
+            const errorData = createError.response?.data;
+            const errorMessage = errorData?.message || errorData?.detail || errorData?.error || 
+              'Error al crear el usuario. Por favor verifica los datos ingresados.';
+            
+            // Crear un error más descriptivo
+            const enhancedError = new Error(errorMessage);
+            (enhancedError as any).response = createError.response;
+            (enhancedError as any).isAxiosError = true;
+            throw enhancedError;
+          }
+          throw createError;
+        }
+      }
+      // Mejorar el mensaje de error para otros errores
+      if (error.response?.status === 400) {
+        const errorData = error.response?.data;
+        const errorMessage = errorData?.message || errorData?.detail || errorData?.error || 
+          'Error al crear el usuario. Por favor verifica los datos ingresados.';
+        
+        const enhancedError = new Error(errorMessage);
+        (enhancedError as any).response = error.response;
+        (enhancedError as any).isAxiosError = true;
+        throw enhancedError;
       }
       throw error;
     }
