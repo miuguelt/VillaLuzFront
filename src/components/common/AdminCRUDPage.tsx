@@ -110,7 +110,8 @@ export interface CRUDFormField<T> {
   label: string;
   type: 'text' | 'textarea' | 'select' | 'searchable-select' | 'number' | 'date' | 'checkbox' | 'multiselect';
   required?: boolean;
-  options?: Array<{ value: string | number; label: string }> 
+  helperText?: string;
+  options?: Array<{ value: string | number; label: string }>
   placeholder?: string;
   validation?: {
     min?: number;
@@ -129,11 +130,11 @@ export interface CRUDFormField<T> {
 }
 export interface CRUDFormSection<T> {
   title: string;
-  fields: CRUDFormField<T>[];  
+  fields: CRUDFormField<T>[];
   gridCols?: number;
 }
 
-  export interface CRUDConfig<T, TInput> {
+export interface CRUDConfig<T, TInput> {
   title: string;
   entityName: string;
   columns: CRUDColumn<T>[];
@@ -153,19 +154,20 @@ export interface CRUDFormSection<T> {
   // Nuevas opciones para controlar modales y confirmaciones
   showEditTimestamps?: boolean;          // Mostrar/ocultar created_at/updated_at en el modal de edición (default: true)
   showDetailTimestamps?: boolean;        // Mostrar/ocultar created_at/updated_at en el modal de detalle (default: true)
-    confirmDeleteTitle?: string;           // Título personalizado del diálogo de confirmación de borrado
-    confirmDeleteDescription?: string;     // Descripción personalizada del diálogo de confirmación de borrado
-    showIdInDetailTitle?: boolean;         // Mostrar u ocultar el ID en el título del modal de detalle (default: true)
-    preDeleteCheck?: (id: number) => Promise<{ hasDependencies: boolean; message?: string }>; // Chequeo previo antes de eliminar
+  confirmDeleteTitle?: string;           // Título personalizado del diálogo de confirmación de borrado
+  confirmDeleteDescription?: string;     // Descripción personalizada del diálogo de confirmación de borrado
+  showIdInDetailTitle?: boolean;         // Mostrar u ocultar el ID en el título del modal de detalle (default: true)
+  preDeleteCheck?: (id: number) => Promise<{ hasDependencies: boolean; message?: string }>; // Chequeo previo antes de eliminar
   // Vista alternativa en tarjetas
   viewMode?: 'table' | 'cards';
   // Contenido interno opcional para cada tarjeta
   renderCard?: (item: T) => React.ReactNode;
+  customDetailContent?: (item: T) => React.ReactNode;
   // Callbacks para refrescar datos después de operaciones
   onAfterCreate?: (createdItem: T) => void | Promise<void>;  // Llamado después de crear
   onAfterUpdate?: (updatedItem: T) => void | Promise<void>;  // Llamado después de actualizar
   onAfterDelete?: (deletedId: number) => void | Promise<void>; // Llamado después de eliminar
-  }
+}
 
 interface AdminCRUDPageProps<T extends { id: number }, TInput extends Record<string, any>> {
   config: CRUDConfig<T, TInput>;
@@ -226,7 +228,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   // Valores comunes: 10, 20, 50, 100
   const initialLimit = 10;
 
-const {
+  const {
     data: items,
     loading,
     error,
@@ -247,7 +249,7 @@ const {
     refetchOnFocus,
     refetchOnReconnect,
   });
-  
+
   // Estado para controlar la primera carga y evitar parpadeo
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [displayItems, setDisplayItems] = useState<T[]>([]);
@@ -328,16 +330,16 @@ const {
       previousDisplayItemsRef.current = [];
     }
     // IMPORTANTE: NO incluir displayItems en las dependencias para evitar loop infinito
-     
+
   }, [items, loading, error, isFirstLoad]);
-  
+
   // Mantener datos anteriores durante refresco para evitar parpadeo
   // PERO: displayItems siempre tiene prioridad (porque puede contener actualizaciones optimistas)
   const currentItems = useMemo(
     () => (displayItems.length > 0 ? displayItems : (items || [])),
     [displayItems, items]
   );
-  
+
   // No mostrar skeleton durante refrescos suaves
   const showSkeleton = loading && isFirstLoad && !refreshing;
 
@@ -349,7 +351,7 @@ const {
       onFormDataChange(data);
     }
   };
-// leer query inicial desde ?search (sincronizado con useResource)
+  // leer query inicial desde ?search (sincronizado con useResource)
   const initialSearch = (searchParams.get('search') || '').toString();
   const [searchQuery, setSearchQuery] = useState<string>(initialSearch);
   const lastSyncedSearchRef = useRef<string>(initialSearch);
@@ -722,8 +724,8 @@ const {
     } else {
       console.warn('[AdminCRUDPage.handlePageChange] ❌ Cambio de página bloqueado:', {
         reason: page < 1 ? 'página < 1' :
-                page > totalPages ? 'página > totalPages' :
-                page === currentPage ? 'ya estás en esta página' : 'condición desconocida'
+          page > totalPages ? 'página > totalPages' :
+            page === currentPage ? 'ya estás en esta página' : 'condición desconocida'
       });
     }
   };
@@ -784,7 +786,7 @@ const {
         }, 2000); // Aumentado de 1000ms a 2000ms
 
         // Llamar callback después de actualizar
-        if (config.onAfterUpdate) {
+        if (config.onAfterUpdate && updatedItem) {
           try {
             await config.onAfterUpdate(updatedItem);
           } catch (err) {
@@ -818,7 +820,7 @@ const {
         }
 
         // Llamar callback después de crear
-        if (config.onAfterCreate) {
+        if (config.onAfterCreate && createdItem) {
           try {
             await config.onAfterCreate(createdItem);
           } catch (err) {
@@ -1256,9 +1258,9 @@ const {
       }
       // Mensaje especial si hay relaciones (409 Conflict o constraint errors)
       else if (status === 409 ||
-               errorMessage.toLowerCase().includes('foreign key') ||
-               errorMessage.toLowerCase().includes('constraint') ||
-               errorMessage.toLowerCase().includes('relacionado')) {
+        errorMessage.toLowerCase().includes('foreign key') ||
+        errorMessage.toLowerCase().includes('constraint') ||
+        errorMessage.toLowerCase().includes('relacionado')) {
         errorMessage = `⚠️ No se puede eliminar este ${config.entityName.toLowerCase()} porque tiene registros relacionados. Elimine primero los registros dependientes.`;
       }
       // Error de integridad típico: "Column 'breeds_id' cannot be null" (MySQL 1048 / SQLAlchemy)
@@ -1394,110 +1396,110 @@ const {
               maxHeight: wrapperMaxHeight != null ? `${wrapperMaxHeight}px` : undefined,
             }}
           >
-               {config.viewMode === 'cards' ? (
-                 <div className="p-3 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
-                   {visibleItems.map((item) => {
-                     const isDeleting = deletingItems.has(String(item.id!));
-                     const isNew = newItems.has(item.id!);
-                     const isUpdated = updatedItems.has(item.id!);
-                     const firstCol = config.columns[0];
-                     const rawTitle = (item as any)[firstCol?.key];
-                     const mappedTitle = fkLabelMap[String(firstCol?.key)]?.get(String(rawTitle));
-                     const titleText = mappedTitle ?? String(rawTitle ?? `${config.entityName} #${item.id}`);
-                     return (
-                       <Card
-                         key={item.id}
-                         className={cn(
-                           'cursor-pointer transition-all duration-200 flex flex-col overflow-hidden rounded-2xl',
-                           'border border-border bg-surface shadow-md hover:shadow-lg',
-                           enhancedHover ? 'hover:border-ghost-primary-strong hover:bg-ghost-primary hover:-translate-y-0.5' : '',
-                           isDeleting && 'ring-2 ring-ghost-danger-strong bg-ghost-danger',
-                           isNew && 'ring-2 ring-ghost-success-strong bg-ghost-success',
-                           isUpdated && 'ring-2 ring-ghost-warning-strong bg-ghost-warning',
-                           'text-text-primary'
-                         )}
-                         onClick={() => { config.enableDetailModal !== false && openDetail(item); }}
-                         role="button"
-                         tabIndex={0}
-                         onKeyDown={(e) => {
-                           if (e.key === 'Enter' || e.key === ' ') {
-                             e.preventDefault();
-                             config.enableDetailModal !== false && openDetail(item);
-                           }
-                         }}
-                       >
-                        {/* Solo mostrar CardHeader si NO hay renderCard personalizado */}
-                        {!config.renderCard && (
-                          <CardHeader className="py-3 flex-shrink-0 border-b border-border/30">
-                            <CardTitle className="text-sm font-semibold truncate" title={titleText}>{titleText}</CardTitle>
-                          </CardHeader>
+            {config.viewMode === 'cards' ? (
+              <div className="p-3 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
+                {visibleItems.map((item) => {
+                  const isDeleting = deletingItems.has(String(item.id!));
+                  const isNew = newItems.has(item.id!);
+                  const isUpdated = updatedItems.has(item.id!);
+                  const firstCol = config.columns[0];
+                  const rawTitle = (item as any)[firstCol?.key];
+                  const mappedTitle = fkLabelMap[String(firstCol?.key)]?.get(String(rawTitle));
+                  const titleText = mappedTitle ?? String(rawTitle ?? `${config.entityName} #${item.id}`);
+                  return (
+                    <Card
+                      key={item.id}
+                      className={cn(
+                        'cursor-pointer transition-all duration-200 flex flex-col overflow-hidden rounded-2xl',
+                        'border border-border bg-surface shadow-md hover:shadow-lg',
+                        enhancedHover ? 'hover:border-ghost-primary-strong hover:bg-ghost-primary hover:-translate-y-0.5' : '',
+                        isDeleting && 'ring-2 ring-ghost-danger-strong bg-ghost-danger',
+                        isNew && 'ring-2 ring-ghost-success-strong bg-ghost-success',
+                        isUpdated && 'ring-2 ring-ghost-warning-strong bg-ghost-warning',
+                        'text-text-primary'
+                      )}
+                      onClick={() => { config.enableDetailModal !== false && openDetail(item); }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          config.enableDetailModal !== false && openDetail(item);
+                        }
+                      }}
+                    >
+                      {/* Solo mostrar CardHeader si NO hay renderCard personalizado */}
+                      {!config.renderCard && (
+                        <CardHeader className="py-3 flex-shrink-0 border-b border-border/30">
+                          <CardTitle className="text-sm font-semibold truncate" title={titleText}>{titleText}</CardTitle>
+                        </CardHeader>
+                      )}
+                      <CardContent className={config.renderCard ? "p-0 !p-0 pb-4 sm:pb-5 flex-1 flex flex-col min-h-0 overflow-hidden" : "py-3 flex-1 flex flex-col min-h-0 overflow-hidden"}>
+                        {config.renderCard ? (
+                          config.renderCard(item)
+                        ) : (
+                          <div className="grid grid-cols-2 gap-3 text-xs">
+                            {config.columns.map((col) => {
+                              const raw = (item as any)[col.key];
+                              const mapped = fkLabelMap[String(col.key)]?.get(String(raw));
+                              return (
+                                <div key={String(col.key)} className="min-w-0 space-y-1">
+                                  <div className="text-muted-foreground font-medium text-[10px] uppercase tracking-wide">{col.label}</div>
+                                  <div className="truncate font-medium text-foreground" title={String(mapped ?? raw ?? '-')}>{String(mapped ?? raw ?? '-')}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
-                        <CardContent className={config.renderCard ? "p-0 !p-0 pb-4 sm:pb-5 flex-1 flex flex-col min-h-0 overflow-hidden" : "py-3 flex-1 flex flex-col min-h-0 overflow-hidden"}>
-                          {config.renderCard ? (
-                            config.renderCard(item)
-                          ) : (
-                            <div className="grid grid-cols-2 gap-3 text-xs">
-                              {config.columns.map((col) => {
-                                const raw = (item as any)[col.key];
-                                const mapped = fkLabelMap[String(col.key)]?.get(String(raw));
-                                return (
-                                  <div key={String(col.key)} className="min-w-0 space-y-1">
-                                    <div className="text-muted-foreground font-medium text-[10px] uppercase tracking-wide">{col.label}</div>
-                                    <div className="truncate font-medium text-foreground" title={String(mapped ?? raw ?? '-')}>{String(mapped ?? raw ?? '-')}</div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                          {(config.enableDetailModal !== false || config.enableEditModal !== false || config.enableDelete || config.customActions) && (
-                            <div className="mt-4 pt-3 pb-3 sm:pb-4 border-t border-border/30 w-full flex-shrink-0 flex flex-nowrap items-center justify-center gap-3 px-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
-                              {config.enableDetailModal !== false && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-200"
-                                  onClick={() => openDetail(item)}
-                                  aria-label={`${t('common.view', 'Ver')} ${config.entityName.toLowerCase()} ${item.id}`}
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {config.enableEditModal !== false && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-700 dark:hover:text-amber-300 transition-all duration-200"
-                                  onClick={() => openEdit(item)}
-                                  aria-label={`${t('common.edit', 'Editar')} ${config.entityName.toLowerCase()} ${item.id}`}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              )}
-                              {config.enableDelete && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200"
-                                  onClick={(e) => openDeleteConfirm(item.id, e)}
-                                  disabled={deletingId === item.id}
-                                  aria-label={`${t('common.delete', 'Eliminar')} ${config.entityName.toLowerCase()} ${item.id}`}
-                                >
-                                  {deletingId === item.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              )}
-                              {config.customActions && config.customActions(item)}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              ) : (
+                        {(config.enableDetailModal !== false || config.enableEditModal !== false || config.enableDelete || config.customActions) && (
+                          <div className="mt-4 pt-3 pb-3 sm:pb-4 border-t border-border/30 w-full flex-shrink-0 flex flex-nowrap items-center justify-center gap-3 px-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
+                            {config.enableDetailModal !== false && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-200"
+                                onClick={() => openDetail(item)}
+                                aria-label={`${t('common.view', 'Ver')} ${config.entityName.toLowerCase()} ${item.id}`}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {config.enableEditModal !== false && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-700 dark:hover:text-amber-300 transition-all duration-200"
+                                onClick={() => openEdit(item)}
+                                aria-label={`${t('common.edit', 'Editar')} ${config.entityName.toLowerCase()} ${item.id}`}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {config.enableDelete && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-9 w-9 p-0 flex-shrink-0 rounded-lg border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200"
+                                onClick={(e) => openDeleteConfirm(item.id, e)}
+                                disabled={deletingId === item.id}
+                                aria-label={`${t('common.delete', 'Eliminar')} ${config.entityName.toLowerCase()} ${item.id}`}
+                              >
+                                {deletingId === item.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            )}
+                            {config.customActions && config.customActions(item)}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
               <table
                 ref={tableRef}
                 className="min-w-full divide-y divide-border/70 text-[12px] md:text-sm shadow-sm rounded-lg overflow-hidden"
@@ -1547,278 +1549,278 @@ const {
                     }
 
                     return (
-                    <tr
-                      key={item.id}
-                      data-item-id={item.id}
-                      className={cn(
-                        "h-10 md:h-12 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:bg-muted/50",
-                        "transition-all duration-300 relative overflow-visible",
-                        // 🔵 Hover: AZUL con bordes y sombras - aparece al pasar el mouse sobre CUALQUIER elemento
-                        enhancedHover ? cn(
-                          "hover:bg-gradient-to-r hover:from-blue-50/70 hover:via-blue-100/60 hover:to-blue-50/70",
-                          "dark:hover:from-blue-950/40 dark:hover:via-blue-900/35 dark:hover:to-blue-950/40",
-                          "hover:border-l-[6px] hover:border-r-2 hover:border-blue-500 dark:hover:border-blue-400",
-                          "hover:shadow-[0_3px_12px_rgba(59,130,246,0.4),inset_0_1px_2px_rgba(255,255,255,0.15),0_0_0_1px_rgba(59,130,246,0.3)]",
-                          "dark:hover:shadow-[0_3px_12px_rgba(59,130,246,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),0_0_0_1px_rgba(59,130,246,0.25)]",
-                          "hover:scale-[1.008] hover:z-10",
-                          "hover:ring-1 hover:ring-blue-400/50 dark:hover:ring-blue-500/40"
-                        ) : "hover:bg-muted/40",
-                        // 🔴 ROJO: Efecto de eliminación - shake + compresión + slide out + borde rojo grueso
-                        isDeleting && cn(
-                          "animate-item-deleting z-20",
-                          "bg-gradient-to-r from-red-100 via-red-200/90 to-red-100",
-                          "dark:from-red-950/60 dark:via-red-900/80 dark:to-red-950/60",
-                          "border-l-8 border-red-600 dark:border-red-500",
-                          "shadow-[0_0_25px_rgba(220,38,38,0.6),inset_0_0_15px_rgba(220,38,38,0.15)]",
-                          "ring-4 ring-red-500/70 dark:ring-red-600/70",
-                          // Línea de tachado atravesando el elemento
-                          "after:absolute after:inset-0 after:z-30 after:pointer-events-none",
-                          "after:bg-gradient-to-r after:from-transparent after:via-red-600/80 after:to-transparent",
-                          "after:h-[2px] after:top-1/2 after:-translate-y-1/2",
-                          "after:animate-[slideIn_0.3s_ease-out]"
-                        ),
-                        // 🟢 VERDE: Efecto de creación SOLO cuando el usuario inserta manualmente
-                        // NO aparece al: listar, refrescar, cambiar página, o cargar inicialmente
-                        isNew && cn(
-                          "animate-item-created z-30",
-                          "bg-gradient-to-r from-emerald-100 via-green-200/95 to-emerald-100",
-                          "dark:from-emerald-950/60 dark:via-emerald-900/80 dark:to-emerald-950/60",
-                          "border-l-8 border-green-600 dark:border-green-500",
-                          "shadow-[0_0_35px_rgba(16,185,129,0.7),inset_0_0_25px_rgba(16,185,129,0.2),0_0_60px_rgba(16,185,129,0.4)]",
-                          "ring-4 ring-green-500/80 dark:ring-green-600/80",
-                          // Efecto shine mejorado que cruza el elemento
-                          "before:absolute before:inset-0 before:z-10 before:pointer-events-none",
-                          "before:bg-gradient-to-r before:from-transparent before:via-white/60 before:to-transparent",
-                          "before:animate-shine before:bg-[length:200%_100%]",
-                          "before:shadow-[0_0_20px_rgba(255,255,255,0.8)]",
-                          // Partículas/confetti en las esquinas
-                          "after:absolute after:top-0 after:right-4 after:w-2 after:h-2 after:rounded-full",
-                          "after:bg-green-500 after:animate-confetti after:shadow-[0_0_10px_rgba(34,197,94,0.8)]",
-                          "after:opacity-0"
-                        ),
-                        // 🟡 AMARILLO: Efecto de actualización - pulso de color amarillo/naranja
-                        isUpdated && !isNew && !isDeleting && cn(
-                          "animate-item-updated z-25",
-                          "border-l-6 border-amber-500 dark:border-amber-400",
-                          "shadow-[0_0_20px_rgba(245,158,11,0.5)]",
-                          "ring-2 ring-amber-400/60 dark:ring-amber-500/60"
-                        )
-                      )}
-                      onClick={() => { config.enableDetailModal !== false && openDetail(item); }}
-                      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); config.enableDetailModal !== false && openDetail(item); }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ' || (e as any).keyCode === 13) {
-                          e.preventDefault();
-                          config.enableDetailModal !== false && openDetail(item);
-                        }
-                      }}
-                    >
-                     {config.columns.map((col) => (
-                       <td
-                         key={String(col.key)}
-                         className={`px-2 sm:px-3 py-2 whitespace-nowrap text-[11px] md:text-sm ${col.width ? `w-${col.width}` : ''} truncate max-w-[120px] sm:max-w-[180px] md:max-w-[240px]`}
-                         title={col.render ? undefined : (fkLabelMap[String(col.key)]?.get(String((item as any)[col.key])) ?? String((item as any)[col.key] ?? ''))}
-                       >
-                         {col.render
-                           ? col.render((item as any)[col.key], item, index)
-                           : (() => {
-                               const raw = (item as any)[col.key];
-                               const mapped = fkLabelMap[String(col.key)]?.get(String(raw));
-                               return mapped ?? String(raw ?? '-');
-                             })()}
-                       </td>
-                     ))}
-                      {(config.enableDetailModal !== false || config.enableEditModal !== false || config.enableDelete || config.customActions) && (
-                        <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-[11px] md:text-xs font-medium" onClick={(e) => e.stopPropagation()} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} >
-                           <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap">
-                             {config.enableDetailModal !== false && (
-                               <Button
+                      <tr
+                        key={item.id}
+                        data-item-id={item.id}
+                        className={cn(
+                          "h-10 md:h-12 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:bg-muted/50",
+                          "transition-all duration-300 relative overflow-visible",
+                          // 🔵 Hover: AZUL con bordes y sombras - aparece al pasar el mouse sobre CUALQUIER elemento
+                          enhancedHover ? cn(
+                            "hover:bg-gradient-to-r hover:from-blue-50/70 hover:via-blue-100/60 hover:to-blue-50/70",
+                            "dark:hover:from-blue-950/40 dark:hover:via-blue-900/35 dark:hover:to-blue-950/40",
+                            "hover:border-l-[6px] hover:border-r-2 hover:border-blue-500 dark:hover:border-blue-400",
+                            "hover:shadow-[0_3px_12px_rgba(59,130,246,0.4),inset_0_1px_2px_rgba(255,255,255,0.15),0_0_0_1px_rgba(59,130,246,0.3)]",
+                            "dark:hover:shadow-[0_3px_12px_rgba(59,130,246,0.3),inset_0_1px_2px_rgba(255,255,255,0.08),0_0_0_1px_rgba(59,130,246,0.25)]",
+                            "hover:scale-[1.008] hover:z-10",
+                            "hover:ring-1 hover:ring-blue-400/50 dark:hover:ring-blue-500/40"
+                          ) : "hover:bg-muted/40",
+                          // 🔴 ROJO: Efecto de eliminación - shake + compresión + slide out + borde rojo grueso
+                          isDeleting && cn(
+                            "animate-item-deleting z-20",
+                            "bg-gradient-to-r from-red-100 via-red-200/90 to-red-100",
+                            "dark:from-red-950/60 dark:via-red-900/80 dark:to-red-950/60",
+                            "border-l-8 border-red-600 dark:border-red-500",
+                            "shadow-[0_0_25px_rgba(220,38,38,0.6),inset_0_0_15px_rgba(220,38,38,0.15)]",
+                            "ring-4 ring-red-500/70 dark:ring-red-600/70",
+                            // Línea de tachado atravesando el elemento
+                            "after:absolute after:inset-0 after:z-30 after:pointer-events-none",
+                            "after:bg-gradient-to-r after:from-transparent after:via-red-600/80 after:to-transparent",
+                            "after:h-[2px] after:top-1/2 after:-translate-y-1/2",
+                            "after:animate-[slideIn_0.3s_ease-out]"
+                          ),
+                          // 🟢 VERDE: Efecto de creación SOLO cuando el usuario inserta manualmente
+                          // NO aparece al: listar, refrescar, cambiar página, o cargar inicialmente
+                          isNew && cn(
+                            "animate-item-created z-30",
+                            "bg-gradient-to-r from-emerald-100 via-green-200/95 to-emerald-100",
+                            "dark:from-emerald-950/60 dark:via-emerald-900/80 dark:to-emerald-950/60",
+                            "border-l-8 border-green-600 dark:border-green-500",
+                            "shadow-[0_0_35px_rgba(16,185,129,0.7),inset_0_0_25px_rgba(16,185,129,0.2),0_0_60px_rgba(16,185,129,0.4)]",
+                            "ring-4 ring-green-500/80 dark:ring-green-600/80",
+                            // Efecto shine mejorado que cruza el elemento
+                            "before:absolute before:inset-0 before:z-10 before:pointer-events-none",
+                            "before:bg-gradient-to-r before:from-transparent before:via-white/60 before:to-transparent",
+                            "before:animate-shine before:bg-[length:200%_100%]",
+                            "before:shadow-[0_0_20px_rgba(255,255,255,0.8)]",
+                            // Partículas/confetti en las esquinas
+                            "after:absolute after:top-0 after:right-4 after:w-2 after:h-2 after:rounded-full",
+                            "after:bg-green-500 after:animate-confetti after:shadow-[0_0_10px_rgba(34,197,94,0.8)]",
+                            "after:opacity-0"
+                          ),
+                          // 🟡 AMARILLO: Efecto de actualización - pulso de color amarillo/naranja
+                          isUpdated && !isNew && !isDeleting && cn(
+                            "animate-item-updated z-25",
+                            "border-l-6 border-amber-500 dark:border-amber-400",
+                            "shadow-[0_0_20px_rgba(245,158,11,0.5)]",
+                            "ring-2 ring-amber-400/60 dark:ring-amber-500/60"
+                          )
+                        )}
+                        onClick={() => { config.enableDetailModal !== false && openDetail(item); }}
+                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); config.enableDetailModal !== false && openDetail(item); }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ' || (e as any).keyCode === 13) {
+                            e.preventDefault();
+                            config.enableDetailModal !== false && openDetail(item);
+                          }
+                        }}
+                      >
+                        {config.columns.map((col) => (
+                          <td
+                            key={String(col.key)}
+                            className={`px-2 sm:px-3 py-2 whitespace-nowrap text-[11px] md:text-sm ${col.width ? `w-${col.width}` : ''} truncate max-w-[120px] sm:max-w-[180px] md:max-w-[240px]`}
+                            title={col.render ? undefined : (fkLabelMap[String(col.key)]?.get(String((item as any)[col.key])) ?? String((item as any)[col.key] ?? ''))}
+                          >
+                            {col.render
+                              ? col.render((item as any)[col.key], item, index)
+                              : (() => {
+                                const raw = (item as any)[col.key];
+                                const mapped = fkLabelMap[String(col.key)]?.get(String(raw));
+                                return mapped ?? String(raw ?? '-');
+                              })()}
+                          </td>
+                        ))}
+                        {(config.enableDetailModal !== false || config.enableEditModal !== false || config.enableDelete || config.customActions) && (
+                          <td className="px-2 sm:px-3 py-2 whitespace-nowrap text-[11px] md:text-xs font-medium" onClick={(e) => e.stopPropagation()} onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }} >
+                            <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap">
+                              {config.enableDetailModal !== false && (
+                                <Button
                                   variant="ghost"
-                                 size="sm"
-                                 className="h-9 w-9 sm:h-9 sm:w-9 p-0 border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-200 rounded-lg"
-                                 onClick={(e) => { e.stopPropagation(); openDetail(item); }}
-                                 aria-label={`${t('common.view', 'Ver')} ${config.entityName.toLowerCase()} ${item.id}`}
-                               >
-                                 <Eye className="h-4 w-4" />
-                               </Button>
-                             )}
-                             {config.enableEditModal !== false && (
-                               <Button
+                                  size="sm"
+                                  className="h-9 w-9 sm:h-9 sm:w-9 p-0 border border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 hover:text-blue-700 dark:hover:text-blue-300 transition-all duration-200 rounded-lg"
+                                  onClick={(e) => { e.stopPropagation(); openDetail(item); }}
+                                  aria-label={`${t('common.view', 'Ver')} ${config.entityName.toLowerCase()} ${item.id}`}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {config.enableEditModal !== false && (
+                                <Button
                                   variant="ghost"
-                                 size="sm"
-                                 className="h-9 w-9 sm:h-9 sm:w-9 p-0 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-700 dark:hover:text-amber-300 transition-all duration-200 rounded-lg"
-                                 onClick={(e) => { e.stopPropagation(); openEdit(item); }}
-                                 aria-label={`${t('common.edit', 'Editar')} ${config.entityName.toLowerCase()} ${item.id}`}
-                               >
-                                 <Edit className="h-4 w-4" />
-                               </Button>
-                             )}
-                             {config.enableDelete && (
-                               <Button
+                                  size="sm"
+                                  className="h-9 w-9 sm:h-9 sm:w-9 p-0 border border-amber-200 dark:border-amber-800 hover:border-amber-400 dark:hover:border-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 hover:text-amber-700 dark:hover:text-amber-300 transition-all duration-200 rounded-lg"
+                                  onClick={(e) => { e.stopPropagation(); openEdit(item); }}
+                                  aria-label={`${t('common.edit', 'Editar')} ${config.entityName.toLowerCase()} ${item.id}`}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {config.enableDelete && (
+                                <Button
                                   variant="ghost"
-                                 size="sm"
-                                 className="h-9 w-9 sm:h-9 sm:w-9 p-0 border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200 rounded-lg"
-                                 onClick={(e) => openDeleteConfirm(item.id, e)}
-                                 disabled={deletingId === item.id}
-                                 aria-label={`${t('common.delete', 'Eliminar')} ${config.entityName.toLowerCase()} ${item.id}`}
-                               >
-                                 {deletingId === item.id ? (
-                                   <Loader2 className="h-4 w-4 animate-spin" />
-                                 ) : (
-                                   <Trash2 className="h-4 w-4" />
-                                 )}
-                               </Button>
-                             )}
-                            {config.customActions && config.customActions(item)}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
+                                  size="sm"
+                                  className="h-9 w-9 sm:h-9 sm:w-9 p-0 border border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600 hover:bg-red-50 dark:hover:bg-red-950/50 hover:text-red-700 dark:hover:text-red-300 transition-all duration-200 rounded-lg"
+                                  onClick={(e) => openDeleteConfirm(item.id, e)}
+                                  disabled={deletingId === item.id}
+                                  aria-label={`${t('common.delete', 'Eliminar')} ${config.entityName.toLowerCase()} ${item.id}`}
+                                >
+                                  {deletingId === item.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              )}
+                              {config.customActions && config.customActions(item)}
+                            </div>
+                          </td>
+                        )}
+                      </tr>
                     );
                   })}
                 </tbody>
               </table>
-              )}
-            </div>
+            )}
+          </div>
 
-            {/* Pagination footer (estilo original con botones) */}
-            <div ref={footerRef} className="sticky bottom-0 z-10 bg-card/95 border-t backdrop-blur-sm shadow-sm flex-shrink-0">
-              <div className="px-2 py-1.5 sm:py-2">
-                <div className="flex justify-between items-center text-[11px] sm:text-[12px] md:text-sm gap-2">
+          {/* Pagination footer (estilo original con botones) */}
+          <div ref={footerRef} className="sticky bottom-0 z-10 bg-card/95 border-t backdrop-blur-sm shadow-sm flex-shrink-0">
+            <div className="px-2 py-1.5 sm:py-2">
+              <div className="flex justify-between items-center text-[11px] sm:text-[12px] md:text-sm gap-2">
 
 
-                  <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-                    <span className="text-[11px] sm:text-[12px] md:text-sm text-muted-foreground">
-                      <span className="hidden sm:inline">{t('common.page', 'Página')} </span>
-                      <span className="sm:hidden">Pág. </span>
-                      {currentPage} <span className="hidden sm:inline">{t('common.of', 'de')}</span><span className="sm:hidden">/</span> {Math.max(totalPages, 1)}
-                    </span>
-                    <div className="flex items-center gap-1 sm:gap-2">
-                      <button
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={loading || currentPage <= 1}
-                        aria-label={t('common.previous', 'Anterior')}
-                        className="inline-flex items-center justify-center rounded-md border border-input bg-background h-7 w-7 sm:h-9 sm:w-9 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-                      >
-                        <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
-                      </button>
+                <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+                  <span className="text-[11px] sm:text-[12px] md:text-sm text-muted-foreground">
+                    <span className="hidden sm:inline">{t('common.page', 'Página')} </span>
+                    <span className="sm:hidden">Pág. </span>
+                    {currentPage} <span className="hidden sm:inline">{t('common.of', 'de')}</span><span className="sm:hidden">/</span> {Math.max(totalPages, 1)}
+                  </span>
+                  <div className="flex items-center gap-1 sm:gap-2">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={loading || currentPage <= 1}
+                      aria-label={t('common.previous', 'Anterior')}
+                      className="inline-flex items-center justify-center rounded-md border border-input bg-background h-7 w-7 sm:h-9 sm:w-9 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
+                    </button>
 
-                      <button
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={loading || currentPage >= totalPages}
-                        aria-label={t('common.next', 'Siguiente')}
-                        className="inline-flex items-center justify-center rounded-md border border-input bg-background h-7 w-7 sm:h-9 sm:w-9 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-                      >
-                        <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={loading || currentPage >= totalPages}
+                      aria-label={t('common.next', 'Siguiente')}
+                      className="inline-flex items-center justify-center rounded-md border border-input bg-background h-7 w-7 sm:h-9 sm:w-9 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden />
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Create/Edit Modal */}
-        {(config.enableCreateModal !== false || config.enableEditModal !== false) && (
-          <GenericModal
-            isOpen={isModalOpen}
-            onOpenChange={handleModalClose}
-            title={editingItem ? `${t('common.edit', 'Editar')} ${config.entityName}: ${editingItem.id}` : `${t('common.create', 'Crear')} ${config.entityName}`}
-            size="5xl"
-            variant="compact"
-            allowFullScreenToggle
-            enableBackdropBlur
-            className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out max-h-[90vh]"
-          >
-            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 h-full flex flex-col text-[13px] sm:text-sm">
-              {config.formSections.map((section, _sectionIndex) => {
-                const gridCols = section.gridCols ?? 3;
-                // Helper: responsive grid classes for Tailwind
-                const gridClass = `grid grid-cols-1 ${gridCols >= 2 ? 'sm:grid-cols-2' : ''} ${gridCols >= 3 ? 'lg:grid-cols-3' : ''} gap-3 sm:gap-4 lg:gap-5`;
-                const spanClass = (span?: number) => {
-                  if (!span || span <= 1) return '';
-                  if (span >= 3) return 'sm:col-span-2 lg:col-span-3';
-                  if (span >= 2) return 'sm:col-span-2';
-                  return '';
-                };
-                return (
-                  <div key={section.title || _sectionIndex} className={cn(
-                    "relative rounded-xl p-3 sm:p-4",
-                    "border border-border/40",
-                    "bg-gradient-to-br from-card/30 via-card/20 to-transparent",
-                    "shadow-sm backdrop-blur-sm",
-                    "transition-all duration-300"
-                  )}>
-                    {section.title && (
-                      <div className="mb-3 sm:mb-4 pb-2 border-b border-border/30">
-                        <h3 className={cn(
-                          "text-base sm:text-lg font-semibold",
-                          "bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent",
-                          "flex items-center gap-2"
+      {/* Create/Edit Modal */}
+      {(config.enableCreateModal !== false || config.enableEditModal !== false) && (
+        <GenericModal
+          isOpen={isModalOpen}
+          onOpenChange={handleModalClose}
+          title={editingItem ? `${t('common.edit', 'Editar')} ${config.entityName}: ${editingItem.id}` : `${t('common.create', 'Crear')} ${config.entityName}`}
+          size="5xl"
+          variant="compact"
+          allowFullScreenToggle
+          enableBackdropBlur
+          className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out max-h-[90vh]"
+        >
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 h-full flex flex-col text-[13px] sm:text-sm">
+            {config.formSections.map((section, _sectionIndex) => {
+              const gridCols = section.gridCols ?? 3;
+              // Helper: responsive grid classes for Tailwind
+              const gridClass = `grid grid-cols-1 ${gridCols >= 2 ? 'sm:grid-cols-2' : ''} ${gridCols >= 3 ? 'lg:grid-cols-3' : ''} gap-3 sm:gap-4 lg:gap-5`;
+              const spanClass = (span?: number) => {
+                if (!span || span <= 1) return '';
+                if (span >= 3) return 'sm:col-span-2 lg:col-span-3';
+                if (span >= 2) return 'sm:col-span-2';
+                return '';
+              };
+              return (
+                <div key={section.title || _sectionIndex} className={cn(
+                  "relative rounded-xl p-3 sm:p-4",
+                  "border border-border/40",
+                  "bg-gradient-to-br from-card/30 via-card/20 to-transparent",
+                  "shadow-sm backdrop-blur-sm",
+                  "transition-all duration-300"
+                )}>
+                  {section.title && (
+                    <div className="mb-3 sm:mb-4 pb-2 border-b border-border/30">
+                      <h3 className={cn(
+                        "text-base sm:text-lg font-semibold",
+                        "bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent",
+                        "flex items-center gap-2"
+                      )}>
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                        {section.title}
+                      </h3>
+                    </div>
+                  )}
+                  <div className={gridClass}>
+                    {section.fields.map((field, _fieldIndex) => (
+                      <div key={String(field.name)} className={cn(
+                        'w-full space-y-2 group',
+                        spanClass(field.colSpan)
+                      )}>
+                        <label htmlFor={String(field.name)} className={cn(
+                          "block text-xs sm:text-sm font-medium",
+                          "text-foreground/90 group-hover:text-foreground",
+                          "transition-colors duration-200",
+                          "flex items-center gap-1.5"
                         )}>
-                          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                          {section.title}
-                        </h3>
-                      </div>
-                    )}
-                    <div className={gridClass}>
-                      {section.fields.map((field, _fieldIndex) => (
-                        <div key={String(field.name)} className={cn(
-                          'w-full space-y-2 group',
-                          spanClass(field.colSpan)
-                        )}>
-                          <label htmlFor={String(field.name)} className={cn(
-                            "block text-xs sm:text-sm font-medium",
-                            "text-foreground/90 group-hover:text-foreground",
-                            "transition-colors duration-200",
-                            "flex items-center gap-1.5"
-                          )}>
-                            <span>{field.label}</span>
-                            {field.required && (
-                              <span className="text-red-600 dark:text-red-400 font-extrabold text-base" title="Campo obligatorio">*</span>
-                            )}
-                          </label>
+                          <span>{field.label}</span>
                           {field.required && (
-                            <p className="text-[10px] sm:text-xs text-muted-foreground/70 -mt-1 mb-1 flex items-center gap-1">
-                              <span className="text-red-500 dark:text-red-400">●</span>
-                              <span>Campo obligatorio</span>
-                            </p>
+                            <span className="text-red-600 dark:text-red-400 font-extrabold text-base" title="Campo obligatorio">*</span>
                           )}
+                        </label>
+                        {field.required && (
+                          <p className="text-[10px] sm:text-xs text-muted-foreground/70 -mt-1 mb-1 flex items-center gap-1">
+                            <span className="text-red-500 dark:text-red-400">●</span>
+                            <span>Campo obligatorio</span>
+                          </p>
+                        )}
 
-                          {field.type === 'textarea' && (() => {
-                            const currentValue = (formData as any)[field.name];
-                            const showWarning = field.required && (!currentValue || currentValue === '');
-                            return (
-                              <div className="space-y-1">
-                                <Textarea
-                                  id={String(field.name)}
-                                  value={currentValue || ''}
-                                  onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
-                                  placeholder={field.placeholder}
-                                  rows={3}
-                                  disabled={saving}
-                                  aria-invalid={showWarning}
-                                  aria-required={field.required}
-                                  className={cn(
-                                    "w-full min-h-[80px] resize-none text-sm",
-                                    showWarning
-                                      ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
-                                      : "border-border/50 focus:border-primary/50",
-                                    field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
-                                    "bg-background/50 focus:bg-background/80",
-                                    "transition-all duration-300",
-                                    "backdrop-blur-sm"
-                                  )}
-                                />
-                                {showWarning && (
-                                  <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                        {field.type === 'textarea' && (() => {
+                          const currentValue = (formData as any)[field.name];
+                          const showWarning = field.required && (!currentValue || currentValue === '');
+                          return (
+                            <div className="space-y-1">
+                              <Textarea
+                                id={String(field.name)}
+                                value={currentValue || ''}
+                                onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                                placeholder={field.placeholder}
+                                rows={3}
+                                disabled={saving}
+                                aria-invalid={showWarning}
+                                aria-required={field.required}
+                                className={cn(
+                                  "w-full min-h-[80px] resize-none text-sm",
+                                  showWarning
+                                    ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
+                                    : "border-border/50 focus:border-primary/50",
+                                  field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
+                                  "bg-background/50 focus:bg-background/80",
+                                  "transition-all duration-300",
+                                  "backdrop-blur-sm"
                                 )}
-                              </div>
-                            );
-                          })()}
+                              />
+                              {showWarning && (
+                                <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                              )}
+                            </div>
+                          );
+                        })()}
 
                         {field.type === 'select' && field.options && (
                           (() => {
@@ -1879,9 +1881,9 @@ const {
                             // Opciones base
                             let opts = field.options || [];
                             const isNumeric = opts.length > 0 && opts.every((o: any) => typeof o.value === 'number');
-                                // Tratar 0 como vacío para selects numéricos que usan 0 como placeholder
-                                const rawVal = (formData as any)[field.name];
-                                const currentVal = rawVal === 0 ? null : rawVal;
+                            // Tratar 0 como vacío para selects numéricos que usan 0 como placeholder
+                            const rawVal = (formData as any)[field.name];
+                            const currentVal = rawVal === 0 ? null : rawVal;
 
                             // Excluir el propio registro si se solicita (evitar seleccionarse a sí mismo)
                             if (field.excludeSelf && editingItem?.id != null) {
@@ -1890,7 +1892,7 @@ const {
 
                             const isLoading = Boolean(field.loading);
                             const hasOptions = opts.length > 0;
-                            
+
                             // Placeholder dinámico según estado
                             const getPlaceholderText = () => {
                               if (saving) return t('common.saving', 'Guardando...');
@@ -1961,393 +1963,393 @@ const {
                           </div>
                         )}
 
-                          {field.type === 'number' && (() => {
-                            const currentValue = (formData as any)[field.name];
-                            const showWarning = field.required && (currentValue == null || currentValue === '' || Number.isNaN(Number(currentValue)));
-                            return (
-                              <div className="space-y-1">
-                                <Input
-                                  id={String(field.name)}
-                                  type="number"
-                                  value={(formData as any)[field.name] || ''}
-                                  onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value ? Number(e.target.value) : undefined })}
-                                  placeholder={field.placeholder}
-                                  min={field.validation?.min}
-                                  max={field.validation?.max}
-                                  disabled={saving}
-                                  aria-invalid={showWarning}
-                                  aria-required={field.required}
-                                  className={cn(
-                                    "w-full min-h-[44px] text-sm",
-                                    showWarning
-                                      ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
-                                      : "border-border/50 focus:border-primary/50",
-                                    field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
-                                    "bg-background/50 focus:bg-background/80",
-                                    "transition-all duration-300 backdrop-blur-sm"
-                                  )}
-                                />
-                                {showWarning && (
-                                  <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                        {field.type === 'number' && (() => {
+                          const currentValue = (formData as any)[field.name];
+                          const showWarning = field.required && (currentValue == null || currentValue === '' || Number.isNaN(Number(currentValue)));
+                          return (
+                            <div className="space-y-1">
+                              <Input
+                                id={String(field.name)}
+                                type="number"
+                                value={(formData as any)[field.name] || ''}
+                                onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value ? Number(e.target.value) : undefined })}
+                                placeholder={field.placeholder}
+                                min={field.validation?.min}
+                                max={field.validation?.max}
+                                disabled={saving}
+                                aria-invalid={showWarning}
+                                aria-required={field.required}
+                                className={cn(
+                                  "w-full min-h-[44px] text-sm",
+                                  showWarning
+                                    ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
+                                    : "border-border/50 focus:border-primary/50",
+                                  field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
+                                  "bg-background/50 focus:bg-background/80",
+                                  "transition-all duration-300 backdrop-blur-sm"
                                 )}
-                              </div>
-                            );
-                          })()}
+                              />
+                              {showWarning && (
+                                <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                              )}
+                            </div>
+                          );
+                        })()}
 
-                          {field.type === 'date' && (() => {
-                            const currentValue = (formData as any)[field.name];
-                            const showWarning = field.required && (!currentValue || currentValue === '');
-                            const today = getTodayColombia();
-                            // Validación especial para birth_date para evitar fechas futuras
-                            const isBirthDate = String(field.name) === 'birth_date';
-                            const maxDate = isBirthDate ? today : undefined;
+                        {field.type === 'date' && (() => {
+                          const currentValue = (formData as any)[field.name];
+                          const showWarning = field.required && (!currentValue || currentValue === '');
+                          const today = getTodayColombia();
+                          // Validación especial para birth_date para evitar fechas futuras
+                          const isBirthDate = String(field.name) === 'birth_date';
+                          const maxDate = isBirthDate ? today : undefined;
 
-                            return (
-                              <div className="space-y-1">
-                                <Input
-                                  id={String(field.name)}
-                                  type="date"
-                                  max={maxDate}
-                                  value={(formData as any)[field.name] || ''}
-                                  onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
-                                  disabled={saving}
-                                  aria-invalid={showWarning}
-                                  aria-required={field.required}
-                                  className={cn(
-                                    "w-full min-h-[44px] text-sm",
-                                    showWarning
-                                      ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
-                                      : "border-border/50 focus:border-primary/50",
-                                    field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
-                                    "bg-background/50 focus:bg-background/80",
-                                    "transition-all duration-300 backdrop-blur-sm"
-                                  )}
-                                />
-                                {showWarning && (
-                                  <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                          return (
+                            <div className="space-y-1">
+                              <Input
+                                id={String(field.name)}
+                                type="date"
+                                max={maxDate}
+                                value={(formData as any)[field.name] || ''}
+                                onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                                disabled={saving}
+                                aria-invalid={showWarning}
+                                aria-required={field.required}
+                                className={cn(
+                                  "w-full min-h-[44px] text-sm",
+                                  showWarning
+                                    ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
+                                    : "border-border/50 focus:border-primary/50",
+                                  field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
+                                  "bg-background/50 focus:bg-background/80",
+                                  "transition-all duration-300 backdrop-blur-sm"
                                 )}
-                                {isBirthDate && currentValue && currentValue > today && (
-                                  <p className="text-xs text-red-500">La fecha de nacimiento no puede ser futura.</p>
-                                )}
-                              </div>
-                            );
-                          })()}
+                              />
+                              {showWarning && (
+                                <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                              )}
+                              {isBirthDate && currentValue && currentValue > today && (
+                                <p className="text-xs text-red-500">La fecha de nacimiento no puede ser futura.</p>
+                              )}
+                            </div>
+                          );
+                        })()}
 
-                          {(field.type === 'text' || field.type === 'multiselect') && (() => {
-                            const currentValue = (formData as any)[field.name];
-                            const showWarning = field.required && (!currentValue || currentValue === '');
-                            return (
-                              <div className="space-y-1">
-                                <Input
-                                  id={String(field.name)}
-                                  value={(formData as any)[field.name] || ''}
-                                  onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
-                                  placeholder={field.placeholder}
-                                  disabled={saving}
-                                  aria-invalid={showWarning}
-                                  aria-required={field.required}
-                                  className={cn(
-                                    "w-full min-h-[44px] text-sm",
-                                    showWarning
-                                      ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
-                                      : "border-border/50 focus:border-primary/50",
-                                    field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
-                                    "bg-background/50 focus:bg-background/80",
-                                    "transition-all duration-300 backdrop-blur-sm"
-                                  )}
-                                />
-                                {showWarning && (
-                                  <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                        {(field.type === 'text' || field.type === 'multiselect') && (() => {
+                          const currentValue = (formData as any)[field.name];
+                          const showWarning = field.required && (!currentValue || currentValue === '');
+                          return (
+                            <div className="space-y-1">
+                              <Input
+                                id={String(field.name)}
+                                value={(formData as any)[field.name] || ''}
+                                onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                                placeholder={field.placeholder}
+                                disabled={saving}
+                                aria-invalid={showWarning}
+                                aria-required={field.required}
+                                className={cn(
+                                  "w-full min-h-[44px] text-sm",
+                                  showWarning
+                                    ? "border-amber-500 focus:border-amber-600 ring-1 ring-amber-500"
+                                    : "border-border/50 focus:border-primary/50",
+                                  field.required && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40",
+                                  "bg-background/50 focus:bg-background/80",
+                                  "transition-all duration-300 backdrop-blur-sm"
                                 )}
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-              {editingItem && (
-                <div className={cn(
-                  "mt-2 p-3 sm:p-4 rounded-lg",
-                  "bg-muted/30 border border-border/40",
-                  "text-xs sm:text-sm text-muted-foreground",
-                  "backdrop-blur-sm"
-                )}>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1">
-                    <span><strong className="text-foreground/80">ID:</strong> {editingItem.id}</span>
-                    {config.showEditTimestamps !== false && (editingItem as any).created_at && (
-                      <span><strong className="text-foreground/80">Creado:</strong> {new Date((editingItem as any).created_at).toLocaleDateString('es-ES')}</span>
-                    )}
-                    {config.showEditTimestamps !== false && (editingItem as any).updated_at && (
-                      <span><strong className="text-foreground/80">Actualizado:</strong> {new Date((editingItem as any).updated_at).toLocaleDateString('es-ES')}</span>
-                    )}
+                              />
+                              {showWarning && (
+                                <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ))}
                   </div>
                 </div>
-              )}
-
-              {/* Contenido adicional personalizado */}
-              {additionalFormContent && (
-                <div className="mt-3">
-                  {additionalFormContent(formData, editingItem)}
-                </div>
-              )}
-
+              );
+            })}
+            {editingItem && (
               <div className={cn(
-                "flex flex-col sm:flex-row gap-3 pt-4 mt-auto",
-                "sticky bottom-0 -mx-4 -mb-4 p-4 sm:-mx-6 sm:-mb-6 sm:p-6",
-                "bg-gradient-to-t from-card/95 to-card/50",
-                "backdrop-blur-md border-t border-border/40"
+                "mt-2 p-3 sm:p-4 rounded-lg",
+                "bg-muted/30 border border-border/40",
+                "text-xs sm:text-sm text-muted-foreground",
+                "backdrop-blur-sm"
               )}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleModalClose}
-                  disabled={saving}
-                  className={cn(
-                    "w-full sm:flex-1",
-                    "h-11 sm:h-12",
-                    "border-border/50 hover:border-border",
-                    "hover:bg-accent/50",
-                    "transition-all duration-200",
-                    "hover:shadow-lg hover:scale-[1.02]",
-                    "active:scale-[0.98]"
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  <span><strong className="text-foreground/80">ID:</strong> {editingItem.id}</span>
+                  {config.showEditTimestamps !== false && (editingItem as any).created_at && (
+                    <span><strong className="text-foreground/80">Creado:</strong> {new Date((editingItem as any).created_at).toLocaleDateString('es-ES')}</span>
                   )}
-                >
-                  {t('common.cancel', 'Cancelar')}
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={saving}
-                  className={cn(
-                    "w-full sm:flex-1",
-                    "h-11 sm:h-12",
-                    "bg-primary hover:bg-primary/90",
-                    "shadow-lg shadow-primary/20",
-                    "hover:shadow-xl hover:shadow-primary/30",
-                    "transition-all duration-200",
-                    "hover:scale-[1.02]",
-                    "active:scale-[0.98]",
-                    saving && "opacity-80 cursor-not-allowed"
+                  {config.showEditTimestamps !== false && (editingItem as any).updated_at && (
+                    <span><strong className="text-foreground/80">Actualizado:</strong> {new Date((editingItem as any).updated_at).toLocaleDateString('es-ES')}</span>
                   )}
-                >
-                  {saving ? (
-                    <span className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      {t('common.saving', 'Guardando...')}
-                    </span>
-                  ) : (
-                    editingItem ? t('common.update', 'Actualizar') : t('common.create', 'Crear')
-                  )}
-                </Button>
-              </div>
-            </form>
-          </GenericModal>
-        )}
-
-        {/* Detail Modal */}
-        {config.enableDetailModal !== false && (
-          <GenericModal
-            isOpen={isDetailOpen}
-            onOpenChange={setIsDetailOpen}
-            title={detailItem ? `Detalle del ${config.entityName}${config.showIdInDetailTitle === false ? '' : `: ${detailItem.id}`}` : `Detalle del ${config.entityName}`}
-            size="full"
-            variant="compact"
-            allowFullScreenToggle
-            enableBackdropBlur
-            className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
-            enableNavigation={!!visibleItems && visibleItems.length > 1}
-            onNavigatePrevious={handlePrevDetail}
-            onNavigateNext={handleNextDetail}
-            hasPrevious={!!visibleItems && visibleItems.length > 1}
-            hasNext={!!visibleItems && visibleItems.length > 1}
-            footer={detailItem && (
-              <div className="border-t border-border/40 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/30 px-4 sm:px-6 py-3">
-                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                  {/* Navegación (izquierda en desktop, arriba en mobile) */}
-                  <div className="flex gap-2 sm:flex-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      onClick={handlePrevDetail}
-                      disabled={!visibleItems || visibleItems.length <= 1}
-                      className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
-                    >
-                      <ChevronLeft className="h-4 w-4 sm:mr-1" />
-                      <span className="hidden sm:inline">Anterior</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      onClick={handleNextDetail}
-                      disabled={!visibleItems || visibleItems.length <= 1}
-                      className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
-                    >
-                      <span className="hidden sm:inline">Siguiente</span>
-                      <ChevronRight className="h-4 w-4 sm:ml-1" />
-                    </Button>
-                  </div>
-
-                  {/* Acciones principales (derecha en desktop, abajo en mobile) */}
-                  <div className="flex gap-2 sm:justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      type="button"
-                      onClick={() => { setIsDetailOpen(false); setDetailIndex(null); }}
-                      className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
-                    >
-                      {t('modal.close', 'Cerrar')}
-                    </Button>
-                    {detailItem && config.enableEditModal !== false && (
-                      <Button
-                        size="sm"
-                        type="button"
-                        onClick={() => { openEdit(detailItem); setIsDetailOpen(false); setDetailIndex(null); }}
-                        className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
-                      >
-                        <Edit className="h-4 w-4 sm:mr-1" />
-                        <span className="hidden sm:inline">{t('common.edit', 'Editar')}</span>
-                      </Button>
-                    )}
-                  </div>
                 </div>
               </div>
             )}
-          >
-            {detailItem && (
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-4">
-                  {customDetailContent ? (
-                    customDetailContent(detailItem)
-                  ) : (
-                    <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base">Información general</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                          {config.columns.map((col, _colIndex) => (
-                            <div key={String(col.key)} className="space-y-1">
-                              <dt className="text-xs text-muted-foreground font-medium">{col.label}</dt>
-                              <dd className="text-sm font-medium text-foreground">
-                                {col.render
-                                  ? col.render((detailItem as any)[col.key], detailItem, 0)
-                                  : (() => {
-                                      const raw = (detailItem as any)[col.key];
-                                      const mapped = fkLabelMap[String(col.key)]?.get(String(raw));
-                                      return mapped ?? String(raw ?? '-');
-                                    })()}
-                              </dd>
-                            </div>
-                          ))}
-                        </dl>
-                      </CardContent>
-                    </Card>
-                  )}
+
+            {/* Contenido adicional personalizado */}
+            {additionalFormContent && (
+              <div className="mt-3">
+                {additionalFormContent(formData, editingItem)}
+              </div>
+            )}
+
+            <div className={cn(
+              "flex flex-col sm:flex-row gap-3 pt-4 mt-auto",
+              "sticky bottom-0 -mx-4 -mb-4 p-4 sm:-mx-6 sm:-mb-6 sm:p-6",
+              "bg-gradient-to-t from-card/95 to-card/50",
+              "backdrop-blur-md border-t border-border/40"
+            )}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleModalClose}
+                disabled={saving}
+                className={cn(
+                  "w-full sm:flex-1",
+                  "h-11 sm:h-12",
+                  "border-border/50 hover:border-border",
+                  "hover:bg-accent/50",
+                  "transition-all duration-200",
+                  "hover:shadow-lg hover:scale-[1.02]",
+                  "active:scale-[0.98]"
+                )}
+              >
+                {t('common.cancel', 'Cancelar')}
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className={cn(
+                  "w-full sm:flex-1",
+                  "h-11 sm:h-12",
+                  "bg-primary hover:bg-primary/90",
+                  "shadow-lg shadow-primary/20",
+                  "hover:shadow-xl hover:shadow-primary/30",
+                  "transition-all duration-200",
+                  "hover:scale-[1.02]",
+                  "active:scale-[0.98]",
+                  saving && "opacity-80 cursor-not-allowed"
+                )}
+              >
+                {saving ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('common.saving', 'Guardando...')}
+                  </span>
+                ) : (
+                  editingItem ? t('common.update', 'Actualizar') : t('common.create', 'Crear')
+                )}
+              </Button>
+            </div>
+          </form>
+        </GenericModal>
+      )}
+
+      {/* Detail Modal */}
+      {config.enableDetailModal !== false && (
+        <GenericModal
+          isOpen={isDetailOpen}
+          onOpenChange={setIsDetailOpen}
+          title={detailItem ? `Detalle del ${config.entityName}${config.showIdInDetailTitle === false ? '' : `: ${detailItem.id}`}` : `Detalle del ${config.entityName}`}
+          size="full"
+          variant="compact"
+          allowFullScreenToggle
+          enableBackdropBlur
+          className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
+          enableNavigation={!!visibleItems && visibleItems.length > 1}
+          onNavigatePrevious={handlePrevDetail}
+          onNavigateNext={handleNextDetail}
+          hasPrevious={!!visibleItems && visibleItems.length > 1}
+          hasNext={!!visibleItems && visibleItems.length > 1}
+          footer={detailItem && (
+            <div className="border-t border-border/40 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/30 px-4 sm:px-6 py-3">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                {/* Navegación (izquierda en desktop, arriba en mobile) */}
+                <div className="flex gap-2 sm:flex-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={handlePrevDetail}
+                    disabled={!visibleItems || visibleItems.length <= 1}
+                    className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                  >
+                    <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">Anterior</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={handleNextDetail}
+                    disabled={!visibleItems || visibleItems.length <= 1}
+                    className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                  >
+                    <span className="hidden sm:inline">Siguiente</span>
+                    <ChevronRight className="h-4 w-4 sm:ml-1" />
+                  </Button>
                 </div>
 
-                {(config.showDetailTimestamps ?? true) && ((detailItem as any).created_at || (detailItem as any).updated_at) && (
-                  <Card className="shadow-sm border border-border rounded-xl overflow-hidden">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base">Fecha y hora</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <dl className="grid grid-cols-1 gap-3 text-sm">
-                          {(config.showDetailTimestamps ?? true) && (detailItem as any).created_at && (
-                            <div className="space-y-1">
-                              <dt className="text-xs text-muted-foreground font-medium">Creado</dt>
-                              <dd className="text-sm font-medium">{new Date((detailItem as any).created_at).toLocaleString('es-ES')}</dd>
-                            </div>
-                          )}
-                          {(config.showDetailTimestamps ?? true) && (detailItem as any).updated_at && (
-                            <div className="space-y-1">
-                              <dt className="text-xs text-muted-foreground font-medium">Actualizado</dt>
-                              <dd className="text-sm font-medium">{new Date((detailItem as any).updated_at).toLocaleString('es-ES')}</dd>
-                            </div>
-                          )}
-                        </dl>
-                      </CardContent>
+                {/* Acciones principales (derecha en desktop, abajo en mobile) */}
+                <div className="flex gap-2 sm:justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    type="button"
+                    onClick={() => { setIsDetailOpen(false); setDetailIndex(null); }}
+                    className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                  >
+                    {t('modal.close', 'Cerrar')}
+                  </Button>
+                  {detailItem && config.enableEditModal !== false && (
+                    <Button
+                      size="sm"
+                      type="button"
+                      onClick={() => { openEdit(detailItem); setIsDetailOpen(false); setDetailIndex(null); }}
+                      className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                    >
+                      <Edit className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">{t('common.edit', 'Editar')}</span>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        >
+          {detailItem && (
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-4">
+                {customDetailContent || config.customDetailContent ? (
+                  (customDetailContent || config.customDetailContent)!(detailItem)
+                ) : (
+                  <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Información general</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        {config.columns.map((col, _colIndex) => (
+                          <div key={String(col.key)} className="space-y-1">
+                            <dt className="text-xs text-muted-foreground font-medium">{col.label}</dt>
+                            <dd className="text-sm font-medium text-foreground">
+                              {col.render
+                                ? col.render((detailItem as any)[col.key], detailItem, 0)
+                                : (() => {
+                                  const raw = (detailItem as any)[col.key];
+                                  const mapped = fkLabelMap[String(col.key)]?.get(String(raw));
+                                  return mapped ?? String(raw ?? '-');
+                                })()}
+                            </dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </CardContent>
                   </Card>
                 )}
               </div>
-            )}
-          </GenericModal>
-        )}
 
-        {/* Confirm Delete Dialog con verificación de dependencias */}
-        <ConfirmDialog
-          open={confirmOpen}
-          onOpenChange={(open) => {
-            setConfirmOpen(open);
-            // Si se cierra manualmente (cancelar/ESC), resetear estado
-            if (!open && !isConfirmingDelete.current) {
-              setTargetId(null);
-              setDependencyCheckResult(null);
-            }
-          }}
-          title={
-            checkingDependencies
-              ? '🔍 Verificando dependencias...'
-              : dependencyCheckResult?.hasDependencies
+              {(config.showDetailTimestamps ?? true) && ((detailItem as any).created_at || (detailItem as any).updated_at) && (
+                <Card className="shadow-sm border border-border rounded-xl overflow-hidden">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Fecha y hora</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <dl className="grid grid-cols-1 gap-3 text-sm">
+                      {(config.showDetailTimestamps ?? true) && (detailItem as any).created_at && (
+                        <div className="space-y-1">
+                          <dt className="text-xs text-muted-foreground font-medium">Creado</dt>
+                          <dd className="text-sm font-medium">{new Date((detailItem as any).created_at).toLocaleString('es-ES')}</dd>
+                        </div>
+                      )}
+                      {(config.showDetailTimestamps ?? true) && (detailItem as any).updated_at && (
+                        <div className="space-y-1">
+                          <dt className="text-xs text-muted-foreground font-medium">Actualizado</dt>
+                          <dd className="text-sm font-medium">{new Date((detailItem as any).updated_at).toLocaleString('es-ES')}</dd>
+                        </div>
+                      )}
+                    </dl>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </GenericModal>
+      )}
+
+      {/* Confirm Delete Dialog con verificación de dependencias */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          setConfirmOpen(open);
+          // Si se cierra manualmente (cancelar/ESC), resetear estado
+          if (!open && !isConfirmingDelete.current) {
+            setTargetId(null);
+            setDependencyCheckResult(null);
+          }
+        }}
+        title={
+          checkingDependencies
+            ? '🔍 Verificando dependencias...'
+            : dependencyCheckResult?.hasDependencies
               ? '⚠️ No se puede eliminar'
               : config.confirmDeleteTitle || '⚠️ Confirmar eliminación'
-          }
-          description={
-            checkingDependencies
-              ? 'Verificando si existen registros relacionados antes de eliminar...'
-              : dependencyCheckResult?.hasDependencies
+        }
+        description={
+          checkingDependencies
+            ? 'Verificando si existen registros relacionados antes de eliminar...'
+            : dependencyCheckResult?.hasDependencies
               ? dependencyCheckResult.message || 'Este registro tiene dependencias que deben ser eliminadas primero.'
               : config.confirmDeleteDescription ||
-                `¿Está seguro que desea eliminar este ${config.entityName.toLowerCase()}? Esta acción no se puede deshacer.`
-          }
-          confirmLabel={
-            checkingDependencies
-              ? t('common.checking', 'Verificando...')
-              : dependencyCheckResult?.hasDependencies
+              `¿Está seguro que desea eliminar este ${config.entityName.toLowerCase()}? Esta acción no se puede deshacer.`
+        }
+        confirmLabel={
+          checkingDependencies
+            ? t('common.checking', 'Verificando...')
+            : dependencyCheckResult?.hasDependencies
               ? t('common.understood', 'Entendido')
               : t('common.delete', 'Eliminar')
+        }
+        cancelLabel={t('common.cancel', 'Cancelar')}
+        confirmVariant={dependencyCheckResult?.hasDependencies ? 'outline' : 'destructive'}
+        disabled={checkingDependencies}
+        onConfirm={() => {
+          console.log('[ConfirmDialog.onConfirm] Botón clickeado, verificando dependencias:', {
+            hasDependencies: dependencyCheckResult?.hasDependencies,
+            targetId
+          });
+
+          // Si hay dependencias, solo cerrar el modal (no ejecutar eliminación)
+          if (dependencyCheckResult?.hasDependencies) {
+            console.log('[ConfirmDialog.onConfirm] Hay dependencias, SOLO cerrando modal (no eliminando)');
+            // Resetear manualmente ya que no se ejecutará handleConfirmDelete
+            setTargetId(null);
+            setDependencyCheckResult(null);
+            return;
           }
-          cancelLabel={t('common.cancel', 'Cancelar')}
-          confirmVariant={dependencyCheckResult?.hasDependencies ? 'outline' : 'destructive'}
-          disabled={checkingDependencies}
-          onConfirm={() => {
-            console.log('[ConfirmDialog.onConfirm] Botón clickeado, verificando dependencias:', {
-              hasDependencies: dependencyCheckResult?.hasDependencies,
-              targetId
-            });
 
-            // Si hay dependencias, solo cerrar el modal (no ejecutar eliminación)
-            if (dependencyCheckResult?.hasDependencies) {
-              console.log('[ConfirmDialog.onConfirm] Hay dependencias, SOLO cerrando modal (no eliminando)');
-              // Resetear manualmente ya que no se ejecutará handleConfirmDelete
-              setTargetId(null);
-              setDependencyCheckResult(null);
-              return;
-            }
+          // Si no hay dependencias, proceder con la eliminación
+          console.log('[ConfirmDialog.onConfirm] No hay dependencias, llamando handleConfirmDelete()');
+          isConfirmingDelete.current = true;
+          handleConfirmDelete().finally(() => {
+            isConfirmingDelete.current = false;
+          });
+        }}
+        // Nuevas props para mostrar dependencias detalladas
+        showWarningIcon={dependencyCheckResult?.hasDependencies || false}
+        detailedMessage={dependencyCheckResult?.detailedMessage}
+        dependencies={dependencyCheckResult?.dependencies}
+      />
 
-            // Si no hay dependencias, proceder con la eliminación
-            console.log('[ConfirmDialog.onConfirm] No hay dependencias, llamando handleConfirmDelete()');
-            isConfirmingDelete.current = true;
-            handleConfirmDelete().finally(() => {
-              isConfirmingDelete.current = false;
-            });
-          }}
-          // Nuevas props para mostrar dependencias detalladas
-          showWarningIcon={dependencyCheckResult?.hasDependencies || false}
-          detailedMessage={dependencyCheckResult?.detailedMessage}
-          dependencies={dependencyCheckResult?.dependencies}
-        />
-
-        {/* Loading Overlay - Elegante y no intrusivo */}
-        <LoadingOverlay
-          show={isProcessing}
-          message={processingMessage}
-          allowInteraction={true}
-        />
+      {/* Loading Overlay - Elegante y no intrusivo */}
+      <LoadingOverlay
+        show={isProcessing}
+        message={processingMessage}
+        allowInteraction={true}
+      />
     </AppLayout>
   );
 }

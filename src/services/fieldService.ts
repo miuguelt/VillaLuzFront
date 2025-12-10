@@ -1,5 +1,5 @@
 import { BaseService } from './baseService';
-import type { FieldInput, PaginatedResponse, FieldResponse } from '@/types/swaggerTypes';
+import type { FieldInput, PaginatedResponse, FieldResponse, AnimalResponse } from '@/types/swaggerTypes';
 
 /**
  * Service class for interacting with the fields API.
@@ -86,6 +86,15 @@ export class FieldService extends BaseService<FieldResponse> {
    */
   public async getFieldsStats(): Promise<any> {
     return this.customRequest<any>('stats', 'GET');
+  }
+
+  /**
+   * Retrieves all animals assigned to a specific field.
+   * @param {string | number} fieldId - The ID of the field.
+   * @returns {Promise<AnimalResponse[]>} A promise that resolves to the list of animals in the field.
+   */
+  public async getAnimalsByField(fieldId: string | number): Promise<AnimalResponse[]> {
+    return this.customRequest<AnimalResponse[]>(`${fieldId}/animals`, 'GET');
   }
 }
 

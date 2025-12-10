@@ -2,6 +2,9 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { AnimalResponse } from '@/types/swaggerTypes';
 import { AnimalImageBanner } from './AnimalImageBanner';
+import { Button } from '@/components/ui/button';
+import { Eye, Edit, Trash2 } from 'lucide-react';
+import { AnimalActionsMenu } from '@/components/dashboard/AnimalActionsMenu';
 
 interface AnimalCardProps {
   animal: AnimalResponse & { [k: string]: any };
@@ -13,6 +16,7 @@ interface AnimalCardProps {
   onFatherClick?: (fatherId: number) => void;
   onMotherClick?: (motherId: number) => void;
   hasAlerts?: boolean;
+  onRemoveFromField?: () => void;
 }
 
 export function AnimalCard({
@@ -24,14 +28,16 @@ export function AnimalCard({
   actions,
   onFatherClick,
   onMotherClick,
-  hasAlerts = false
+  hasAlerts = false,
+  onRemoveFromField
 }: AnimalCardProps) {
   const gender = animal.sex || animal.gender;
   const birthDate = animal.birth_date
     ? new Date(animal.birth_date).toLocaleDateString('es-ES')
     : '-';
+  // Calculate age more accurately if possible, otherwise use age_in_months
   const ageMonths = animal.age_in_months ?? '-';
-  const weight = animal.weight ?? '-';
+  const weight = animal.weight ? `${animal.weight} kg` : '-';
   const status = animal.status || '-';
 
   const handleCardClick = () => {
@@ -42,155 +48,165 @@ export function AnimalCard({
 
   return (
     <div
-      className="h-full w-full flex flex-col overflow-hidden"
+      className="flex flex-col h-full bg-card rounded-xl border border-border/50 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden group"
       onClick={onCardClick ? handleCardClick : undefined}
     >
-      {/* Banner de imágenes - LO PRIMERO, sin padding, ocupa 100% del ancho de la card */}
-      <div className="relative w-full flex-shrink-0">
+      {/* Banner de Imagen */}
+      <div className="relative w-full aspect-[4/3] overflow-hidden">
         <AnimalImageBanner
           animalId={animal.id}
-          height="clamp(200px, 32vh, 320px)"
-          showControls={true}
-          autoPlayInterval={4000}
+          height="100%"
+          showControls={false}
+          autoPlayInterval={0}
           hideWhenEmpty={false}
           objectFit="cover"
         />
 
-        {/* Barra de color superior según género */}
-        <div
-          className={`absolute top-0 left-0 right-0 h-1 z-10 ${
-            gender === 'Macho' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
-            gender === 'Hembra' ? 'bg-gradient-to-r from-pink-500 to-pink-600' :
-            'bg-gradient-to-r from-purple-500 to-purple-600'
-          }`}
-        />
+        {/* Overlay de gradiente sutil al fondo */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-50" />
 
-        {/* Menú de acciones flotante */}
-        {actions && (
-          <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
-            {actions}
-          </div>
-        )}
-
-        {/* Indicador de alertas activas */}
+        {/* Badge de Estado Absoluto */}
         {hasAlerts && (
-          <div className="absolute top-2 left-2 z-10 pointer-events-none">
-            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-600 text-[10px] font-semibold text-white shadow">
+          <div className="absolute top-2 left-2 z-10">
+            <Badge variant="destructive" className="animate-pulse shadow-sm">
               ALERTA
-            </span>
+            </Badge>
           </div>
         )}
       </div>
 
-      {/* Contenido de la tarjeta - con márgenes internos pero respetando el carrusel */}
-      <div className="flex-1 flex flex-col px-3 sm:px-4 pt-3 sm:pt-4 pb-5 sm:pb-6 space-y-3 min-h-0">
-        {/* Registro del animal e identificación - Ocupa todo el ancho */}
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-base font-bold text-foreground truncate flex-1 min-w-0">
-            {animal.record || `#${animal.id}`}
-          </h3>
-          <Badge
-            variant="outline"
-            className={`text-xs font-semibold px-2 py-0.5 flex-shrink-0 ${
-              status === 'Sano' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400 dark:border-green-800' :
-              status === 'Enfermo' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400 dark:border-red-800' :
-              'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800'
-            }`}
-          >
-            {gender === 'Macho' ? '♂' : gender === 'Hembra' ? '♀' : '•'}
-          </Badge>
-        </div>
+      {/* Contenido */}
+      <div className="flex flex-col flex-1 p-4 space-y-4">
 
-        {/* Grid de información - 2 columnas optimizado para máximo ancho */}
-        <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-          <InfoField label="Raza" value={breedLabel} truncate />
-          <InfoField label="Peso" value={`${weight} kg`} />
-          <InfoField label="Nacimiento" value={birthDate} small />
-          <InfoField label="Edad" value={`${ageMonths} meses`} />
-        </div>
-
-        {/* Genealogía - si existe - Ocupa todo el ancho */}
-        {(fatherLabel !== '-' || motherLabel !== '-') && (
-          <>
-            <div className="border-t border-border/30" />
-            <div className="grid grid-cols-2 gap-x-1.5 gap-y-1">
-              {fatherLabel !== '-' && (
-                <div className="min-w-0">
-                  <div className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/70 mb-0.5">
-                    Padre
-                  </div>
-                  {onFatherClick && (animal.idFather || animal.father_id) ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onFatherClick(animal.idFather || animal.father_id);
-                      }}
-                      className="text-xs font-medium text-primary hover:text-primary/80 hover:underline truncate w-full text-left transition-colors"
-                      title={fatherLabel}
-                    >
-                      {fatherLabel}
-                    </button>
-                  ) : (
-                    <div className="text-xs font-medium text-foreground truncate" title={fatherLabel}>
-                      {fatherLabel}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {motherLabel !== '-' && (
-                <div className="min-w-0">
-                  <div className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/70 mb-0.5">
-                    Madre
-                  </div>
-                  {onMotherClick && (animal.idMother || animal.mother_id) ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onMotherClick(animal.idMother || animal.mother_id);
-                      }}
-                      className="text-xs font-medium text-primary hover:text-primary/80 hover:underline truncate w-full text-left transition-colors"
-                      title={motherLabel}
-                    >
-                      {motherLabel}
-                    </button>
-                  ) : (
-                    <div className="text-xs font-medium text-foreground truncate" title={motherLabel}>
-                      {motherLabel}
-                    </div>
-                  )}
-                </div>
-              )}
+        {/* Header: Nombre y Sexo */}
+        <div className="flex items-start justify-between">
+          <div className="space-y-0.5">
+            <h3 className="text-lg font-bold text-foreground leading-tight line-clamp-1" title={animal.record || `#${animal.id}`}>
+              {animal.record || animal.name || `Animal #${animal.id}`}
+            </h3>
+            {/* Status Badge pequeño */}
+            <div className="flex items-center gap-1">
+              <div className={`w-2 h-2 rounded-full ${status === 'Sano' ? 'bg-green-500' :
+                  status === 'Enfermo' ? 'bg-red-500' :
+                    'bg-blue-500'
+                }`} />
+              <span className="text-xs text-muted-foreground font-medium">{status}</span>
             </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+          </div>
 
-// Componente auxiliar para campos de información
-function InfoField({
-  label,
-  value,
-  truncate = false,
-  small = false
-}: {
-  label: string;
-  value: string;
-  truncate?: boolean;
-  small?: boolean;
-}) {
-  return (
-    <div className="min-w-0">
-      <div className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground/70 mb-0.5">
-        {label}
-      </div>
-      <div
-        className={`font-semibold text-foreground ${truncate ? 'truncate' : ''} ${small ? 'text-xs' : 'text-sm'}`}
-        title={truncate ? value : undefined}
-      >
-        {value}
+          <div className={`
+                        flex items-center justify-center w-8 h-8 rounded-full border shadow-sm
+                        ${gender === 'Macho'
+              ? 'bg-blue-50 border-blue-100 text-blue-600'
+              : gender === 'Hembra'
+                ? 'bg-pink-50 border-pink-100 text-pink-600'
+                : 'bg-gray-50 border-gray-100 text-gray-600'
+            }
+                    `}>
+            {gender === 'Macho' ? '♂' : gender === 'Hembra' ? '♀' : '?'}
+          </div>
+        </div>
+
+        {/* Grid de Datos */}
+        <div className="grid grid-cols-2 gap-y-3 gap-x-2">
+          <div className="space-y-0.5">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground/70 tracking-wider">Raza</p>
+            <p className="text-sm font-semibold text-foreground truncate" title={breedLabel}>{breedLabel}</p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground/70 tracking-wider">Peso</p>
+            <p className="text-sm font-semibold text-foreground truncate">{weight}</p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground/70 tracking-wider">Nacimiento</p>
+            <p className="text-sm font-semibold text-foreground truncate">{birthDate}</p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground/70 tracking-wider">Edad</p>
+            <p className="text-sm font-semibold text-foreground truncate">{ageMonths} meses</p>
+          </div>
+        </div>
+
+        {/* Separator */}
+        <div className="h-px bg-border/40 w-full" />
+
+        {/* Padres */}
+        <div className="grid grid-cols-2 gap-4 pt-1">
+          <div className="space-y-0.5">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground/70 tracking-wider">Padre</p>
+            {onFatherClick && (animal.idFather || animal.father_id) ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFatherClick(animal.idFather || animal.father_id);
+                }}
+                className="text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:underline truncate w-full text-left transition-colors"
+              >
+                {fatherLabel}
+              </button>
+            ) : (
+              <p className="text-sm text-muted-foreground font-medium truncate">{fatherLabel}</p>
+            )}
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground/70 tracking-wider">Madre</p>
+            {onMotherClick && (animal.idMother || animal.mother_id) ? (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMotherClick(animal.idMother || animal.mother_id);
+                }}
+                className="text-sm font-medium text-emerald-600 hover:text-emerald-700 hover:underline truncate w-full text-left transition-colors"
+              >
+                {motherLabel}
+              </button>
+            ) : (
+              <p className="text-sm text-muted-foreground font-medium truncate">{motherLabel}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Acciones Footer */}
+        <div className="mt-auto pt-3 flex items-center justify-center gap-2">
+          {/* Si se pasan acciones personalizadas (legacy), las mostramos, sino usamos el nuevo layout */}
+          {actions ? (
+            actions
+          ) : (
+            // Default actions if no 'actions' prop provided, or mixed
+            <div className="flex items-center gap-2 w-full justify-evenly">
+              {/* Ver Detalle */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 p-0 rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                onClick={(e) => { e.stopPropagation(); onCardClick?.(); }}
+                title="Ver Detalle"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+
+              {/* Editar esta fuera del scope standard del componente pero podemos pasarlo o dejar que el padre lo controle */}
+              {/* Asumimos que el padre usa 'actions' para editar, pero si queremos estandarizar... */}
+
+              {/* Eliminar del Campo - SÓLO si se pasa la función */}
+              {onRemoveFromField && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-9 p-0 rounded-lg border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveFromField();
+                  }}
+                  title="Quitar del campo"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+              <AnimalActionsMenu animal={animal} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

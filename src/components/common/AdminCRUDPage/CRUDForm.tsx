@@ -24,7 +24,7 @@ interface CRUDFormProps<T extends { id?: number }> {
   onOpenChange: (open: boolean) => void;
   title: string;
   formData: Record<string, any>;
-  setFormData: (data: Record<string, any>) => void;
+  setFormData: React.Dispatch<React.SetStateAction<Record<string, any>>>;
   formSections: CRUDFormSection<any>[];
   onSubmit: (e: React.FormEvent) => void;
   saving: boolean;
@@ -41,21 +41,21 @@ const FormField = memo<{
   editingItem?: any;
 }>(({ field, value, onChange, saving, editingItem }) => {
   const t = useT();
-  
+
   // Variables derivadas frecuentes usadas en diferentes ramas
   const isBirthDateField = String(field.name) === 'birth_date';
   const today = getTodayColombia();
-  
+
   // Determinar si el campo es obligatorio y está vacío
   const isRequired = field.required === true;
   const isEmpty = value == null || value === '';
   const showWarning = isRequired && isEmpty;
-  
+
   // Manejar cambio de valor
   const handleChange = useCallback((newValue: any) => {
     onChange(newValue);
   }, [onChange]);
-  
+
   // Renderizar campo según tipo
   const renderField = () => {
     switch (field.type) {
@@ -82,7 +82,7 @@ const FormField = memo<{
             )}
           />
         );
-        
+
       case 'select':
         if (!field.options || field.options.length === 0) {
           return (
@@ -91,11 +91,11 @@ const FormField = memo<{
             </div>
           );
         }
-        
+
         {
           const opts = field.options || [];
           const isNumeric = opts.length > 0 && opts.every((o: any) => typeof o.value === 'number');
-        
+
           return (
             <select
               id={String(field.name)}
@@ -131,7 +131,7 @@ const FormField = memo<{
             </select>
           );
         }
-        
+
       case 'searchable-select':
         if (!field.options || field.options.length === 0) {
           return (
@@ -140,16 +140,16 @@ const FormField = memo<{
             </div>
           );
         }
-        
+
         {
           let opts = field.options || [];
           const isNumeric = opts.length > 0 && opts.every((o: any) => typeof o.value === 'number');
-        
+
           // Excluir el propio registro si se solicita
           if (field.excludeSelf && editingItem?.id != null) {
             opts = opts.filter((o: any) => o.value !== editingItem.id);
           }
-          
+
           return (
             <div className={cn(
               isRequired && "border-l-4 border-l-red-500/40 dark:border-l-red-400/40 rounded-l-sm"
@@ -178,7 +178,7 @@ const FormField = memo<{
             </div>
           );
         }
-        
+
       case 'checkbox':
         return (
           <div className="flex items-start space-x-2 mt-1">
@@ -195,7 +195,7 @@ const FormField = memo<{
             </label>
           </div>
         );
-        
+
       case 'number':
         return (
           <Input
@@ -220,11 +220,11 @@ const FormField = memo<{
             )}
           />
         );
-        
+
       case 'date':
         {
           const maxDate = isBirthDateField ? today : undefined;
-          
+
           return (
             <Input
               id={String(field.name)}
@@ -247,7 +247,7 @@ const FormField = memo<{
             />
           );
         }
-        
+
       case 'text':
       case 'multiselect':
       default:
@@ -273,7 +273,7 @@ const FormField = memo<{
         );
     }
   };
-  
+
   return (
     <div className={cn('w-full space-y-2 group', field.colSpan && field.colSpan > 1 && 'sm:col-span-2')}>
       <label htmlFor={String(field.name)} className={cn(
@@ -287,23 +287,28 @@ const FormField = memo<{
           <span className="text-red-600 dark:text-red-400 font-extrabold text-base" title="Campo obligatorio">*</span>
         )}
       </label>
-      
+
       {isRequired && (
         <p className="text-[10px] sm:text-xs text-muted-foreground/70 -mt-1 mb-1 flex items-center gap-1">
           <span className="text-red-500 dark:text-red-400">●</span>
           <span>Campo obligatorio</span>
         </p>
       )}
-      
+
       <div className="space-y-1">
         {renderField()}
-        
+
         {showWarning && field.type !== 'checkbox' && (
           <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
         )}
-        
+
         {field.type === 'date' && isBirthDateField && value && value > today && (
           <p className="text-xs text-red-500">La fecha de nacimiento no puede ser futura.</p>
+        )}
+
+        {/* Helper text - Renderizado después de los inputs y antes del mensaje de error amarillo */}
+        {field.helperText && (
+          <p className="text-[11px] text-muted-foreground/80 italic mt-0.5">{field.helperText}</p>
         )}
       </div>
     </div>
@@ -323,7 +328,7 @@ export function CRUDForm<T extends { id?: number }>({
   showEditTimestamps = true,
 }: CRUDFormProps<T>) {
   const t = useT();
-  
+
   // Manejar cambio de un campo específico
   const handleFieldChange = useCallback((fieldName: string, value: any) => {
     setFormData((prev) => ({
@@ -331,13 +336,13 @@ export function CRUDForm<T extends { id?: number }>({
       [fieldName]: value,
     }));
   }, [setFormData]);
-  
+
   // Renderizar secciones del formulario
   const renderFormSections = useMemo(() => {
     return formSections.map((section, sectionIndex) => {
       const gridCols = section.gridCols ?? 3;
       const gridClass = `grid grid-cols-1 ${gridCols >= 2 ? 'sm:grid-cols-2' : ''} ${gridCols >= 3 ? 'lg:grid-cols-3' : ''} gap-3 sm:gap-4 lg:gap-5`;
-      
+
       return (
         <div key={section.title || sectionIndex} className={cn(
           "relative rounded-xl p-3 sm:p-4",
@@ -358,7 +363,7 @@ export function CRUDForm<T extends { id?: number }>({
               </h3>
             </div>
           )}
-          
+
           <div className={gridClass}>
             {section.fields.map((field) => (
               <FormField
@@ -375,7 +380,7 @@ export function CRUDForm<T extends { id?: number }>({
       );
     });
   }, [formSections, formData, saving, editingItem, handleFieldChange]);
-  
+
   return (
     <GenericModal
       isOpen={isOpen}
@@ -389,7 +394,7 @@ export function CRUDForm<T extends { id?: number }>({
     >
       <form onSubmit={onSubmit} className="space-y-3 sm:space-y-4 h-full flex flex-col text-[13px] sm:text-sm">
         {renderFormSections}
-        
+
         {editingItem && showEditTimestamps && (
           <div className={cn(
             "mt-2 p-3 sm:p-4 rounded-lg",
@@ -408,7 +413,7 @@ export function CRUDForm<T extends { id?: number }>({
             </div>
           </div>
         )}
-        
+
         <div className={cn(
           "flex flex-col sm:flex-row gap-3 pt-4 mt-auto",
           "sticky bottom-0 -mx-4 -mb-4 p-4 sm:-mx-6 sm:-mb-6 sm:p-6",

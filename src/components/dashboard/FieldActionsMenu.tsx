@@ -13,6 +13,7 @@ import { GenericModal } from '@/components/common/GenericModal';
 import { FieldResponse } from '@/types/swaggerTypes';
 import { getTodayColombia } from '@/utils/dateUtils';
 import { Button } from '@/components/ui/button';
+import { FieldAnimalsModal } from '@/components/dashboard/fields/FieldAnimalsModal';
 
 // Importar servicios
 import { animalFieldsService } from '@/services/animalFieldsService';
@@ -23,7 +24,7 @@ interface FieldActionsMenuProps {
   field: FieldResponse;
 }
 
-type ModalType = 'animals' | null;
+type ModalType = 'animals' | 'view_animals' | null;
 type ModalMode = 'create' | 'list';
 
 export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => {
@@ -32,8 +33,6 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
   const [formData, setFormData] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [listData, setListData] = useState<any[]>([]);
-  const [loadingList, setLoadingList] = useState(false);
 
   // Estados para acciones de animales
   const [selectedAnimalField, setSelectedAnimalField] = useState<any>(null);
@@ -70,47 +69,17 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
     }
   }, [field.id]);
 
-  // Cargar lista de datos
-  const loadListData = useCallback(async () => {
-    setLoadingList(true);
-    try {
-      let data: any[] = [];
-
-      const afResult = await (animalFieldsService as any).getAll?.({
-        field_id: field.id,
-        limit: 100
-      });
-      data = Array.isArray(afResult) ? afResult : (afResult?.data || afResult?.items || []);
-      data = data.filter((item: any) => item.field_id === field.id);
-
-      setListData(data);
-    } catch (err: any) {
-      console.error('Error loading list data:', err);
-      setError('Error al cargar los registros');
-    } finally {
-      setLoadingList(false);
-    }
-  }, [field.id]);
-
   // Cargar opciones cuando se abre un modal de creación
   useEffect(() => {
-    if (openModal && modalMode === 'create') {
+    if (openModal === 'animals' && modalMode === 'create') {
       loadOptions();
     }
   }, [openModal, modalMode, loadOptions]);
-
-  // Cargar lista cuando se abre un modal de lista
-  useEffect(() => {
-    if (openModal && modalMode === 'list') {
-      loadListData();
-    }
-  }, [openModal, modalMode, field.id, loadListData]);
 
   const handleOpenModal = (type: ModalType, mode: ModalMode) => {
     setOpenModal(type);
     setModalMode(mode);
     setError(null);
-    setListData([]);
 
     if (mode === 'create') {
       setFormData({
@@ -127,7 +96,6 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
     setOpenModal(null);
     setFormData({});
     setError(null);
-    setListData([]);
   };
 
   const handleSubmit = async () => {
@@ -139,12 +107,7 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
         throw new Error('Animal y campo son obligatorios');
       }
       await animalFieldsService.createAnimalField(formData);
-
       handleCloseModal();
-      // Recargar la lista si estamos en modo lista
-      if (modalMode === 'list') {
-        loadListData();
-      }
     } catch (err: any) {
       setError(err?.response?.data?.message || err.message || 'Error al guardar');
     } finally {
@@ -166,7 +129,6 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
       alert('Animal retirado del potrero exitosamente');
       setShowRemoveConfirm(false);
       setSelectedAnimalField(null);
-      loadListData(); // Recargar la lista
     } catch (err: any) {
       alert(err?.response?.data?.message || err.message || 'Error al retirar el animal');
     } finally {
@@ -200,113 +162,11 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
       setShowMoveModal(false);
       setSelectedAnimalField(null);
       setTargetFieldId(undefined);
-      loadListData(); // Recargar la lista
     } catch (err: any) {
       alert(err?.response?.data?.message || err.message || 'Error al mover el animal');
     } finally {
       setLoading(false);
     }
-  };
-
-  const renderListContent = () => {
-    if (loadingList) {
-      return (
-        <div className="py-10 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando registros...</p>
-        </div>
-      );
-    }
-
-    if (listData.length === 0) {
-      return (
-        <div className="py-10 text-center">
-          <p className="text-muted-foreground">No hay animales asignados a este potrero</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-3 max-h-[500px] overflow-y-auto">
-        {listData.map((item, index) => (
-          <div
-            key={item.id || index}
-            className="border border-border rounded-lg p-4 bg-card hover:bg-accent/50 transition-colors"
-          >
-            {renderListItem(item)}
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  const renderListItem = (item: any) => {
-    const getAnimalLabel = (animalId: number) => {
-      const animal = animalOptions.find(a => a.value === animalId);
-      return animal?.label || `Animal ${animalId}`;
-    };
-
-    const isActive = !item.removal_date; // Animal activo si no tiene fecha de retiro
-
-    return (
-      <div className="space-y-3">
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="font-medium text-foreground">Animal:</span>
-            <span className="text-muted-foreground">{item.animal_id ? getAnimalLabel(item.animal_id) : '-'}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-medium text-foreground">Asignación:</span>
-            <span className="text-muted-foreground">
-              {item.assignment_date ? new Date(item.assignment_date).toLocaleDateString('es-ES') : '-'}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-medium text-foreground">Retiro:</span>
-            <span className="text-muted-foreground">
-              {item.removal_date ? new Date(item.removal_date).toLocaleDateString('es-ES') : 'Actualmente asignado'}
-            </span>
-          </div>
-          {item.notes && (
-            <div>
-              <span className="font-medium text-foreground">Notas:</span>
-              <p className="text-muted-foreground mt-1">{item.notes}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Botones de acción - solo para animales activos */}
-        {isActive && (
-          <div className="flex gap-2 pt-2 border-t border-border">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1 text-xs"
-              onClick={() => {
-                setSelectedAnimalField(item);
-                setShowMoveModal(true);
-                loadOptions(); // Cargar opciones de potreros
-              }}
-            >
-              <MoveRight className="h-3.5 w-3.5 mr-1.5" />
-              Mover a otro potrero
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="flex-1 text-xs"
-              onClick={() => {
-                setSelectedAnimalField(item);
-                setShowRemoveConfirm(true);
-              }}
-            >
-              <LogOut className="h-3.5 w-3.5 mr-1.5" />
-              Retirar del potrero
-            </Button>
-          </div>
-        )}
-      </div>
-    );
   };
 
   const renderFormContent = () => {
@@ -371,7 +231,7 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
   };
 
   const getModalTitle = () => {
-    return modalMode === 'create' ? 'Asignar Animal al Potrero' : `Animales en ${field.name || 'Potrero'}`;
+    return 'Asignar Animal al Potrero';
   };
 
   return (
@@ -407,7 +267,7 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleOpenModal('animals', 'list');
+                  setOpenModal('view_animals');
                 }}
                 className="cursor-pointer"
               >
@@ -420,47 +280,46 @@ export const FieldActionsMenu: React.FC<FieldActionsMenuProps> = ({ field }) => 
       </DropdownMenu>
 
       <GenericModal
-        isOpen={openModal !== null}
+        isOpen={openModal === 'animals'}
         onOpenChange={(open) => !open && handleCloseModal()}
         title={getModalTitle()}
-        description={modalMode === 'list' ? `Listado de animales asignados` : undefined}
         size="2xl"
         enableBackdropBlur
         className="bg-card/95 backdrop-blur-md text-card-foreground border-border/50"
       >
         <div className="space-y-4">
-          {modalMode === 'list' ? (
-            renderListContent()
-          ) : (
-            <>
-              {renderFormContent()}
-
-              {error && (
-                <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md text-sm text-destructive">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-border">
-                <button
-                  onClick={handleCloseModal}
-                  className="px-4 py-2 text-sm rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
-                  disabled={loading}
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
-                  disabled={loading}
-                >
-                  {loading ? 'Guardando...' : 'Guardar'}
-                </button>
-              </div>
-            </>
+          {renderFormContent()}
+          {error && (
+            <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md text-sm text-destructive">
+              {error}
+            </div>
           )}
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-border">
+            <button
+              onClick={handleCloseModal}
+              className="px-4 py-2 text-sm rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
+              disabled={loading}
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSubmit}
+              className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
+              disabled={loading}
+            >
+              {loading ? 'Guardando...' : 'Guardar'}
+            </button>
+          </div>
         </div>
       </GenericModal>
+
+      {/* Modal para ver animales */}
+      <FieldAnimalsModal
+        field={field}
+        isOpen={openModal === 'view_animals'}
+        onClose={() => setOpenModal(null)}
+      />
 
       {/* Modal de confirmación para retirar animal */}
       <GenericModal
