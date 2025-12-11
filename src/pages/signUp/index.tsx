@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Eye, EyeOff, User, Mail, Lock, UserPlus, Phone } from 'lucide-react';
+import { Eye, EyeOff, User, Mail, Lock, UserPlus, Phone, CheckCircle2, Loader2 } from 'lucide-react';
 import { usersService } from '@/services/userService';
 
 interface SignUpFormData {
@@ -16,6 +16,7 @@ interface SignUpFormData {
   confirmPassword: string;
   identification_number: string;
   role: string;
+  address?: string;
 }
 
 interface FormErrors {
@@ -25,8 +26,18 @@ interface FormErrors {
   password?: string;
   confirmPassword?: string;
   identification_number?: string;
+  address?: string;
   general?: string;
 }
+
+const PASSWORD_RULES = [
+  { id: 'length', label: 'Mínimo 8 caracteres', test: (value: string) => value.length >= 8 },
+  { id: 'uppercase', label: 'Al menos una mayúscula', test: (value: string) => /[A-Z]/.test(value) },
+  { id: 'number', label: 'Al menos un número', test: (value: string) => /\d/.test(value) },
+];
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[+]?[0-9\s-]{7,15}$/;
 
 const SignUpForm: React.FC = () => {
   const navigate = useNavigate();
@@ -37,63 +48,110 @@ const SignUpForm: React.FC = () => {
     password: '',
     confirmPassword: '',
     identification_number: '',
-    role: 'Aprendiz' // default role
+    role: 'Aprendiz', // default role
+    address: '',
   });
-  
+
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const validateForm = (): boolean => {
+  const mapBackendValidationErrors = (details: any) => {
+    if (!details || typeof details !== 'object') return;
+    const validation = (details as any).validation_errors || (details as any).errors || details;
+    if (!validation || typeof validation !== 'object') return;
+
+    const map: Record<string, keyof FormErrors> = {
+      fullname: 'name',
+      name: 'name',
+      email: 'email',
+      phone: 'phone',
+      identification: 'identification_number',
+      identification_number: 'identification_number',
+      password: 'password',
+      confirmPassword: 'confirmPassword',
+      address: 'address',
+    };
+
+    const newFieldErrors: FormErrors = {};
+    Object.entries(validation).forEach(([key, val]) => {
+      const uiKey = map[key];
+      if (!uiKey) return;
+      const messages = Array.isArray(val) ? val : [val];
+      const msg = messages
+        .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
+        .filter(Boolean)
+        .join(' • ');
+      if (msg) newFieldErrors[uiKey] = msg;
+    });
+
+    if (Object.keys(newFieldErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...newFieldErrors }));
+    }
+  };
+
+  const buildValidationErrors = (data: SignUpFormData): FormErrors => {
     const newErrors: FormErrors = {};
 
-    // Validate name
-    if (!formData.name.trim()) {
+    if (!data.name.trim()) {
       newErrors.name = 'El nombre es obligatorio';
-    } else if (formData.name.trim().length < 2) {
+    } else if (data.name.trim().length < 2) {
       newErrors.name = 'El nombre debe tener al menos 2 caracteres';
     }
 
-    // Validate email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!formData.email.trim()) {
+    const emailVal = data.email.trim();
+    if (!emailVal) {
       newErrors.email = 'El correo es obligatorio';
-    } else if (!emailRegex.test(formData.email)) {
+    } else if (!EMAIL_REGEX.test(emailVal)) {
       newErrors.email = 'Ingrese un correo electrónico válido';
     }
 
-    // Validate phone
-    const phoneVal = formData.phone.trim();
-    const phoneRegex = /^[+]?[0-9\s-]{7,15}$/;
+    const phoneVal = data.phone.trim();
     if (!phoneVal) {
       newErrors.phone = 'El teléfono es obligatorio';
-    } else if (!phoneRegex.test(phoneVal)) {
+    } else if (!PHONE_REGEX.test(phoneVal)) {
       newErrors.phone = 'Ingrese un teléfono válido (7-15 dígitos)';
     }
 
-    // Validate identification number
-    if (!formData.identification_number.trim()) {
+    const idValue = data.identification_number.trim();
+    if (!idValue) {
       newErrors.identification_number = 'El número de identificación es obligatorio';
-    } else if (formData.identification_number.trim().length < 5) {
-      newErrors.identification_number = 'El número de identificación debe tener al menos 5 caracteres';
+    } else if (!/^\d+$/.test(idValue)) {
+      newErrors.identification_number = 'El número de identificación debe contener solo dígitos';
+    } else if (idValue.length < 5) {
+      newErrors.identification_number = 'El número de identificación debe tener al menos 5 dígitos';
+    } else if (parseInt(idValue, 10) <= 0) {
+      newErrors.identification_number = 'El número de identificación debe ser un número positivo';
     }
 
-    // Validate password
-    if (!formData.password) {
+    const unmetPasswordRules = PASSWORD_RULES.filter((rule) => !rule.test(data.password));
+    if (!data.password) {
       newErrors.password = 'La contraseña es obligatoria';
-    } else if (formData.password.length < 4) {
-      newErrors.password = 'La contraseña debe tener al menos 4 caracteres';
+    } else if (unmetPasswordRules.length) {
+      newErrors.password = `La contraseña debe cumplir: ${unmetPasswordRules.map((rule) => rule.label.toLowerCase()).join(', ')}`;
     }
 
-    // Validate password confirmation
-    if (!formData.confirmPassword) {
+    if (!data.confirmPassword) {
       newErrors.confirmPassword = 'La confirmación de contraseña es obligatoria';
-    } else if (formData.password !== formData.confirmPassword) {
+    } else if (data.password !== data.confirmPassword) {
       newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
 
+    return newErrors;
+  };
+
+  const passwordChecks = useMemo(
+    () => PASSWORD_RULES.map((rule) => ({ ...rule, valid: rule.test(formData.password) })),
+    [formData.password]
+  );
+  const validationSnapshot = useMemo(() => buildValidationErrors(formData), [formData]);
+  const isFormValid = Object.keys(validationSnapshot).length === 0;
+
+  const validateForm = (): boolean => {
+    const newErrors = buildValidationErrors(formData);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -104,179 +162,140 @@ const SignUpForm: React.FC = () => {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear specific error when user starts typing
-    if (errors[name as keyof FormErrors]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: undefined
-      }));
+    if (errors[name as keyof FormErrors] || errors.general) {
+      setErrors(prev => {
+        const next = { ...prev, [name]: undefined } as FormErrors;
+        if (prev.general) next.general = undefined;
+        return next;
+      });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    
+    setSuccess(false);
+    setSuccessMessage('');
+
     if (!validateForm()) {
       return;
     }
 
     setLoading(true);
-    
+
     try {
       // Prepare data for backend
+      const cleanedPhone = formData.phone.replace(/[\s-]+/g, '').trim();
       const userData = {
         fullname: formData.name.trim(),
         email: formData.email.trim().toLowerCase(),
-        phone: formData.phone.trim(),
+        phone: cleanedPhone,
         password: formData.password,
         password_confirmation: formData.confirmPassword,
-        identification: formData.identification_number.trim(),
+        identification: parseInt(formData.identification_number.trim(), 10), // Convert to number
         role: formData.role as "Administrador" | "Instructor" | "Aprendiz",
         status: true,
+        address: formData.address?.trim() || undefined,
       };
 
-      // Create user using service
-      await usersService.createPublicUser(userData);
-      
-      setSuccess(true);
-      
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        navigate('/login', { 
-          state: { 
-            message: 'Cuenta creada exitosamente. Por favor inicia sesión.',
-            email: formData.email 
-          } 
+      // Debug logging in development
+      if (import.meta.env.DEV) {
+        console.log('[SignUp] Sending user data:', {
+          ...userData,
+          password: '***',
+          password_confirmation: '***'
         });
-      }, 2000);
-      
+      }
+
+      // Crear usuario usando el servicio
+      const created = (await usersService.createPublicUser(userData)) as any;
+      const message = created?.message || created?.detail || 'Cuenta creada exitosamente. Por favor inicia sesión.';
+
+      setSuccessMessage(message);
+      setSuccess(true);
+
+      // Redirigir a login después de 1.8 segundos
+      setTimeout(() => {
+        navigate('/login', {
+          state: {
+            message,
+            email: formData.email
+          }
+        });
+      }, 1800);
+
     } catch (error: any) {
       console.error('Error registering user:', error);
-      
-      // Handle specific backend errors
-      if (error.response?.status === 403) {
-        setErrors({ 
-          general: 'El registro público no está disponible: ya existen usuarios. Intenta nuevamente o contacta al administrador.' 
-        });
-      } else if (error.response?.status === 401) {
-        setErrors({ 
-          general: 'Se requiere autenticación de administrador para crear usuarios. Contacta al administrador.' 
-        });
-      } else if (error.response?.status === 409) {
-        setErrors({ 
-          general: 'Ya existe un usuario con este correo o número de identificación' 
-        });
-      } else if (error.response?.status === 400) {
-        // Extraer mensaje detallado del backend para errores 400
-        const data = error?.response?.data;
-        const errorMessage = error?.message || data?.message || data?.detail || data?.error || 
-          'Error al crear el usuario. Por favor verifica los datos ingresados.';
-        
-        // Intentar extraer errores de validación por campo
-        const fieldErrors = data?.errors || data?.error_details || data?.validation_errors || data?.details;
-        const newFieldErrors: FormErrors = {};
-        
-        if (fieldErrors && typeof fieldErrors === 'object' && !Array.isArray(fieldErrors)) {
-          const map: Record<string, keyof FormErrors> = {
-            fullname: 'name',
-            name: 'name',
-            email: 'email',
-            phone: 'phone',
-            identification: 'identification_number',
-            identification_number: 'identification_number',
-            password: 'password',
-            confirmPassword: 'confirmPassword',
-          };
-          Object.entries(fieldErrors as Record<string, any>).forEach(([key, val]) => {
-            const uiKey = map[key] || undefined;
-            const messages = Array.isArray(val) ? val : [val];
-            const msg = messages
-              .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
-              .filter(Boolean)
-              .join(' • ');
-            if (uiKey && msg) {
-              newFieldErrors[uiKey] = msg;
-            }
-          });
-        }
-        
-        // Si hay errores de campo, usarlos; si no, mostrar mensaje general
-        if (Object.keys(newFieldErrors).length > 0) {
-          setErrors(newFieldErrors);
-        } else {
-          setErrors({ general: errorMessage });
-        }
-      } else {
-        // Extraer mensaje detallado del backend si está disponible
-        const data = error?.response?.data;
-        let detailed: any = data?.message || data?.detail || data?.error || data?.title;
 
-        // 422: Normalizar estructura de validación si viene en data.details o data.errors
-        const fieldErrors = data?.errors || data?.error_details || data?.validation_errors || data?.details;
-        const newFieldErrors: FormErrors = {};
-        if (fieldErrors) {
-          try {
-            if (typeof fieldErrors === 'object' && !Array.isArray(fieldErrors)) {
-              const map: Record<string, keyof FormErrors> = {
-                fullname: 'name',
-                name: 'name',
-                email: 'email',
-                phone: 'phone',
-                identification: 'identification_number',
-                identification_number: 'identification_number',
-                password: 'password',
-                confirmPassword: 'confirmPassword',
-              };
-              Object.entries(fieldErrors as Record<string, any>).forEach(([key, val]) => {
-                const uiKey = map[key] || undefined;
-                const messages = Array.isArray(val) ? val : [val];
-                const msg = messages
-                  .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
-                  .filter(Boolean)
-                  .join(' • ');
-                if (uiKey && msg) {
-                  newFieldErrors[uiKey] = msg;
-                }
-              });
-              // Construir mensaje general si quedaron errores no mapeados
-              const unknowns = Object.entries(fieldErrors as Record<string, any>)
-                .filter(([k]) => !map[k])
-                .map(([, v]) => (Array.isArray(v) ? v : [v]))
-                .flat()
-                .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
-                .filter(Boolean)
-                .join(' • ');
-              if (!detailed && unknowns) detailed = unknowns;
-            } else if (Array.isArray(fieldErrors)) {
-              detailed = fieldErrors
-                .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
-                .filter(Boolean)
-                .join(' • ');
-            }
-          } catch (parseError) {
-            console.warn('No se pudo interpretar los errores de validación del backend:', parseError);
-          }
-        }
+      const data = error?.response?.data || error?.data;
+      const status = error?.response?.status ?? error?.status;
+      const backendMessage = error?.message || data?.message || data?.detail || data?.error;
+      const detailedReason =
+        backendMessage ||
+        data?.details?.message ||
+        (typeof data === 'string' ? data : undefined);
 
-        // Asegurar que el mensaje sea un string renderizable
-        if (!detailed && error?.message) detailed = error.message;
-        if (detailed && typeof detailed !== 'string') {
-          try {
-            const candidates = [detailed.message, detailed.detail, detailed.error, detailed.title].filter(
-              (v) => typeof v === 'string' && v.trim()
-            );
-            detailed = candidates[0] || JSON.stringify(detailed);
-          } catch {
-            detailed = 'Se produjo un error al procesar la respuesta del servidor.';
-          }
-        }
-
+      // 403: registro público no disponible
+      if (status === 403) {
         setErrors({
-          ...newFieldErrors,
-          general: detailed || 'Error al crear la cuenta. Por favor, inténtalo de nuevo.'
+          general:
+            backendMessage ||
+            'El registro público no está disponible: ya existen usuarios. Intenta nuevamente o contacta al administrador.',
         });
+      }
+      // 401: requiere autenticación admin
+      else if (status === 401) {
+        setErrors({
+          general:
+            backendMessage ||
+            'Se requiere autenticación de administrador para crear usuarios. Contacta al administrador.',
+        });
+      }
+      // 409: conflicto de unicidad
+      else if (status === 409) {
+        setErrors({
+          general: detailedReason || 'Usuario ya existe',
+        });
+      }
+      // 422: validaciones
+      else if (status === 422 || data?.details?.validation_errors) {
+        mapBackendValidationErrors(data?.details || data?.error?.details || data);
+        setErrors((prev) => ({
+          ...prev,
+          general: data?.message || detailedReason || 'Errores de validación. Revisa los campos.',
+        }));
+      }
+      // 400: errores específicos de backend
+      else if (status === 400) {
+        const fieldErrors = data?.errors || data?.error_details || data?.validation_errors || data?.details;
+        if (fieldErrors && typeof fieldErrors === 'object') {
+          mapBackendValidationErrors(fieldErrors);
+        }
+        setErrors((prev) => ({
+          ...prev,
+          general: detailedReason || backendMessage || 'Solicitud inválida. Revisa los datos proporcionados.',
+        }));
+      }
+      // 429: límite de solicitudes
+      else if (status === 429) {
+        const retryAfter = error?.response?.headers?.['retry-after'] || error?.response?.headers?.['Retry-After'];
+        const retryText = retryAfter ? ` Inténtalo nuevamente en ${retryAfter} segundos.` : '';
+        setErrors({
+          general: `Demasiadas solicitudes. Has alcanzado el límite temporal.${retryText}`,
+        });
+      }
+      // 400 u otros: intentar mapear, luego fallback
+      else {
+        const fieldErrors = data?.errors || data?.error_details || data?.validation_errors || data?.details;
+        if (fieldErrors && typeof fieldErrors === 'object') {
+          mapBackendValidationErrors(fieldErrors);
+        }
+        setErrors((prev) => ({
+          ...prev,
+          general: detailedReason || 'Ocurrió un error. Intenta de nuevo.',
+        }));
       }
     } finally {
       setLoading(false);
@@ -285,8 +304,8 @@ const SignUpForm: React.FC = () => {
 
   if (success) {
     return (
-      <div className="h-[100dvh] overflow-y-auto flex items-center justify-center bg-gradient-to-br from-green-50 to-green-100 px-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen overflow-y-auto flex justify-center bg-gradient-to-br from-green-50 to-green-100 px-4 py-8">
+        <Card className="w-full max-w-md h-fit my-auto">
           <CardContent className="pt-8">
             <div className="text-center">
               <div className="mx-auto flex items-center justify-center w-12 h-12 rounded-full bg-green-100 mb-4">
@@ -296,9 +315,17 @@ const SignUpForm: React.FC = () => {
                 ¡Cuenta creada!
               </h2>
               <p className="text-gray-600 mb-4">
-                Tu cuenta ha sido creada exitosamente. Serás redirigido al inicio de sesión en unos momentos.
+                {successMessage || 'Tu cuenta ha sido creada exitosamente. Serás redirigido al inicio de sesión en unos momentos.'}
               </p>
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                <Loader2 className="h-4 w-4 animate-spin text-green-600" />
+                Redirigiendo a inicio de sesión...
+              </div>
+              <div className="mt-4">
+                <Link to="/login" className="text-sm text-green-600 hover:text-green-700 font-medium">
+                  Ir al inicio de sesión ahora
+                </Link>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -307,10 +334,10 @@ const SignUpForm: React.FC = () => {
   }
 
   return (
-    <div className="h-[100dvh] overflow-y-auto flex items-center justify-center bg-gradient-to-br from-green-50 to-green-100 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center mb-4">
+    <div className="min-h-screen overflow-y-auto flex justify-center bg-gradient-to-br from-green-50 to-green-100 px-4 py-8">
+      <Card className="w-full max-w-md h-fit my-auto">
+        <CardHeader className="space-y-1 pb-4">
+          <div className="flex items-center justify-center mb-2">
             <div className="bg-green-600 p-2 rounded-full">
               <UserPlus className="w-6 h-6 text-white" />
             </div>
@@ -322,11 +349,11 @@ const SignUpForm: React.FC = () => {
             Ingresa tus datos para crear una nueva cuenta
           </p>
         </CardHeader>
-        
+
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {/* Nombre */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="name">Nombre completo</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -347,52 +374,70 @@ const SignUpForm: React.FC = () => {
               )}
             </div>
 
-          {/* Email */}
-          <div className="space-y-2">
-            <Label htmlFor="email">Correo electrónico</Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="tu@email.com"
-                value={formData.email}
-                onChange={handleInputChange}
-                className={`pl-10 ${errors.email ? 'border-red-500 focus:border-red-500' : ''}`}
-                disabled={loading}
-                autoComplete="email"
-              />
+            {/* Email */}
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Correo electrónico</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="tu@email.com"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`pl-10 ${errors.email ? 'border-red-500 focus:border-red-500' : ''}`}
+                  disabled={loading}
+                  autoComplete="email"
+                />
+              </div>
+              {errors.email && (
+                <p className="text-sm text-red-600">{errors.email}</p>
+              )}
             </div>
-            {errors.email && (
-              <p className="text-sm text-red-600">{errors.email}</p>
-            )}
-          </div>
 
-          {/* Teléfono */}
-          <div className="space-y-2">
-            <Label htmlFor="phone">Teléfono</Label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                placeholder="Tu número de teléfono"
-                value={formData.phone}
-                onChange={handleInputChange}
-                className={`pl-10 ${errors.phone ? 'border-red-500 focus:border-red-500' : ''}`}
-                disabled={loading}
-                autoComplete="tel"
-              />
+            {/* Teléfono */}
+            <div className="space-y-1.5">
+              <Label htmlFor="phone">Teléfono</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  placeholder="Tu número de teléfono"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className={`pl-10 ${errors.phone ? 'border-red-500 focus:border-red-500' : ''}`}
+                  disabled={loading}
+                  autoComplete="tel"
+                />
+              </div>
+              {errors.phone && (
+                <p className="text-sm text-red-600">{errors.phone}</p>
+              )}
             </div>
-            {errors.phone && (
-              <p className="text-sm text-red-600">{errors.phone}</p>
-            )}
-          </div>
+
+            {/* Dirección (opcional) */}
+            <div className="space-y-1.5">
+              <Label htmlFor="address">Dirección (opcional)</Label>
+              <Input
+                id="address"
+                name="address"
+                type="text"
+                placeholder="Calle, ciudad, referencia"
+                value={formData.address}
+                onChange={handleInputChange}
+                disabled={loading}
+                autoComplete="street-address"
+              />
+              {errors.address && (
+                <p className="text-sm text-red-600">{errors.address}</p>
+              )}
+            </div>
 
             {/* Número de Identificación */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="identification_number">Número de identificación</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -414,7 +459,7 @@ const SignUpForm: React.FC = () => {
             </div>
 
             {/* Rol */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="role">Rol</Label>
               <select
                 id="role"
@@ -431,7 +476,7 @@ const SignUpForm: React.FC = () => {
             </div>
 
             {/* Contraseña */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="password">Contraseña</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -461,7 +506,7 @@ const SignUpForm: React.FC = () => {
             </div>
 
             {/* Confirmar Contraseña */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -490,6 +535,24 @@ const SignUpForm: React.FC = () => {
               )}
             </div>
 
+            {/* Requisitos de contraseña */}
+            <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5">
+              <p className="text-xs font-semibold text-gray-700 mb-2">Requisitos de contraseña</p>
+              <ul className="space-y-1.5">
+                {passwordChecks.map((rule) => (
+                  <li key={rule.id} className="flex items-center gap-2 text-sm">
+                    <CheckCircle2
+                      className={`h-4 w-4 ${rule.valid ? 'text-green-600' : 'text-gray-300'}`}
+                      aria-hidden
+                    />
+                    <span className={rule.valid ? 'text-green-700' : 'text-gray-600'}>
+                      {rule.label}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             {/* Error general */}
             {errors.general && (
               <Alert variant="destructive">
@@ -500,13 +563,13 @@ const SignUpForm: React.FC = () => {
             {/* Botón de registro */}
             <Button
               type="submit"
-              disabled={loading}
-              className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 focus:ring-green-500 focus:ring-offset-green-200 text-white transition ease-in duration-200 text-center text-base font-semibold shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={loading || !isFormValid}
+              className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 focus:ring-green-500 focus:ring-offset-green-200 text-white transition ease-in duration-200 text-center text-base font-semibold shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed gap-2"
               aria-label={loading ? 'Creando cuenta de usuario' : 'Crear cuenta de usuario'}
             >
               {loading ? (
                 <>
-                  <UserPlus className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Creando cuenta...
                 </>
               ) : (

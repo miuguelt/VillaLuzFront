@@ -129,12 +129,14 @@ export default defineConfig(({ command, mode }) => {
             },
             {
               // Excluir fuentes de Google Fonts del cacheo con credenciales para evitar errores de CORS
+              // Usar NetworkOnly para evitar completamente problemas de CORS con el service worker
               urlPattern: ({ url }) => url.origin.includes('fonts.gstatic.com') || url.origin.includes('fonts.googleapis.com'),
-              handler: 'CacheFirst',
+              handler: 'NetworkOnly', // No cachear en service worker, dejar que el navegador maneje las fuentes
               options: { 
-                cacheName: 'google-fonts-cache', 
-                fetchOptions: { credentials: 'omit' }, // Sin credenciales para evitar CORS
-                expiration: { maxEntries: 30, maxAgeSeconds: 2592000 } 
+                fetchOptions: { 
+                  credentials: 'omit', // Sin credenciales para evitar CORS
+                  mode: 'cors' // Asegurar modo CORS
+                }
               }
             },
             {

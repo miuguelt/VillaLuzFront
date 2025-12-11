@@ -103,6 +103,8 @@ function isPublicEndpoint(path: string): boolean {
   if (!path) return true;
   if (path.startsWith('auth/')) return true; // login, logout, refresh, me
   if (path === 'health' || path.endsWith('/health')) return true;
+  // Endpoint de registro público de usuarios
+  if (path === 'users/public' || path.endsWith('/users/public')) return true;
   return false;
 }
 
@@ -183,6 +185,11 @@ api.interceptors.request.use(
       }
 
       const path = normalizePath(config.url as any);
+      const skipAuthHeader =
+        isPublicEndpoint(path) ||
+        (config as any).skipAuth === true ||
+        (config as any).disableAuth === true ||
+        (config as any).__skipAuthHeader === true;
 
       // Log de depuración para requests a /animals
       if (path.startsWith('animals') && config.method?.toLowerCase() === 'post') {
@@ -199,23 +206,25 @@ api.interceptors.request.use(
           (config as any).headers['Content-Type'] = 'application/json';
         }
 
-        const path = normalizePath(config.url as any);
         const isAuthLogin = path.startsWith('auth/login');
         const isAuthRefresh = path.startsWith('auth/refresh');
-        // Añadir Authorization Bearer si existe token y no es login/refresh
+        const shouldAttachAuth = !skipAuthHeader && !isAuthLogin && !isAuthRefresh;
+        // Añadir Authorization Bearer si existe token y no es login/refresh ni endpoint público/forzado
         try {
-          if (!isAuthLogin && !isAuthRefresh && typeof localStorage !== 'undefined') {
+          if (shouldAttachAuth && typeof localStorage !== 'undefined') {
             const tok = localStorage.getItem(AUTH_STORAGE_KEY);
             if (tok && tok.length) {
               (config as any).headers['Authorization'] = `Bearer ${tok}`;
             }
+          } else if (!shouldAttachAuth && (config as any).headers['Authorization']) {
+            delete (config as any).headers['Authorization'];
           }
         } catch (storageError) {
           logDebugError('[api] No se pudo leer token desde localStorage', storageError);
         }
         // Añadir CSRF desde cookies legibles según el endpoint
         const isAuthMe = path.startsWith('auth/me');
-        const isProtected = !isPublicEndpoint(path) || isAuthMe;
+        const isProtected = (!isPublicEndpoint(path) || isAuthMe) && !skipAuthHeader;
         if (isAuthRefresh) {
           const csrfRefresh = getCookie('csrf_refresh_token');
           if (csrfRefresh) {
@@ -251,6 +260,11 @@ refreshClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     try {
       const path = normalizePath(config.url as any);
+      const skipAuthHeader =
+        isPublicEndpoint(path) ||
+        (config as any).skipAuth === true ||
+        (config as any).disableAuth === true ||
+        (config as any).__skipAuthHeader === true;
       if ((config as any).headers) {
         (config as any).headers['Accept'] = 'application/json';
 
@@ -264,7 +278,7 @@ refreshClient.interceptors.request.use(
           if (typeof localStorage !== 'undefined') {
             const tok = localStorage.getItem(AUTH_STORAGE_KEY);
             if (tok && tok.length) {
-              const shouldAttachAuth = !path.startsWith('auth/refresh');
+              const shouldAttachAuth = !skipAuthHeader && !path.startsWith('auth/refresh');
               if (shouldAttachAuth) {
                 (config as any).headers['Authorization'] = `Bearer ${tok}`;
               } else if ((config as any).headers['Authorization']) {

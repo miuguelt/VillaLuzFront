@@ -38,18 +38,26 @@ export function AnimalImageUpload({
   const [success, setSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Tipos de archivo permitidos
-  const allowedTypes = useMemo(
+  const allowedExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+  const allowedMime = useMemo(
     () => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
     []
+  );
+  const isAllowedImage = useCallback(
+    (file: File) => {
+      if (file.type) return allowedMime.includes(file.type);
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      return ext ? allowedExt.includes(ext) : false;
+    },
+    [allowedExt, allowedMime]
   );
   const maxFileSize = 5 * 1024 * 1024; // 5MB
 
   // Validar archivo
   const validateFile = useCallback(
     (file: File): string | null => {
-      if (!allowedTypes.includes(file.type)) {
-        return `${file.name}: Tipo de archivo no permitido. Solo se permiten: JPG, PNG, WEBP, GIF`;
+      if (!isAllowedImage(file)) {
+        return `${file.name}: Solo se permiten JPG, JPEG, PNG, WEBP o GIF`;
       }
 
       if (file.size > maxFileSize) {
@@ -58,7 +66,7 @@ export function AnimalImageUpload({
 
       return null;
     },
-    [allowedTypes, maxFileSize]
+    [isAllowedImage, maxFileSize]
   );
 
   // Procesar archivos seleccionados
@@ -190,9 +198,21 @@ export function AnimalImageUpload({
       );
 
       if (response.success) {
-        setSuccess(
-          `${response.data.total_uploaded} imagen(es) subida(s) exitosamente`
-        );
+        const respMessage =
+          response.message ||
+          `${response.data?.total_uploaded ?? files.length} imagen(es) subida(s) exitosamente`;
+
+        const partialErrors =
+          response.data?.errors && Array.isArray(response.data.errors)
+            ? response.data.errors.filter(Boolean)
+            : [];
+
+        setSuccess(respMessage);
+        if (partialErrors.length > 0) {
+          setError(partialErrors.join(' • '));
+        } else {
+          setError(null);
+        }
 
         // Limpiar archivos
         files.forEach((f) => URL.revokeObjectURL(f.preview));
@@ -205,10 +225,7 @@ export function AnimalImageUpload({
         }
 
         // Mostrar toast de confirmación
-        showToast(
-          `✅ ${response.data.total_uploaded} imagen(es) subida(s) correctamente`,
-          'success'
-        );
+        showToast(`✅ ${respMessage}`, 'success');
 
         // Despachar evento global para que cualquier galería o banner se refresque
         try {
@@ -224,11 +241,45 @@ export function AnimalImageUpload({
         throw new Error(response.message || 'Error al subir imágenes');
       }
     } catch (err: any) {
-      const errorMessage = err.message || 'Error al subir imágenes';
-      setError(errorMessage);
-      
-      // Mostrar toast de error
-      showToast(`❌ ${errorMessage}`, 'error');
+      const data = err?.response?.data || err?.data;
+      const backendMessage =
+        data?.message || data?.detail || data?.error || err?.message || 'Error al subir imágenes';
+
+      const detailErrors =
+        data?.details?.errors ||
+        data?.error?.details?.errors ||
+        data?.errors ||
+        data?.details?.validation_errors;
+
+      let detailMsg: string | null = null;
+      if (detailErrors) {
+        try {
+          if (Array.isArray(detailErrors)) {
+            detailMsg = detailErrors
+              .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
+              .filter(Boolean)
+              .join(' • ');
+          } else if (typeof detailErrors === 'object') {
+            detailMsg = Object.entries(detailErrors)
+              .map(([k, v]) => {
+                const items = Array.isArray(v) ? v : [v];
+                const msg = items
+                  .map((e: any) => (typeof e === 'string' ? e : e?.message || e?.detail || e))
+                  .filter(Boolean)
+                  .join(' • ');
+                return msg ? `${k}: ${msg}` : null;
+              })
+              .filter(Boolean)
+              .join(' • ');
+          }
+        } catch {
+          // noop
+        }
+      }
+
+      const finalError = detailMsg ? `${backendMessage} • ${detailMsg}` : backendMessage;
+      setError(finalError);
+      showToast(`❌ ${finalError}`, 'error');
 
       if (onUploadError) {
         onUploadError(err);
@@ -255,7 +306,7 @@ export function AnimalImageUpload({
           ref={fileInputRef}
           type="file"
           multiple
-          accept={allowedTypes.join(',')}
+          accept=".jpg,.jpeg,.png,.webp,.gif"
           onChange={handleFileChange}
           className="hidden"
           disabled={uploading}

@@ -73,6 +73,7 @@ const EnhancedUserManagement: React.FC = () => {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [formErrors, setFormErrors] = useState<Partial<Record<keyof UserFormData, string>>>({});
   const [formData, setFormData] = useState<UserFormData>({
     identification: "",
     fullname: "",
@@ -110,6 +111,60 @@ const EnhancedUserManagement: React.FC = () => {
       role: "Aprendiz",
       status: true,
     });
+    setFormErrors({});
+  };
+
+  const setField = <K extends keyof UserFormData>(key: K, value: UserFormData[K]) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    if (formErrors[key]) {
+      setFormErrors((prev) => ({ ...prev, [key]: undefined }));
+    }
+  };
+
+  const validateCreateForm = (fd: UserFormData): boolean => {
+    const errors: Partial<Record<keyof UserFormData, string>> = {};
+    if (!fd.identification.trim()) errors.identification = "La identificación es obligatoria.";
+    if (!fd.fullname.trim()) errors.fullname = "El nombre completo es obligatorio.";
+    if (!fd.email.trim()) errors.email = "El correo es obligatorio.";
+    if (!fd.password || !fd.password.trim()) {
+      errors.password = "Debes definir una contraseña.";
+    } else if (fd.password.trim().length < 4) {
+      errors.password = "La contraseña debe tener al menos 4 caracteres.";
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const mapBackendValidationErrors = (details: any) => {
+    if (!details || typeof details !== "object") return;
+    const validation = details.validation_errors || details.errors || details;
+    if (!validation || typeof validation !== "object") return;
+
+    const map: Record<string, keyof UserFormData> = {
+      identification: "identification",
+      fullname: "fullname",
+      email: "email",
+      phone: "phone",
+      address: "address",
+      role: "role",
+      password: "password",
+    };
+
+    const newErrors: Partial<Record<keyof UserFormData, string>> = {};
+    Object.entries(validation).forEach(([key, val]) => {
+      const uiKey = map[key];
+      if (!uiKey) return;
+      const messages = Array.isArray(val) ? val : [val];
+      const msg = messages
+        .map((e: any) => (typeof e === "string" ? e : e?.message || e?.detail || e))
+        .filter(Boolean)
+        .join(" • ");
+      if (msg) newErrors[uiKey] = msg;
+    });
+
+    if (Object.keys(newErrors).length > 0) {
+      setFormErrors((prev) => ({ ...prev, ...newErrors }));
+    }
   };
 
   const handleCreateUser = async (fd: UserFormData) => {
@@ -118,13 +173,8 @@ const EnhancedUserManagement: React.FC = () => {
     const email = fd.email.trim();
     const password = (fd.password || "").trim();
 
-    if (!identification || !fullname || !email) {
-      showToast("Los campos de identificación, nombre y email son obligatorios.", "error");
-      return;
-    }
-
-    if (!password) {
-      showToast("Debes definir una contraseña para el nuevo usuario.", "error");
+    if (!validateCreateForm(fd)) {
+      showToast("Por favor corrige los campos resaltados.", "warning");
       return;
     }
 
@@ -141,21 +191,38 @@ const EnhancedUserManagement: React.FC = () => {
         status: Boolean(fd.status),
       };
 
-      const created = await createItem(payload);
+      const created = (await createItem(payload)) as any;
       if (!created) {
         throw new Error("La API no confirmó la creación del usuario.");
       }
 
-      showToast("Usuario creado exitosamente", "success");
+      const successMessage =
+        created?.message || created?.data?.message || "Usuario creado exitosamente";
+      showToast(successMessage, "success");
       setIsCreateDialogOpen(false);
       resetForm();
     } catch (e: any) {
-      const errorMessage =
-        e?.response?.data?.message ||
-        e?.response?.data?.detail ||
+      const data = e?.response?.data || e?.data;
+      const backendMessage =
+        data?.message ||
+        data?.detail ||
+        data?.error ||
         e?.message ||
         "Error al crear el usuario";
-      showToast(errorMessage, "error");
+
+      // Mapear validaciones 422
+      if (e?.response?.status === 422 || data?.details?.validation_errors) {
+        mapBackendValidationErrors(data?.details || data?.error?.details || data);
+        showToast(data?.message || "Errores de validación. Revisa los campos.", "warning");
+      }
+      // Conflicto 409
+      else if (e?.response?.status === 409 && data?.details?.error) {
+        showToast(data?.details?.error || backendMessage, "error");
+      }
+      // Otros errores
+      else {
+        showToast(backendMessage, "error");
+      }
       console.error("Error creating user:", e);
     }
   };
@@ -374,38 +441,53 @@ const EnhancedUserManagement: React.FC = () => {
             <Label htmlFor="identification" className="text-right">
               Identificación
             </Label>
-            <Input
-              id="identification"
-              value={formData.identification}
-              onChange={(e) => setFormData({ ...formData, identification: e.target.value })}
-              className="col-span-3"
-              placeholder="Ingrese la identificación"
-            />
+            <div className="col-span-3 space-y-1">
+              <Input
+                id="identification"
+                value={formData.identification}
+                onChange={(e) => setField("identification", e.target.value)}
+                placeholder="Ingrese la identificación"
+                aria-invalid={Boolean(formErrors.identification)}
+              />
+              {formErrors.identification && (
+                <p className="text-xs text-destructive">{formErrors.identification}</p>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="fullname" className="text-right">
               Nombre Completo
             </Label>
-            <Input
-              id="fullname"
-              value={formData.fullname}
-              onChange={(e) => setFormData({ ...formData, fullname: e.target.value })}
-              className="col-span-3"
-              placeholder="Ingrese el nombre completo"
-            />
+            <div className="col-span-3 space-y-1">
+              <Input
+                id="fullname"
+                value={formData.fullname}
+                onChange={(e) => setField("fullname", e.target.value)}
+                placeholder="Ingrese el nombre completo"
+                aria-invalid={Boolean(formErrors.fullname)}
+              />
+              {formErrors.fullname && (
+                <p className="text-xs text-destructive">{formErrors.fullname}</p>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="email" className="text-right">
               Email
             </Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="col-span-3"
-              placeholder="Ingrese el email"
-            />
+            <div className="col-span-3 space-y-1">
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setField("email", e.target.value)}
+                placeholder="Ingrese el email"
+                aria-invalid={Boolean(formErrors.email)}
+              />
+              {formErrors.email && (
+                <p className="text-xs text-destructive">{formErrors.email}</p>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="phone" className="text-right">
@@ -453,14 +535,19 @@ const EnhancedUserManagement: React.FC = () => {
             <Label htmlFor="password" className="text-right">
               Contraseña
             </Label>
-            <Input
-              id="password"
-              type="password"
-              value={formData.password || ""}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              className="col-span-3"
-              placeholder="Ingrese la contraseña"
-            />
+            <div className="col-span-3 space-y-1">
+              <Input
+                id="password"
+                type="password"
+                value={formData.password || ""}
+                onChange={(e) => setField("password", e.target.value)}
+                placeholder="Ingrese la contraseña"
+                aria-invalid={Boolean(formErrors.password)}
+              />
+              {formErrors.password && (
+                <p className="text-xs text-destructive">{formErrors.password}</p>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="status" className="text-right">

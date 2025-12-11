@@ -1,4 +1,5 @@
 import { BaseService } from './baseService';
+import api from './api';
 import { UserResponse, UserInput, PaginatedResponse } from '@/types/swaggerTypes';
 import { UserStatistics, BulkResponse } from '@/types/commonTypes';
 
@@ -36,60 +37,49 @@ class UsersService extends BaseService<UserResponse> {
   }
 
   async createPublicUser(userData: UserInput): Promise<UserResponse> {
+    // Preparar payload con created_at para evitar fallos en BD sin default
+    const createdAt = (await import('@/utils/dateUtils')).getNowColombiaISO?.() || new Date().toISOString();
+    // Normalizar a formato 'YYYY-MM-DD HH:mm:ss' si viene con 'T'
+    const normalizedCreatedAt = String(createdAt).replace('T', ' ').split('.')[0];
+    const payload = {
+      ...(userData as any),
+      created_at: normalizedCreatedAt,
+      password_confirmation:
+        (userData as any).password_confirmation ?? (userData as any).password,
+    } as any;
+
     try {
-      // Preparar payload con created_at para evitar fallos en BD sin default
-      const createdAt = (await import('@/utils/dateUtils')).getNowColombiaISO?.() || new Date().toISOString();
-      // Normalizar a formato 'YYYY-MM-DD HH:mm:ss' si viene con 'T'
-      const normalizedCreatedAt = String(createdAt).replace('T', ' ').split('.')[0];
-      const payload = {
-        ...(userData as any),
-        created_at: normalizedCreatedAt,
-        password_confirmation:
-          (userData as any).password_confirmation ?? (userData as any).password,
-      } as any;
-      // Intentar registro público primero
-      return await this.customRequest('public', 'POST', payload);
+      const response = await api.request({
+        url: `${this.endpoint}`,
+        method: 'POST',
+        data: payload,
+        // Forzar request pública sin credenciales/session cookies
+        withCredentials: false,
+        skipAuth: true,
+        __skipAuthHeader: true,
+        disableAuth: true,
+        __skipAuthGate: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      });
+      return response.data?.data || response.data;
     } catch (error: any) {
-      // Si falla el registro público (403), intentar con el endpoint normal
-      if (error.response?.status === 403) {
-        console.warn('Registro público no disponible, intentando registro normal...');
-        try {
-          const createdAt = (await import('@/utils/dateUtils')).getNowColombiaISO?.() || new Date().toISOString();
-          const normalizedCreatedAt = String(createdAt).replace('T', ' ').split('.')[0];
-          const payload = {
-            ...(userData as any),
-            created_at: normalizedCreatedAt,
-            password_confirmation:
-              (userData as any).password_confirmation ?? (userData as any).password,
-          } as any;
-          return await this.create(payload);
-        } catch (createError: any) {
-          // Mejorar el mensaje de error para errores 400
-          if (createError.response?.status === 400) {
-            const errorData = createError.response?.data;
-            const errorMessage = errorData?.message || errorData?.detail || errorData?.error || 
-              'Error al crear el usuario. Por favor verifica los datos ingresados.';
-            
-            // Crear un error más descriptivo
-            const enhancedError = new Error(errorMessage);
-            (enhancedError as any).response = createError.response;
-            (enhancedError as any).isAxiosError = true;
-            throw enhancedError;
-          }
-          throw createError;
-        }
+      const status = error?.response?.status;
+      const errorData = error?.response?.data;
+
+      if (status === 409) {
+        const message = errorData?.message || errorData?.detail || 'Usuario ya existe';
+        error.message = message;
+      } else if (status === 400) {
+        const message = errorData?.message || errorData?.detail || errorData?.error;
+        if (message) error.message = message;
+      } else if (status === 403) {
+        const message = errorData?.message || errorData?.detail;
+        if (message) error.message = message;
       }
-      // Mejorar el mensaje de error para otros errores
-      if (error.response?.status === 400) {
-        const errorData = error.response?.data;
-        const errorMessage = errorData?.message || errorData?.detail || errorData?.error || 
-          'Error al crear el usuario. Por favor verifica los datos ingresados.';
-        
-        const enhancedError = new Error(errorMessage);
-        (enhancedError as any).response = error.response;
-        (enhancedError as any).isAxiosError = true;
-        throw enhancedError;
-      }
+
       throw error;
     }
   }
@@ -153,5 +143,3 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 2, delayMs = 1000):
 export const getUsersWithRetry = (params?: any) => withRetry(()=> usersService.getUsers(params) as any);
 export const getUserRolesWithRetry = () => withRetry(()=> usersService.getUserRoles());
 export const getUserStatusWithRetry = () => withRetry(()=> usersService.getUserStatus());
-
-

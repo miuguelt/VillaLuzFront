@@ -583,8 +583,9 @@ export function useResource<T extends { id?: number | string }, P extends Record
       }
       return result;
     } catch (error) {
+      // No suprimir el error: reenviarlo para que la UI pueda mostrar el detalle real
       console.error('[useResource] Error al crear item:', error);
-      return null;
+      throw error;
     } finally {
       // Marcar CRUD como completado inmediatamente - confiar en que el refetch sincronizará
       crudInProgress.current = false;

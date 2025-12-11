@@ -28,18 +28,26 @@ export function AnimalImagePreUpload({
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Tipos de archivo permitidos
-  const allowedTypes = useMemo(
+  const allowedExt = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+  const allowedMime = useMemo(
     () => ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
     []
+  );
+  const isImageFile = useMemo(
+    () => (file: File) => {
+      if (file.type) return allowedMime.includes(file.type);
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      return ext ? allowedExt.includes(ext) : false;
+    },
+    [allowedMime, allowedExt]
   );
   const maxFileSize = 5 * 1024 * 1024; // 5MB
 
   // Validar archivo
   const validateFile = useCallback(
     (file: File): string | null => {
-      if (!allowedTypes.includes(file.type)) {
-        return `${file.name}: Tipo de archivo no permitido. Solo se permiten: JPG, PNG, WEBP, GIF`;
+      if (!isImageFile(file)) {
+        return `${file.name}: Solo se permiten JPG, JPEG, PNG, WEBP o GIF`;
       }
 
       if (file.size > maxFileSize) {
@@ -48,7 +56,7 @@ export function AnimalImagePreUpload({
 
       return null;
     },
-    [allowedTypes, maxFileSize]
+    [isImageFile, maxFileSize]
   );
 
   // Procesar archivos seleccionados
@@ -179,7 +187,7 @@ export function AnimalImagePreUpload({
           ref={fileInputRef}
           type="file"
           multiple
-          accept={allowedTypes.join(',')}
+          accept=".jpg,.jpeg,.png,.webp,.gif"
           onChange={handleFileChange}
           className="hidden"
         />
