@@ -48,26 +48,44 @@ class UsersService extends BaseService<UserResponse> {
         (userData as any).password_confirmation ?? (userData as any).password,
     } as any;
 
+    const requestConfig = {
+      method: 'POST',
+      data: payload,
+      // Forzar request pública sin credenciales/session cookies
+      withCredentials: false,
+      skipAuth: true,
+      __skipAuthHeader: true,
+      __skipAuthGate: true,
+      disableAuth: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    } as const;
+
     try {
       const response = await api.request({
         url: `${this.endpoint}`,
-        method: 'POST',
-        data: payload,
-        // Forzar request pública sin credenciales/session cookies
-        withCredentials: false,
-        skipAuth: true,
-        __skipAuthHeader: true,
-        disableAuth: true,
-        __skipAuthGate: true,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        ...requestConfig,
       });
       return response.data?.data || response.data;
     } catch (error: any) {
       const status = error?.response?.status;
       const errorData = error?.response?.data;
+
+      // Compatibilidad: si el backend aún expone /users/public, reintentar sin auth
+      if (status === 401 || status === 403) {
+        try {
+          const response = await api.request({
+            url: `${this.endpoint}/public`,
+            ...requestConfig,
+          });
+          return response.data?.data || response.data;
+        } catch (fallbackError: any) {
+          // usar este como error final
+          error = fallbackError;
+        }
+      }
 
       if (status === 409) {
         const message = errorData?.message || errorData?.detail || 'Usuario ya existe';

@@ -104,7 +104,14 @@ function isPublicEndpoint(path: string): boolean {
   if (path.startsWith('auth/')) return true; // login, logout, refresh, me
   if (path === 'health' || path.endsWith('/health')) return true;
   // Endpoint de registro público de usuarios
-  if (path === 'users/public' || path.endsWith('/users/public')) return true;
+  if (
+    path === 'users/public' ||
+    path.endsWith('/users/public') ||
+    path === 'users' ||
+    path.endsWith('/users')
+  ) {
+    return true;
+  }
   return false;
 }
 

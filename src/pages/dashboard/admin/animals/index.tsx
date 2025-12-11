@@ -456,6 +456,7 @@ function AdminAnimalsPage() {
         motherLabel={motherLabel}
         onFatherClick={openAnimalDetailModal}
         onMotherClick={openAnimalDetailModal}
+        hideFooterActions
       />
     );
   };

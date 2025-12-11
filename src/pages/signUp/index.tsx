@@ -196,7 +196,6 @@ const SignUpForm: React.FC = () => {
         password_confirmation: formData.confirmPassword,
         identification: parseInt(formData.identification_number.trim(), 10), // Convert to number
         role: formData.role as "Administrador" | "Instructor" | "Aprendiz",
-        status: true,
         address: formData.address?.trim() || undefined,
       };
 

@@ -17,6 +17,7 @@ interface AnimalCardProps {
   onMotherClick?: (motherId: number) => void;
   hasAlerts?: boolean;
   onRemoveFromField?: () => void;
+  hideFooterActions?: boolean;
 }
 
 export function AnimalCard({
@@ -29,7 +30,8 @@ export function AnimalCard({
   onFatherClick,
   onMotherClick,
   hasAlerts = false,
-  onRemoveFromField
+  onRemoveFromField,
+  hideFooterActions = false
 }: AnimalCardProps) {
   const gender = animal.sex || animal.gender;
   const birthDate = animal.birth_date
@@ -167,46 +169,45 @@ export function AnimalCard({
         </div>
 
         {/* Acciones Footer */}
-        <div className="mt-auto pt-3 flex items-center justify-center gap-2">
-          {/* Si se pasan acciones personalizadas (legacy), las mostramos, sino usamos el nuevo layout */}
-          {actions ? (
-            actions
-          ) : (
-            // Default actions if no 'actions' prop provided, or mixed
-            <div className="flex items-center gap-2 w-full justify-evenly">
-              {/* Ver Detalle */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9 w-9 p-0 rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                onClick={(e) => { e.stopPropagation(); onCardClick?.(); }}
-                title="Ver Detalle"
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-
-              {/* Editar esta fuera del scope standard del componente pero podemos pasarlo o dejar que el padre lo controle */}
-              {/* Asumimos que el padre usa 'actions' para editar, pero si queremos estandarizar... */}
-
-              {/* Eliminar del Campo - SÓLO si se pasa la función */}
-              {onRemoveFromField && (
+        {!hideFooterActions && (
+          <div className="mt-auto pt-3 flex items-center justify-center gap-2">
+            {/* Si se pasan acciones personalizadas (legacy), las mostramos, sino usamos el nuevo layout */}
+            {actions ? (
+              actions
+            ) : (
+              // Default actions if no 'actions' prop provided, o layout mixto
+              <div className="flex items-center gap-2 w-full justify-evenly">
+                {/* Ver Detalle */}
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 w-9 p-0 rounded-lg border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onRemoveFromField();
-                  }}
-                  title="Quitar del campo"
+                  className="h-9 w-9 p-0 rounded-lg border-blue-200 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                  onClick={(e) => { e.stopPropagation(); onCardClick?.(); }}
+                  title="Ver Detalle"
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Eye className="h-4 w-4" />
                 </Button>
-              )}
-              <AnimalActionsMenu animal={animal} />
-            </div>
-          )}
-        </div>
+
+                {/* Eliminar del Campo - SÓLO si se pasa la función */}
+                {onRemoveFromField && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-9 p-0 rounded-lg border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveFromField();
+                    }}
+                    title="Quitar del campo"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+                <AnimalActionsMenu animal={animal} />
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
