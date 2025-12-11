@@ -63,29 +63,29 @@ class UsersService extends BaseService<UserResponse> {
       },
     } as const;
 
-    try {
+    const performRequest = async (url: string) => {
       const response = await api.request({
-        url: `${this.endpoint}`,
+        url,
         ...requestConfig,
       });
       return response.data?.data || response.data;
+    };
+
+    try {
+      // Preferir siempre el endpoint público explícito; si no existe, caer a /users legacy
+      try {
+        return await performRequest(`${this.endpoint}/public`);
+      } catch (publicErr: any) {
+        const status = publicErr?.response?.status;
+        // Solo intentar /users si el endpoint público no existe en el backend
+        if (status === 404 || status === 405) {
+          return await performRequest(`${this.endpoint}`);
+        }
+        throw publicErr;
+      }
     } catch (error: any) {
       const status = error?.response?.status;
       const errorData = error?.response?.data;
-
-      // Compatibilidad: si el backend aún expone /users/public, reintentar sin auth
-      if (status === 401 || status === 403) {
-        try {
-          const response = await api.request({
-            url: `${this.endpoint}/public`,
-            ...requestConfig,
-          });
-          return response.data?.data || response.data;
-        } catch (fallbackError: any) {
-          // usar este como error final
-          error = fallbackError;
-        }
-      }
 
       if (status === 409) {
         const message = errorData?.message || errorData?.detail || 'Usuario ya existe';
@@ -93,9 +93,9 @@ class UsersService extends BaseService<UserResponse> {
       } else if (status === 400) {
         const message = errorData?.message || errorData?.detail || errorData?.error;
         if (message) error.message = message;
-      } else if (status === 403) {
+      } else if (status === 401 || status === 403) {
         const message = errorData?.message || errorData?.detail;
-        if (message) error.message = message;
+        error.message = message || 'El registro público está deshabilitado o requiere permisos de administrador.';
       }
 
       throw error;
