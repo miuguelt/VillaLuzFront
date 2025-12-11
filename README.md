@@ -4,6 +4,10 @@
 
 Frontend de la aplicación de gestión de finca desarrollado con React, TypeScript y Vite.
 
+## 📚 Documentación
+
+Todo el material de referencia (guías, resúmenes y manuales) está centralizado en `docs/README.md`.
+
 ## 🧱 Estructura de carpetas (frontend)
 
 - `src/main.tsx`: punto de entrada. Registra el Service Worker PWA, configura React Query (modo `offlineFirst`) y monta los *providers* globales (router, contextos de tema, caché, toasts y autenticación).
