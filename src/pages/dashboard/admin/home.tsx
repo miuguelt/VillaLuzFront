@@ -3,7 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AdminUsersPage from './users/index';
 import UserHistory from './UserHistory';
 import UserDetail from './UserDetail';
-import { DashboardExecutive, FieldsPage, CustomReports } from '@/pages/analytics';
+import { DashboardExecutive, FieldsPage, CustomReports } from '@/pages/dashboard/admin/analytics';
 import AdminDashboardOverview from './AdminDashboardOverview';
 
 const AdminHome: React.FC = () => {

@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { geneticImprovementsService } from '@/services/geneticImprovementsService';
-import { getTodayColombia } from '@/utils/dateUtils';
+import { geneticImprovementsService } from '@/entities/genetic-improvement/api/geneticImprovements.service';
+import { getTodayColombia } from '@/shared/utils/dateUtils';
 
 export type GeneticImprovementFormFields = {
   animal_id: number;

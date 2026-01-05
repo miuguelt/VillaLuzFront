@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAnalytics } from '@/hooks/useAnalytics';
+import { useAnalytics } from '@/features/reporting/model/useAnalytics';
 import {
   ChartBarIcon,
   MapIcon,

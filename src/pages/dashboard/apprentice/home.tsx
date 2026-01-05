@@ -1,8 +1,8 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import StatisticsCard from "@/components/dashboard/Cards";
-import { useAuth } from "@/hooks/useAuth";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import StatisticsCard from "@/widgets/dashboard/Cards";
+import { useAuth } from "@/features/auth/model/useAuth";
+import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import {
   PieChart,
   Pie,
@@ -11,7 +11,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { ChartBarIcon } from '@heroicons/react/24/outline';
 
 const ApprenticeHome = () => {

@@ -1,17 +1,17 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { controlService } from '@/services/controlService';
-import { animalsService } from '@/services/animalService';
+import { useGlobalViewMode } from '@/shared/hooks/useGlobalViewMode';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { controlService } from '@/entities/control/api/control.service';
+import { animalsService } from '@/entities/animal/api/animal.service';
 // Importar tipo ControlForm si no existe, lo definimos localmente arriba
 // Ajustar el tipo importado: ya no usamos ControlInput aquí
-import type { ControlResponse } from '@/types/swaggerTypes';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import type { ControlResponse } from '@/shared/api/generated/swaggerTypes';
+import { Button } from '@/shared/ui/button';
+import { Badge } from '@/shared/ui/badge';
 import { Activity, TrendingUp } from 'lucide-react';
-import { getTodayColombia } from '@/utils/dateUtils';
-import { AnimalLink } from '@/components/common/ForeignKeyHelpers';
-import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalStyles';
+import { getTodayColombia } from '@/shared/utils/dateUtils';
+import { AnimalLink } from '@/shared/ui/common/ForeignKeyHelpers';
+import { SectionCard, InfoField, modalStyles } from '@/shared/ui/common/ModalStyles';
 
 // Tipo de formulario simplificado alineado al JSON solicitado
 type ControlForm = {

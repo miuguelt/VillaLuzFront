@@ -1,14 +1,14 @@
 import React, { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { animalDiseasesService } from '@/services/animalDiseasesService';
-import { animalsService } from '@/services/animalService';
-import { diseaseService } from '@/services/diseaseService';
-import { usersService } from '@/services/userService';
-import { ANIMAL_DISEASE_STATUSES } from '@/constants/enums';
-import type { AnimalDiseaseResponse, AnimalDiseaseInput } from '@/types/swaggerTypes';
-import { getTodayColombia } from '@/utils/dateUtils';
-import { AnimalLink, DiseaseLink, UserLink } from '@/components/common/ForeignKeyHelpers';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { animalDiseasesService } from '@/entities/animal-disease/api/animalDiseases.service';
+import { animalsService } from '@/entities/animal/api/animal.service';
+import { diseaseService } from '@/entities/disease/api/disease.service';
+import { usersService } from '@/entities/user/api/user.service';
+import { ANIMAL_DISEASE_STATUSES } from '@/shared/constants/enums';
+import type { AnimalDiseaseResponse, AnimalDiseaseInput } from '@/shared/api/generated/swaggerTypes';
+import { getTodayColombia } from '@/shared/utils/dateUtils';
+import { AnimalLink, DiseaseLink, UserLink } from '@/shared/ui/common/ForeignKeyHelpers';
 
 function AdminAnimalDiseasesPage() {
   const [searchParams] = useSearchParams();

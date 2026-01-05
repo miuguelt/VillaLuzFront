@@ -1,25 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/context/ToastContext';
-import { controlService } from '@/services/controlService';
-import { animalsService } from '@/services/animalService';
-import { Control } from '@/types/controlTypes';
-import { AnimalResponse } from '@/types/swaggerTypes';
-import { getTodayColombia } from '@/utils/dateUtils';
-import { ImageManager } from '@/components/common/ImageManager';
+import { Button } from '@/shared/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
+import { Badge } from '@/shared/ui/badge';
+import { Alert, AlertDescription } from '@/shared/ui/alert';
+import { Input } from '@/shared/ui/input';
+import { Textarea } from '@/shared/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
+import { useToast } from '@/app/providers/ToastContext';
+import { controlService } from '@/entities/control/api/control.service';
+import { animalsService } from '@/entities/animal/api/animal.service';
+import { Control } from '@/entities/control/model/types';
+import { AnimalResponse } from '@/shared/api/generated/swaggerTypes';
+import { getTodayColombia } from '@/shared/utils/dateUtils';
+import { ImageManager } from '@/shared/ui/common/ImageManager';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog';
+} from '@/shared/ui/dialog';
 import { Loader2, Plus, Search, Filter, Calendar, Weight, Activity, Eye, Edit, Trash2 } from 'lucide-react';
 
 interface ControlsPageProps {}

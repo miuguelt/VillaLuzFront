@@ -1,7 +1,7 @@
 import React from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import Header from '@/components/dashboard/layout/Header';
-import Sidebar from '@/components/dashboard/layout/Sidebar';
+import { useAuth } from '@/features/auth/model/useAuth';
+import Header from '@/widgets/dashboard-layout/Header';
+import Sidebar from '@/widgets/dashboard-layout/Sidebar';
 import HomePage from './home';
 
 const Dashboard: React.FC = () => {

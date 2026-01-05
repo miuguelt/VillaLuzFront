@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { speciesService } from '@/services/speciesService';
-import type { SpeciesInput } from '@/types/swaggerTypes';
+import { speciesService } from '@/entities/species/api/species.service';
+import type { SpeciesInput } from '@/shared/api/generated/swaggerTypes';
 
 // Reducimos el formulario a los campos realmente soportados por el backend
 export type SpeciesFormFields = Pick<SpeciesInput, 'name'>;

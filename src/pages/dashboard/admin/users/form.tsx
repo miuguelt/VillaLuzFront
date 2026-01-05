@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { usersService } from '@/services/userService';
+import { usersService } from '@/entities/user/api/user.service';
 import { Plus, Edit } from 'lucide-react';
 
 type UserRole = 'Administrador' | 'Instructor' | 'Aprendiz';

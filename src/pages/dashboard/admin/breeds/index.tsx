@@ -1,15 +1,15 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { breedsService } from '@/services/breedsService';
-import type { BreedResponse, BreedInput } from '@/types/swaggerTypes';
-import { speciesService } from '@/services/speciesService';
-import { checkBreedDependencies } from '@/services/dependencyCheckService';
-import { BreedActionsMenu } from '@/components/dashboard/BreedActionsMenu';
-import { SpeciesLink } from '@/components/common/ForeignKeyHelpers';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { breedsService } from '@/entities/breed/api/breeds.service';
+import type { BreedResponse, BreedInput } from '@/shared/api/generated/swaggerTypes';
+import { speciesService } from '@/entities/species/api/species.service';
+import { checkBreedDependencies } from '@/features/diagnostics/api/dependencyCheck.service';
+import { BreedActionsMenu } from '@/widgets/dashboard/BreedActionsMenu';
+import { SpeciesLink } from '@/shared/ui/common/ForeignKeyHelpers';
 import { X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalStyles';
+import { Button } from '@/shared/ui/button';
+import { SectionCard, InfoField, modalStyles } from '@/shared/ui/common/ModalStyles';
 
 
 // Mapear respuesta a formulario

@@ -1,15 +1,15 @@
 import { useParams } from 'react-router-dom';
-import { useUsers } from '@/hooks/user/useUser';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useUsers } from '@/entities/user/model/useUser';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
+import { Badge } from '@/shared/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { ClimbingBoxLoader } from 'react-spinners';
-import { useAnimals } from '@/hooks/animal/useAnimals';
-import { useGeneticImprovements as useGenetics } from '@/hooks/geneticImprovement/useGeneticImprovement';
-import { useAnimalFields } from '@/hooks/animalFields/useAnimalFields';
-import HistoryTable from '@/components/dashboard/admin/HistoryTable';
-import { User } from '@/types/userTypes';
-import { getAnimalLabel } from '@/utils/animalHelpers';
+import { useAnimals } from '@/entities/animal/model/useAnimals';
+import { useGeneticImprovements as useGenetics } from '@/entities/genetic-improvement/model/useGeneticImprovement';
+import { useAnimalFields } from '@/entities/animal-field/model/useAnimalFields';
+import HistoryTable from '@/widgets/dashboard/admin/HistoryTable';
+import { User } from '@/entities/user/model/types';
+import { getAnimalLabel } from '@/entities/animal/lib/animalHelpers';
 
 const UserHistory = () => {
   const { userId } = useParams<{ userId: string }>();

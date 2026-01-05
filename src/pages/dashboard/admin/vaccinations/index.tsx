@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { vaccinationsService } from '@/services/vaccinationsService';
-import { animalsService } from '@/services/animalService';
-import { vaccinesService } from '@/services/vaccinesService';
-import { usersService } from '@/services/userService';
-import type { VaccinationResponse, VaccinationInput } from '@/types/swaggerTypes';
-import { getTodayColombia } from '@/utils/dateUtils';
-import { AnimalLink, VaccineLink, UserLink } from '@/components/common/ForeignKeyHelpers';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { vaccinationsService } from '@/entities/vaccination/api/vaccinations.service';
+import { animalsService } from '@/entities/animal/api/animal.service';
+import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
+import { usersService } from '@/entities/user/api/user.service';
+import type { VaccinationResponse, VaccinationInput } from '@/shared/api/generated/swaggerTypes';
+import { getTodayColombia } from '@/shared/utils/dateUtils';
+import { AnimalLink, VaccineLink, UserLink } from '@/shared/ui/common/ForeignKeyHelpers';
 
 function AdminVaccinationsPage() {
   const [searchParams] = useSearchParams();

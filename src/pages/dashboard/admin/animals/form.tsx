@@ -2,12 +2,12 @@
 import { useEffect, useState } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { animalsService } from '@/services/animalService';
-import { breedsService } from '@/services/breedsService';
-import { useSpecies } from '@/hooks/species/useSpecies';
-import { Combobox } from '@/components/ui/combobox';
+import { animalsService } from '@/entities/animal/api/animal.service';
+import { breedsService } from '@/entities/breed/api/breeds.service';
+import { useSpecies } from '@/entities/species/model/useSpecies';
+import { Combobox } from '@/shared/ui/combobox';
 import { Plus, Edit } from 'lucide-react';
-import { getTodayColombia } from '@/utils/dateUtils';
+import { getTodayColombia } from '@/shared/utils/dateUtils';
 
 type AnimalStatus = 'Sano' | 'Enfermo' | 'En tratamiento' | 'En observación' | 'Cuarentena' | 'Vendido' | 'Fallecido';
 type AnimalGender = 'Macho' | 'Hembra' | 'Castrado';

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { breedsService } from '@/services/breedsService';
+import { breedsService } from '@/entities/breed/api/breeds.service';
 
 export type BreedFormFields = {
   name: string;

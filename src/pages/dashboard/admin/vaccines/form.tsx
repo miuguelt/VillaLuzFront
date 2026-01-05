@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { vaccinesService } from '@/services/vaccinesService';
+import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
 
 export type VaccineFormFields = {
   name: string;

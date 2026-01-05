@@ -1,8 +1,8 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import StatisticsCard from "@/components/dashboard/Cards";
-import { useAuth } from "@/hooks/useAuth";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import StatisticsCard from "@/widgets/dashboard/Cards";
+import { useAuth } from "@/features/auth/model/useAuth";
+import { Tabs, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import {
   PieChart,
   Pie,
@@ -11,10 +11,10 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useAnimalDiseases } from "@/hooks/animalDiseases/useAnimalDiseases";
-import { useAnimals } from "@/hooks/animal/useAnimals";
-import { safeArray } from '@/utils/apiHelpers';
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { useAnimalDiseases } from "@/entities/animal-disease/model/useAnimalDiseases";
+import { useAnimals } from "@/entities/animal/model/useAnimals";
+import { safeArray } from '@/shared/utils/apiHelpers';
 import { ChartBarIcon } from '@heroicons/react/24/outline';
 
 const InstructorHome = () => {
@@ -84,7 +84,7 @@ const InstructorHome = () => {
                       fill="#8884d8"
                       dataKey="count"
                       nameKey="status"
-                      label={({ name, percent }: import('../../../types/rechartsLabel').RechartsLabelProps) =>
+                      label={({ name, percent }: import('@/shared/types/rechartsLabel.types').RechartsLabelProps) =>
                         `${name} ${percent ? (percent * 100).toFixed(0) : 0}%`
                       }
                     >

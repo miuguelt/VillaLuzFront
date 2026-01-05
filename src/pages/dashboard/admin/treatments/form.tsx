@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { treatmentsService } from '@/services/treatmentsService';
-import { getTodayColombia } from '@/utils/dateUtils';
+import { treatmentsService } from '@/entities/treatment/api/treatments.service';
+import { getTodayColombia } from '@/shared/utils/dateUtils';
 
 export type TreatmentFormFields = {
   animal_id: number;

@@ -15,20 +15,27 @@ export default defineConfig(({ command, mode }) => {
   const isProd = runtimeEnv === 'production';
 
   // ===========================================================
-  // BACKEND URL (por alias interno en Docker)
+  // BACKEND URL / PROXY TARGET
   // ===========================================================
+  // Best practice in dev: keep axios baseURL relative (/api/v1) and use Vite proxy to avoid CORS.
+  // Use VITE_PROXY_TARGET (no /api/v1) to point the proxy at a remote backend (e.g. https://finca.enlinea.sbs).
   const backendUrl =
     env.VITE_API_BASE_URL ||
-    (isProd ? 'http://finca:8081/api/v1' : 'http://finca:8081/api/v1');
+    // En desarrollo local fuera de Docker, usar localhost por defecto.
+    // En Docker/compose, se debe proveer VITE_API_BASE_URL (p.ej. http://finca:8081/api/v1).
+    (isProd ? 'http://finca:8081/api/v1' : 'http://127.0.0.1:8081/api/v1');
 
-  // ProxyTarget = backend sin /api/v1
-  const proxyTarget = backendUrl.replace(/\/$/, '').replace(/\/api\/v1$/, '');
+  const proxyTarget =
+    env.VITE_PROXY_TARGET ||
+    env.VITE_API_BASE_URL_NO_VERSION ||
+    backendUrl.replace(/\/$/, '').replace(/\/api\/v1$/, '');
 
   // ===========================================================
   // HTTPS LOCAL (solo para desarrollo fuera de Docker)
   // ===========================================================
+  const disableHttps = env.VITE_DISABLE_HTTPS === 'true';
   let httpsConfig: any = undefined;
-  if (command === 'serve' && !isProd) {
+  if (command === 'serve' && !isProd && !disableHttps) {
     const keyPath = path.resolve(__dirname, 'certificates', 'cert.key');
     const certPath = path.resolve(__dirname, 'certificates', 'cert.crt');
     const caPath = path.resolve(__dirname, 'certificates', 'ca.crt');
@@ -162,7 +169,6 @@ export default defineConfig(({ command, mode }) => {
     resolve: {
       alias: [
         { find: '@', replacement: path.resolve(__dirname, './src') },
-        { find: '@/lib/utils', replacement: path.resolve(__dirname, './src/lib/utils.ts') }
       ],
       conditions: ['module'],
       extensions: ['.js', '.jsx', '.ts', '.tsx', '.json']

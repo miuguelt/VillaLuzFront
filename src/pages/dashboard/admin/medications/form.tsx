@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { medicationsService } from '@/services/medicationsService';
+import { medicationsService } from '@/entities/medication/api/medications.service';
 
 export type MedicationFormFields = {
   name: string;

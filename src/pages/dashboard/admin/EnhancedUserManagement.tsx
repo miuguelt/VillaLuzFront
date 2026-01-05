@@ -1,15 +1,15 @@
 import React, { useMemo, useState } from "react";
-import { AppLayout } from "@/components/layout/AppLayout";
-import { PageHeader } from "@/components/layout/PageHeader";
-import { Toolbar } from "@/components/common/Toolbar";
-import { PageSection } from "@/components/sections/PageSection";
-import { Loading } from "@/components/feedback/Loading";
-import { EmptyState } from "@/components/feedback/EmptyState";
-import { ErrorState } from "@/components/feedback/ErrorState";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { AppLayout } from "@/widgets/layout/AppLayout";
+import { PageHeader } from "@/widgets/layout/PageHeader";
+import { Toolbar } from "@/shared/ui/common/Toolbar";
+import { PageSection } from "@/widgets/sections/PageSection";
+import { Loading } from "@/widgets/feedback/Loading";
+import { EmptyState } from "@/widgets/feedback/EmptyState";
+import { ErrorState } from "@/widgets/feedback/ErrorState";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+} from "@/shared/ui/dropdown-menu";
 import {
   Table,
   TableHeader,
@@ -25,22 +25,22 @@ import {
   TableHead,
   TableRow,
   TableCell,
-} from "@/components/ui/table";
+} from "@/shared/ui/table";
 import {
   Select,
   SelectTrigger,
   SelectValue,
   SelectContent,
   SelectItem,
-} from "@/components/ui/select";
-import { GenericModal } from "@/components/common/GenericModal";
-import { DialogFooter } from "@/components/ui/dialog";
+} from "@/shared/ui/select";
+import { GenericModal } from "@/shared/ui/common/GenericModal";
+import { DialogFooter } from "@/shared/ui/dialog";
 
-import { useUsers } from "@/hooks/user/useUser";
-import type { UserInput, UserResponse } from "@/types/swaggerTypes";
+import { useUsers } from "@/entities/user/model/useUser";
+import type { UserInput, UserResponse } from "@/shared/api/generated/swaggerTypes";
 import { UserPlus, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
-import { useToast } from "@/context/ToastContext";
-import { UserActionsMenu } from "@/components/dashboard/UserActionsMenu";
+import { useToast } from "@/app/providers/ToastContext";
+import { UserActionsMenu } from "@/widgets/dashboard/UserActionsMenu";
 
 interface UserFormData {
   identification: string;

@@ -1,7 +1,7 @@
 import React from 'react';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { routeAdministrationsService } from '@/services/routeAdministrationsService';
-import type { RouteAdministrationResponse, RouteAdministrationInput } from '@/types/swaggerTypes';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { routeAdministrationsService } from '@/entities/route-administration/api/routeAdministrations.service';
+import type { RouteAdministrationResponse, RouteAdministrationInput } from '@/shared/api/generated/swaggerTypes';
 
 // Columnas (width numérico -> w-{n})
 const columns: CRUDColumn<RouteAdministrationResponse & { [k: string]: any }>[] = [

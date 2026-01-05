@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { vaccinesService } from '@/services/vaccinesService';
-import { routeAdministrationsService } from '@/services/routeAdministrationsService';
-import { diseaseService } from '@/services/diseaseService';
-import { VACCINE_TYPES } from '@/constants/enums';
-import type { VaccineResponse, VaccineInput } from '@/types/swaggerTypes';
-import { DiseaseLink } from '@/components/common/ForeignKeyHelpers';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
+import { routeAdministrationsService } from '@/entities/route-administration/api/routeAdministrations.service';
+import { diseaseService } from '@/entities/disease/api/disease.service';
+import { VACCINE_TYPES } from '@/shared/constants/enums';
+import type { VaccineResponse, VaccineInput } from '@/shared/api/generated/swaggerTypes';
+import { DiseaseLink } from '@/shared/ui/common/ForeignKeyHelpers';
 
 function AdminVaccinesPage() {
   const [routeOptions, setRouteOptions] = React.useState<Array<{ value: number; label: string }>>([]);

@@ -1,10 +1,10 @@
 import React from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/features/auth/model/useAuth";
 import AdminHome from './admin/home';
 import InstructorHome from './instructor/home';
 import ApprenticeHome from './apprentice/home';
-import { Role } from "../app/routeConfig";
-import { Loader } from "@/components/ui/Loader";
+import { Role } from "@/app/routes/routeConfig";
+import { Loader } from "@/shared/ui/Loader";
 
 const HomePage = () => {
     const { role, loading, isAuthenticated } = useAuth();

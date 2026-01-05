@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { treatmentsService } from '@/services/treatmentsService';
+import { treatmentsService } from '@/entities/treatment/api/treatments.service';
 
 export default function TreatmentDetail() {
   const { id } = useParams<{ id: string }>();

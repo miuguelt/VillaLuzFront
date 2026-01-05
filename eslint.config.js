@@ -44,8 +44,8 @@ export default tseslint.config(
   // Disable Fast Refresh rule for context providers and entrypoint where mixed exports are expected
   {
     files: [
-      'src/context/*.tsx',
-      'src/main.tsx',
+      'src/app/providers/*.tsx',
+      'src/app/main.tsx',
     ],
     rules: {
       'react-refresh/only-export-components': 'off',

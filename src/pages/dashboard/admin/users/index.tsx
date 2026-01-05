@@ -1,12 +1,12 @@
 import React from 'react';
-import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { usersService } from '@/services/userService';
-import type { UserResponse } from '@/types/swaggerTypes';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useGlobalViewMode } from '@/shared/hooks/useGlobalViewMode';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { usersService } from '@/entities/user/api/user.service';
+import type { UserResponse } from '@/shared/api/generated/swaggerTypes';
+import { Button } from '@/shared/ui/button';
+import { Badge } from '@/shared/ui/badge';
 import { Grid, Table } from 'lucide-react';
-import { UserActionsMenu } from '@/components/dashboard/UserActionsMenu';
+import { UserActionsMenu } from '@/widgets/dashboard/UserActionsMenu';
 
 // Defino un input de formulario flexible para evitar forzar password en edición
 type UserFormInput = {

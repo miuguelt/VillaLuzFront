@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection } from '@/components/common/AdminCRUDPage';
-import { geneticImprovementsService } from '@/services/geneticImprovementsService';
-import { animalsService } from '@/services/animalService';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection } from '@/shared/ui/common/AdminCRUDPage';
+import { geneticImprovementsService } from '@/entities/genetic-improvement/api/geneticImprovements.service';
+import { animalsService } from '@/entities/animal/api/animal.service';
 import type {
   AdminGeneticImprovementResponse,
   AdminGeneticImprovementInput,
-} from '@/types/adminGeneticImprovementsTypes';
-import { getTodayColombia } from '@/utils/dateUtils';
+} from '@/entities/genetic-improvement/model/adminGeneticImprovements.types';
+import { getTodayColombia } from '@/shared/utils/dateUtils';
 
 // Opciones para selects
 

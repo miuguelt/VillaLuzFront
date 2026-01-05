@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useUsers } from '@/hooks/user/useUser';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useUsers } from '@/entities/user/model/useUser';
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
+import { Badge } from '@/shared/ui/badge';
+import { Button } from '@/shared/ui/button';
 import { ArrowLeft, User, Mail, Phone, MapPin, Calendar, Shield } from 'lucide-react';
 import { ClimbingBoxLoader } from 'react-spinners';
 

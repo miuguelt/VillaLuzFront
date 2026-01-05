@@ -1,18 +1,18 @@
 import React, { useMemo } from 'react';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { animalFieldsService } from '@/services/animalFieldsService';
-import { animalsService } from '@/services/animalService';
-import { fieldService } from '@/services/fieldService';
-import { GenericModal } from '@/components/common/GenericModal';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { animalFieldsService } from '@/entities/animal-field/api/animalFields.service';
+import { animalsService } from '@/entities/animal/api/animal.service';
+import { fieldService } from '@/entities/field/api/field.service';
+import { GenericModal } from '@/shared/ui/common/GenericModal';
+import { Button } from '@/shared/ui/button';
+import { Input } from '@/shared/ui/input';
+import { Label } from '@/shared/ui/label';
+import { Textarea } from '@/shared/ui/textarea';
 import { PlusCircle } from 'lucide-react';
-import { FIELD_STATES } from '@/constants/enums';
-import type { AnimalFieldResponse, AnimalFieldInput, FieldInput } from '@/types/swaggerTypes';
-import { getTodayColombia } from '@/utils/dateUtils';
-import { AnimalLink, FieldLink } from '@/components/common/ForeignKeyHelpers';
+import { FIELD_STATES } from '@/shared/constants/enums';
+import type { AnimalFieldResponse, AnimalFieldInput, FieldInput } from '@/shared/api/generated/swaggerTypes';
+import { getTodayColombia } from '@/shared/utils/dateUtils';
+import { AnimalLink, FieldLink } from '@/shared/ui/common/ForeignKeyHelpers';
 
 function AdminAnimalFieldsPage() {
   const [animalOptions, setAnimalOptions] = React.useState<Array<{ value: number; label: string }>>([]);

@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { treatmentVaccinesService } from '@/services/treatmentVaccinesService';
-import { treatmentsService } from '@/services/treatmentsService';
-import { vaccinesService } from '@/services/vaccinesService';
-import type { TreatmentVaccineResponse, TreatmentVaccineInput } from '@/types/swaggerTypes';
-import { VaccineLink } from '@/components/common/ForeignKeyHelpers';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { treatmentVaccinesService } from '@/entities/treatment-vaccine/api/treatmentVaccines.service';
+import { treatmentsService } from '@/entities/treatment/api/treatments.service';
+import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
+import type { TreatmentVaccineResponse, TreatmentVaccineInput } from '@/shared/api/generated/swaggerTypes';
+import { VaccineLink } from '@/shared/ui/common/ForeignKeyHelpers';
 
 const AdminTreatmentVaccinesPage: React.FC = () => {
   const [treatmentOptions, setTreatmentOptions] = useState<{ value: number; label: string }[]>([]);

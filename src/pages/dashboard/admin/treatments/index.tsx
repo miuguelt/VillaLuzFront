@@ -1,17 +1,17 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { treatmentsService } from '@/services/treatmentsService';
-import { animalsService } from '@/services/animalService';
-import { Button } from '@/components/ui/button';
-import { GenericModal } from '@/components/common/GenericModal';
-import { treatmentVaccinesService } from '@/services/treatmentVaccinesService';
-import { treatmentMedicationService } from '@/services/treatmentMedicationService';
-import { vaccinesService } from '@/services/vaccinesService';
-import { medicationsService } from '@/services/medicationsService';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import type { TreatmentResponse, TreatmentInput, TreatmentVaccineResponse, TreatmentMedicationResponse, VaccineResponse, MedicationResponse } from '@/types/swaggerTypes';
-import { getTodayColombia } from '@/utils/dateUtils';
-import { AnimalLink } from '@/components/common/ForeignKeyHelpers';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { treatmentsService } from '@/entities/treatment/api/treatments.service';
+import { animalsService } from '@/entities/animal/api/animal.service';
+import { Button } from '@/shared/ui/button';
+import { GenericModal } from '@/shared/ui/common/GenericModal';
+import { treatmentVaccinesService } from '@/entities/treatment-vaccine/api/treatmentVaccines.service';
+import { treatmentMedicationService } from '@/entities/treatment-medication/api/treatmentMedication.service';
+import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
+import { medicationsService } from '@/entities/medication/api/medications.service';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/ui/card';
+import type { TreatmentResponse, TreatmentInput, TreatmentVaccineResponse, TreatmentMedicationResponse, VaccineResponse, MedicationResponse } from '@/shared/api/generated/swaggerTypes';
+import { getTodayColombia } from '@/shared/utils/dateUtils';
+import { AnimalLink } from '@/shared/ui/common/ForeignKeyHelpers';
 
 // MOVIDO: columnas se declaran dentro del componente para poder usar openAssociations
 const AdminTreatmentsPage: React.FC = () => {

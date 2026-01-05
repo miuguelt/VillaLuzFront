@@ -1,30 +1,30 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Edit } from 'lucide-react';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { animalsService } from '@/services/animalService';
-import type { AnimalResponse, AnimalInput } from '@/types/swaggerTypes';
-import { breedsService } from '@/services/breedsService';
-import { getTodayColombia } from '@/utils/dateUtils';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { animalsService } from '@/entities/animal/api/animal.service';
+import type { AnimalResponse, AnimalInput } from '@/shared/api/generated/swaggerTypes';
+import { breedsService } from '@/entities/breed/api/breeds.service';
+import { getTodayColombia } from '@/shared/utils/dateUtils';
 
-import { AnimalHistoryModal } from '@/components/dashboard/AnimalHistoryModal';
-import GeneticTreeModal from '@/components/dashboard/GeneticTreeModal';
-import { useAnimalTreeApi, graphToAncestorLevels, graphToDescendantLevels } from '@/hooks/animal/useAnimalTreeApi';
-import DescendantsTreeModal from '@/components/dashboard/DescendantsTreeModal';
-import { useForeignKeySelect } from '@/hooks/useForeignKeySelect';
-import { ANIMAL_GENDERS, ANIMAL_STATES } from '@/constants/enums';
+import { AnimalHistoryModal } from '@/widgets/dashboard/AnimalHistoryModal';
+import GeneticTreeModal from '@/widgets/dashboard/GeneticTreeModal';
+import { useAnimalTreeApi, graphToAncestorLevels, graphToDescendantLevels } from '@/entities/animal/model/useAnimalTreeApi';
+import DescendantsTreeModal from '@/widgets/dashboard/DescendantsTreeModal';
+import { useForeignKeySelect } from '@/shared/hooks/useForeignKeySelect';
+import { ANIMAL_GENDERS, ANIMAL_STATES } from '@/shared/constants/enums';
 import { useState } from 'react';
-import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
-import { checkAnimalDependencies, clearAnimalDependencyCache } from '@/services/dependencyCheckService';
-import { Button } from '@/components/ui/button';
-import { GenericModal } from '@/components/common/GenericModal';
-import { AnimalActionsMenu } from '@/components/dashboard/AnimalActionsMenu';
-import { useAuth } from '@/hooks/useAuth';
-import { BreedLink, AnimalLink } from '@/components/common/ForeignKeyHelpers';
-import { AnimalCard } from '@/components/dashboard/animals/AnimalCard';
-import { AnimalModalContent } from '@/components/dashboard/animals/AnimalModalContent';
-import { AnimalImagePreUpload } from '@/components/dashboard/animals/AnimalImagePreUpload';
-import { animalImageService } from '@/services/animalImageService';
+import { useGlobalViewMode } from '@/shared/hooks/useGlobalViewMode';
+import { checkAnimalDependencies, clearAnimalDependencyCache } from '@/features/diagnostics/api/dependencyCheck.service';
+import { Button } from '@/shared/ui/button';
+import { GenericModal } from '@/shared/ui/common/GenericModal';
+import { AnimalActionsMenu } from '@/widgets/dashboard/AnimalActionsMenu';
+import { useAuth } from '@/features/auth/model/useAuth';
+import { BreedLink, AnimalLink } from '@/shared/ui/common/ForeignKeyHelpers';
+import { AnimalCard } from '@/widgets/dashboard/animals/AnimalCard';
+import { AnimalModalContent } from '@/widgets/dashboard/animals/AnimalModalContent';
+import { AnimalImagePreUpload } from '@/widgets/dashboard/animals/AnimalImagePreUpload';
+import { animalImageService } from '@/entities/animal/api/animalImage.service';
 
 // Mapear respuesta del backend al formulario
 const mapResponseToForm = (item: AnimalResponse & { [k: string]: any }): Partial<AnimalInput> => {

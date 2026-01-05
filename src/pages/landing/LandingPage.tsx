@@ -1,10 +1,10 @@
 import React from 'react';
-import Layout from '@/components/landing/Layout';
-import IndexSection from '@/components/landing/IndexSection';
-import FeatureCard from '@/components/landing/FeatureCard';
-import Gallery from '@/components/landing/Gallery';
-import AboutSection from '@/components/landing/AboutSection';
-import { Button } from '@/components/ui/button';
+import Layout from '@/widgets/landing/Layout';
+import IndexSection from '@/widgets/landing/IndexSection';
+import FeatureCard from '@/widgets/landing/FeatureCard';
+import Gallery from '@/widgets/landing/Gallery';
+import AboutSection from '@/widgets/landing/AboutSection';
+import { Button } from '@/shared/ui/button';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -14,12 +14,12 @@ import {
   LineChart,
   Layers,
 } from 'lucide-react';
-import gallery1 from '@/assets/landingimg1.jpg';
-import gallery2 from '@/assets/landingimg2.jpg';
-import gallery3 from '@/assets/landingimg3.jpg';
-import gallery4 from '@/assets/landingimg4.jpg';
-import gallery5 from '@/assets/landingimg5.webp';
-import gallery6 from '@/assets/landingimg6.webp';
+import gallery1 from '@/shared/assets/landingimg1.jpg';
+import gallery2 from '@/shared/assets/landingimg2.jpg';
+import gallery3 from '@/shared/assets/landingimg3.jpg';
+import gallery4 from '@/shared/assets/landingimg4.jpg';
+import gallery5 from '@/shared/assets/landingimg5.webp';
+import gallery6 from '@/shared/assets/landingimg6.webp';
 
 const featureList = [
   {

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense, memo } from 'react';
-import { useAuth } from '../../../hooks/useAuth';
+import { useAuth } from '@/features/auth/model/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '../../../context/ToastContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card';
-import { Button } from '../../../components/ui/button';
-import { Badge } from '../../../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
-import { Alert, AlertDescription } from '../../../components/ui/alert';
+import { useToast } from '@/app/providers/ToastContext';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
+import { Button } from '@/shared/ui/button';
+import { Badge } from '@/shared/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
+import { Alert, AlertDescription } from '@/shared/ui/alert';
 import {
   Users,
   Building2,
@@ -25,15 +25,15 @@ import {
   ListChecks,
 } from 'lucide-react';
 // OPTIMIZACIÓN: Lazy loading de componentes pesados
-import { usePermissions } from '@/hooks/useJWT';
-import api, { unwrapApi } from '@/services/api';
-import { useT } from '@/i18n';
+import { usePermissions } from '@/shared/hooks/useJWT';
+import api, { unwrapApi } from '@/shared/api/client';
+import { useT } from '@/shared/i18n';
 import axios from 'axios';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { SkeletonCard, SkeletonTable } from '@/components/ui/skeleton';
-import { DashboardStatsCard, DashboardStatsGrid } from '@/components/dashboard/DashboardStatsCard';
-import { useCompleteDashboardStats, KpiCardSummary } from '@/hooks/useCompleteDashboardStats';
-import KPICard from '@/components/analytics/KPICard';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
+import { SkeletonCard, SkeletonTable } from '@/shared/ui/skeleton';
+import { DashboardStatsCard, DashboardStatsGrid } from '@/widgets/dashboard/DashboardStatsCard';
+import { useCompleteDashboardStats, KpiCardSummary } from '@/features/dashboard/model/useCompleteDashboardStats';
+import KPICard from '@/widgets/analytics/KPICard';
 
 const KPI_ORDER = [
   'health_index',

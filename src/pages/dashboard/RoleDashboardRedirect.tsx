@@ -1,8 +1,8 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import LoadingScreen from '@/components/common/LoadingScreen';
-import { useAuth } from '@/hooks/useAuth';
-import { Role } from '@/types/userTypes';
+import LoadingScreen from '@/shared/ui/common/LoadingScreen';
+import { useAuth } from '@/features/auth/model/useAuth';
+import { Role } from '@/entities/user/model/types';
 
 const roleDestinations: Record<Role, string> = {
   Administrador: '/admin/dashboard',

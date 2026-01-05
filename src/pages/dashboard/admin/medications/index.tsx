@@ -1,10 +1,10 @@
 import React from 'react';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { medicationsService } from '@/services/medicationsService';
-import type { MedicationResponse } from '@/types/swaggerTypes';
-import { routeAdministrationsService } from '@/services/routeAdministrationsService';
-import { Badge } from '@/components/ui/badge';
-import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalStyles';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { medicationsService } from '@/entities/medication/api/medications.service';
+import type { MedicationResponse } from '@/shared/api/generated/swaggerTypes';
+import { routeAdministrationsService } from '@/entities/route-administration/api/routeAdministrations.service';
+import { Badge } from '@/shared/ui/badge';
+import { SectionCard, InfoField, modalStyles } from '@/shared/ui/common/ModalStyles';
 
 // Input del formulario
 type MedicationInput = {

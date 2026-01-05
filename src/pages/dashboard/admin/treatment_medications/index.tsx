@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { treatmentMedicationService } from '@/services/treatmentMedicationService';
-import { treatmentsService } from '@/services/treatmentsService';
-import { medicationsService } from '@/services/medicationsService';
-import type { TreatmentMedicationResponse, TreatmentMedicationInput } from '@/types/swaggerTypes';
-import { MedicationLink } from '@/components/common/ForeignKeyHelpers';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { treatmentMedicationService } from '@/entities/treatment-medication/api/treatmentMedication.service';
+import { treatmentsService } from '@/entities/treatment/api/treatments.service';
+import { medicationsService } from '@/entities/medication/api/medications.service';
+import type { TreatmentMedicationResponse, TreatmentMedicationInput } from '@/shared/api/generated/swaggerTypes';
+import { MedicationLink } from '@/shared/ui/common/ForeignKeyHelpers';
 
 function AdminTreatmentMedicationsPage() {
   const [treatmentOptions, setTreatmentOptions] = React.useState<Array<{ value: number; label: string }>>([]);

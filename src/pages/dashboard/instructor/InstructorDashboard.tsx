@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DashboardStatsCard, DashboardStatsGrid } from '@/components/dashboard/DashboardStatsCard';
-import { useCompleteDashboardStats, getStatValue, KpiCardSummary } from '@/hooks/useCompleteDashboardStats';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { SkeletonCard } from '@/components/ui/skeleton';
+import { DashboardStatsCard, DashboardStatsGrid } from '@/widgets/dashboard/DashboardStatsCard';
+import { useCompleteDashboardStats, getStatValue, KpiCardSummary } from '@/features/dashboard/model/useCompleteDashboardStats';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/shared/ui/card';
+import { Button } from '@/shared/ui/button';
+import { Badge } from '@/shared/ui/badge';
+import { Alert, AlertDescription } from '@/shared/ui/alert';
+import { SkeletonCard } from '@/shared/ui/skeleton';
 import {
   Users,
   Heart,
@@ -22,7 +22,7 @@ import {
   Pill,
   RefreshCw,
 } from 'lucide-react';
-import KPICard from '@/components/analytics/KPICard';
+import KPICard from '@/widgets/analytics/KPICard';
 
 const KPI_ORDER = [
   'health_index',

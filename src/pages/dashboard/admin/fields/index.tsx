@@ -1,26 +1,16 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useGlobalViewMode } from '@/hooks/useGlobalViewMode';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { fieldService } from '@/services/fieldService';
-import { foodTypesService } from '@/services/foodTypesService';
-import { FIELD_STATES } from '@/constants/enums';
-import type { FieldResponse } from '@/types/swaggerTypes';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { FieldActionsMenu } from '@/components/dashboard/FieldActionsMenu';
-import { GenericModal } from '@/components/common/GenericModal';
-import { animalsService } from '@/services/animalService';
-import { animalFieldsService } from '@/services/animalFieldsService';
-import type { AnimalResponse } from '@/types/swaggerTypes';
-import { AnimalCard } from '@/components/dashboard/animals/AnimalCard';
-import { AnimalModalContent } from '@/components/dashboard/animals/AnimalModalContent';
-import { AnimalActionsMenu } from '@/components/dashboard/AnimalActionsMenu';
-import { FieldAnimalsModal } from '@/components/dashboard/fields/FieldAnimalsModal';
-import { Eye, Edit } from 'lucide-react';
-import { FoodTypeLink } from '@/components/common/ForeignKeyHelpers';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { useAnalytics } from '@/hooks/useAnalytics';
+import { useGlobalViewMode } from '@/shared/hooks/useGlobalViewMode';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { fieldService } from '@/entities/field/api/field.service';
+import { foodTypesService } from '@/entities/food-type/api/foodTypes.service';
+import { FIELD_STATES } from '@/shared/constants/enums';
+import type { FieldResponse } from '@/shared/api/generated/swaggerTypes';
+import { Button } from '@/shared/ui/button';
+import { Badge } from '@/shared/ui/badge';
+import { FieldActionsMenu } from '@/widgets/dashboard/FieldActionsMenu';
+import { FieldAnimalsModal } from '@/widgets/dashboard/fields/FieldAnimalsModal';
+import { FoodTypeLink } from '@/shared/ui/common/ForeignKeyHelpers';
+import { Card, CardHeader, CardTitle, CardContent } from '@/shared/ui/card';
 
 // Tipo de formulario alineado al JSON real del backend
 type FieldFormInput = {
@@ -86,7 +76,6 @@ const FieldOccupancyBar: React.FC<{ animalCount: number; capacity: string }> = (
 
 // Página principal
 function AdminFieldsPage() {
-  const navigate = useNavigate();
   const [foodTypeOptions, setFoodTypeOptions] = useState<Array<{ value: number; label: string }>>([]);
   const [viewMode, setViewMode] = useGlobalViewMode();
 

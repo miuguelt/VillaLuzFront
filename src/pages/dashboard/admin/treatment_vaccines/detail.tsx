@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { treatmentVaccinesService } from '@/services/treatmentVaccinesService';
+import { treatmentVaccinesService } from '@/entities/treatment-vaccine/api/treatmentVaccines.service';
 
 export default function TreatmentVaccineDetail() {
   const { id } = useParams<{ id: string }>();

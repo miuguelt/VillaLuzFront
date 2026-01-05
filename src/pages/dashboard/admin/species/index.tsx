@@ -1,10 +1,10 @@
 import React from 'react';
-import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/components/common/AdminCRUDPage';
-import { speciesService } from '@/services/speciesService';
-import type { SpeciesResponse, SpeciesInput } from '@/types/swaggerTypes';
-import { checkSpeciesDependencies } from '@/services/dependencyCheckService';
-import { SpeciesActionsMenu } from '@/components/dashboard/SpeciesActionsMenu';
-import { SectionCard, InfoField, modalStyles } from '@/components/common/ModalStyles';
+import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
+import { speciesService } from '@/entities/species/api/species.service';
+import type { SpeciesResponse, SpeciesInput } from '@/shared/api/generated/swaggerTypes';
+import { checkSpeciesDependencies } from '@/features/diagnostics/api/dependencyCheck.service';
+import { SpeciesActionsMenu } from '@/widgets/dashboard/SpeciesActionsMenu';
+import { SectionCard, InfoField, modalStyles } from '@/shared/ui/common/ModalStyles';
 
 // Columnas de la tabla
 const columns: CRUDColumn<SpeciesResponse & { [k: string]: any }>[] = [

@@ -1,3 +1,0 @@
-import FoodTypesCanonicalPage from '../food_types';
-
-export default FoodTypesCanonicalPage;

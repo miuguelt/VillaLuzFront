@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
-import { useToast } from '@/context/ToastContext';
+import { useToast } from '@/app/providers/ToastContext';
 import { useForm, FieldError } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { fieldService } from '@/services/fieldService';
+import { fieldService } from '@/entities/field/api/field.service';
 
 export type FieldFormFields = {
   name: string;
