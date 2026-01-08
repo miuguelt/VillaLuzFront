@@ -20,8 +20,15 @@ const buildCacheKey = (query: Required<ActivityQuery>) =>
 
 export function useActivityFeed(
   query: ActivityQuery,
-  opts: { enableCache?: boolean; ttlMs?: number } = {}
+  opts: {
+    enableCache?: boolean;
+    ttlMs?: number;
+    enabled?: boolean;
+    fetcher?: (q: ActivityQuery, o?: { signal?: AbortSignal }) => Promise<ActivityPage>;
+  } = {}
 ) {
+  const enabled = opts.enabled !== false;
+  const fetcher = opts.fetcher ?? fetchActivity;
   const resolvedQuery = useMemo(
     () => ({
       page: query.page ?? 1,
@@ -60,7 +67,7 @@ export function useActivityFeed(
             return;
           }
         }
-        const page = await fetchActivity(resolvedQuery, { signal });
+        const page = await fetcher(resolvedQuery, { signal });
         if (enableCache) {
           cacheRef.current.set(cacheKey, { ts: Date.now(), data: page });
         }
@@ -73,14 +80,15 @@ export function useActivityFeed(
         setLoading(false);
       }
     },
-    [cacheKey, enableCache, resolvedQuery, ttlMs]
+    [cacheKey, enableCache, fetcher, resolvedQuery, ttlMs]
   );
 
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
     load(controller.signal);
     return () => controller.abort();
-  }, [load]);
+  }, [enabled, load]);
 
   const refetch = useCallback(() => {
     cacheRef.current.delete(cacheKey);

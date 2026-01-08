@@ -26,9 +26,11 @@ import HistoryTable from '@/widgets/dashboard/admin/HistoryTable';
 import { getAnimalLabel } from '@/entities/animal/lib/animalHelpers';
 import { usersService } from '@/entities/user/api/user.service';
 import { changePassword } from '@/features/auth/api/auth.service';
-import { User, Mail, Phone, MapPin, UserCircle, Activity, Shield, Lock, Save, CheckCircle2, Info, AlertTriangle, ClipboardList, Bell, CalendarClock, ExternalLink } from 'lucide-react';
+import { User, Mail, Phone, MapPin, UserCircle, Activity, Shield, Lock, Save, CheckCircle2, Info, AlertTriangle, ClipboardList, CalendarClock, ExternalLink } from 'lucide-react';
 import { useActivityFeed } from '@/features/activity/model/useActivityFeed';
+import { fetchMyActivity } from '@/features/activity/api/activity.service';
 import type { ActivityItem, ActivityEntity as ApiActivityEntity, ActivitySeverity as ApiActivitySeverity, ActivityAction as ApiActivityAction } from '@/features/activity/api/activity.service';
+import { useMyActivitySummary } from '@/features/activity/model/useMyActivitySummary';
 
 const profileSchema = z.object({
     fullname: z.string().min(3, 'Ingresa al menos 3 caracteres').max(120, 'Nombre demasiado largo'),
@@ -418,22 +420,6 @@ const UserProfile = () => {
     };
 
     const loading = authLoading || animalsLoading || geneticsLoading || animalFieldsLoading || animalDiseasesLoading || treatmentsLoading || vaccinationsLoading || controlsLoading;
-
-    if (loading) {
-        return (
-            <div className="flex justify-center items-center min-h-[60vh]">
-                <ClimbingBoxLoader color="#16a34a" size={30} />
-            </div>
-        );
-    }
-
-    if (!user) {
-        return (
-            <div className="p-4 md:p-8 max-w-3xl mx-auto">
-                <p className="text-sm text-muted-foreground">No se pudo cargar el perfil.</p>
-            </div>
-        );
-    }
 
     const userIdentity = String(user.identification ?? user.id ?? '');
     const userId = Number(user.id ?? 0);
@@ -975,9 +961,8 @@ const UserProfile = () => {
             from: activityFrom || undefined,
             to: activityTo || undefined,
             animalId: activityAnimalId || undefined,
-            userId: user?.id,
         }),
-        [activityAction, activityAnimalId, activityEntity, activityFrom, activityLimit, activityPage, activitySeverity, activityTo, user?.id]
+        [activityAction, activityAnimalId, activityEntity, activityFrom, activityLimit, activityPage, activitySeverity, activityTo]
     );
 
     const {
@@ -986,41 +971,13 @@ const UserProfile = () => {
         loading: activityLoading,
         error: activityError,
         refetch: refetchActivity,
-    } = useActivityFeed(activityQuery, { enableCache: true });
+    } = useActivityFeed(activityQuery, { enableCache: true, enabled: !!user?.id, fetcher: fetchMyActivity });
 
-    const rollingFrom7 = useMemo(() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 7);
-        return d.toISOString().slice(0, 10);
-    }, []);
-
-    const rollingFrom30 = useMemo(() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 30);
-        return d.toISOString().slice(0, 10);
-    }, []);
-
-    const { items: activityItems7, meta: activityMeta7, loading: activityLoading7 } = useActivityFeed(
-        { page: 1, limit: 1, from: rollingFrom7, userId: user?.id },
-        { enableCache: true }
-    );
-    const { items: activityItems30, meta: activityMeta30, loading: activityLoading30 } = useActivityFeed(
-        { page: 1, limit: 1, from: rollingFrom30, userId: user?.id },
-        { enableCache: true }
-    );
-    const { items: pendingAlertItems, meta: pendingAlertMeta, loading: pendingAlertsLoading } = useActivityFeed(
-        { page: 1, limit: 1, action: 'alert', severity: 'high', from: rollingFrom30, userId: user?.id },
-        { enableCache: true }
-    );
-    const { items: upcomingAlertItems, meta: upcomingAlertMeta, loading: upcomingAlertsLoading } = useActivityFeed(
-        { page: 1, limit: 1, action: 'alert', severity: 'medium', from: rollingFrom30, userId: user?.id },
-        { enableCache: true }
-    );
-
-    const actions7 = activityMeta7?.total ?? activityItems7.length;
-    const actions30 = activityMeta30?.total ?? activityItems30.length;
-    const pendingAlerts = pendingAlertMeta?.total ?? pendingAlertItems.length;
-    const upcomingAlerts = upcomingAlertMeta?.total ?? upcomingAlertItems.length;
+    const { data: myActivitySummary, loading: summaryLoading } = useMyActivitySummary({ enabled: !!user?.id });
+    const actions7 = myActivitySummary?.window_7d?.totals?.events ?? 0;
+    const actions30 = myActivitySummary?.window_30d?.totals?.events ?? 0;
+    const distinctAnimals30 = myActivitySummary?.window_30d?.totals?.distinct_animals ?? 0;
+    const lastActivityAt = myActivitySummary?.last_activity_at ?? null;
 
     const activeTreatments = useMemo(() => {
         const now = Date.now();
@@ -1111,6 +1068,22 @@ const UserProfile = () => {
         if (animalId) openCrudDetail('animals', animalId);
     };
 
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center min-h-[60vh]">
+                <ClimbingBoxLoader color="#16a34a" size={30} />
+            </div>
+        );
+    }
+
+    if (!user) {
+        return (
+            <div className="p-4 md:p-8 max-w-3xl mx-auto">
+                <p className="text-sm text-muted-foreground">No se pudo cargar el perfil.</p>
+            </div>
+        );
+    }
+
     return (
         <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
             <header className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -1180,14 +1153,14 @@ const UserProfile = () => {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-6">
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                 <div className="rounded-lg border bg-white p-3">
                                     <div className="flex items-center justify-between">
                                         <p className="text-xs text-muted-foreground">Acciones (7/30)</p>
                                         <Activity className="h-4 w-4 text-green-600" aria-hidden />
                                     </div>
                                     <p className="mt-1 text-lg font-semibold text-foreground">
-                                        {activityLoading7 ? '-' : actions7} <span className="text-muted-foreground">/</span> {activityLoading30 ? '-' : actions30}
+                                        {summaryLoading ? '-' : actions7} <span className="text-muted-foreground">/</span> {summaryLoading ? '-' : actions30}
                                     </p>
                                     <p className="text-[11px] text-muted-foreground">Eventos recientes</p>
                                 </div>
@@ -1196,8 +1169,8 @@ const UserProfile = () => {
                                         <p className="text-xs text-muted-foreground">Mis animales</p>
                                         <User className="h-4 w-4 text-green-600" aria-hidden />
                                     </div>
-                                    <p className="mt-1 text-lg font-semibold text-foreground">{userAnimals.length}</p>
-                                    <p className="text-[11px] text-muted-foreground">Bajo tu responsabilidad</p>
+                                    <p className="mt-1 text-lg font-semibold text-foreground">{summaryLoading ? '-' : distinctAnimals30}</p>
+                                    <p className="text-[11px] text-muted-foreground">Involucrados (30d)</p>
                                 </div>
                                 <div className="rounded-lg border bg-white p-3">
                                     <div className="flex items-center justify-between">
@@ -1209,19 +1182,15 @@ const UserProfile = () => {
                                 </div>
                                 <div className="rounded-lg border bg-white p-3">
                                     <div className="flex items-center justify-between">
-                                        <p className="text-xs text-muted-foreground">Alertas pendientes</p>
-                                        <Bell className="h-4 w-4 text-amber-600" aria-hidden />
-                                    </div>
-                                    <p className="mt-1 text-lg font-semibold text-foreground">{pendingAlertsLoading ? '-' : pendingAlerts}</p>
-                                    <p className="text-[11px] text-muted-foreground">Vencimientos / atrasos</p>
-                                </div>
-                                <div className="rounded-lg border bg-white p-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-xs text-muted-foreground">Proximas acciones</p>
+                                        <p className="text-xs text-muted-foreground">Ultima actividad</p>
                                         <CalendarClock className="h-4 w-4 text-blue-600" aria-hidden />
                                     </div>
-                                    <p className="mt-1 text-lg font-semibold text-foreground">{upcomingAlertsLoading ? '-' : upcomingAlerts}</p>
-                                    <p className="text-[11px] text-muted-foreground">Prox. 30 dias</p>
+                                    <p className="mt-1 text-lg font-semibold text-foreground">
+                                        {summaryLoading ? '-' : lastActivityAt ? new Date(lastActivityAt).toLocaleDateString('es-ES') : '-'}
+                                    </p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        {summaryLoading ? '' : lastActivityAt ? new Date(lastActivityAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Sin eventos'}
+                                    </p>
                                 </div>
                             </div>
 
