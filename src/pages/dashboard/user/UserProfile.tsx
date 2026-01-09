@@ -212,7 +212,7 @@ const UserProfile = () => {
         if (logoutCountdown == null) return;
         if (logoutCountdown <= 0) {
             setLogoutCountdown(null);
-            logout().catch(() => {});
+            Promise.resolve(logout()).catch(() => {});
             return;
         }
         const t = setTimeout(() => setLogoutCountdown((prev) => (prev == null ? null : prev - 1)), 1000);
@@ -422,8 +422,8 @@ const UserProfile = () => {
 
     const loading = authLoading || animalsLoading || geneticsLoading || animalFieldsLoading || animalDiseasesLoading || treatmentsLoading || vaccinationsLoading || controlsLoading;
 
-    const userIdentity = String(user.identification ?? user.id ?? '');
-    const userId = Number(user.id ?? 0);
+    const userIdentity = String(user?.identification ?? user?.id ?? '');
+    const userId = Number(user?.id ?? 0);
     const safeAnimals = Array.isArray(animals) ? animals : [];
     const safeGenetics = Array.isArray(genetics) ? genetics : [];
     const safeAnimalFields = Array.isArray(animalFields) ? animalFields : [];
@@ -1425,7 +1425,7 @@ const UserProfile = () => {
                                                                         </Button>
                                                                     )}
                                                                     {item.links?.analytics && (
-                                                                        <Button type="button" variant="outline" size="sm" onClick={() => openActivityLink(item.links.analytics)}>
+                                                                        <Button type="button" variant="outline" size="sm" onClick={() => openActivityLink(item.links?.analytics)}>
                                                                             Analytics <ExternalLink className="h-3 w-3 ml-1" aria-hidden />
                                                                         </Button>
                                                                     )}
@@ -1485,8 +1485,8 @@ const UserProfile = () => {
                                     const rows = Array.isArray(section.rows) ? section.rows : [];
                                     const lastTs = rows
                                         .map((row: any) => toEpochMs(row.ts))
-                                        .filter((v: any) => typeof v === 'number' && v > 0)
-                                        .reduce((max: number, v: number) => Math.max(max, v), 0);
+                                        .filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0)
+                                        .reduce((max, v) => Math.max(max, v), 0);
                                     const lastLabel = lastTs ? new Date(lastTs).toLocaleString('es-ES') : 'Sin actividad';
 
                                     const emptyCopy: Record<string, { title: string; body: string; cta: string }> = {
@@ -1695,7 +1695,7 @@ const UserProfile = () => {
                                                 <p className="text-sm">
                                                     Cerrando sesion en <span className="font-semibold">{logoutCountdown}s</span>...
                                                 </p>
-                                                <Button type="button" variant="outline" size="sm" onClick={() => logout().catch(() => {})}>
+                                                <Button type="button" variant="outline" size="sm" onClick={() => Promise.resolve(logout()).catch(() => {})}>
                                                     Cerrar sesion ahora
                                                 </Button>
                                             </div>
