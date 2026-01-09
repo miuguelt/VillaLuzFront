@@ -14,7 +14,7 @@ COPY package*.json ./
 RUN npm ci --no-audit --no-fund --include=dev
 
 COPY . .
-RUN npm run build
+RUN npm run build || (echo "Build failed. Dumping npm logs..." && ls -la /root/.npm/_logs && cat /root/.npm/_logs/* && exit 1)
 
 # Etapa final
 FROM node:22-alpine
