@@ -150,6 +150,7 @@ const UserProfile = () => {
             address: user?.address || '',
         },
     });
+    const { reset } = profileForm;
 
     const passwordForm = useForm<PasswordFormValues>({
         resolver: zodResolver(passwordSchema),
@@ -219,14 +220,14 @@ const UserProfile = () => {
     }, [logoutCountdown, logout]);
     useEffect(() => {
         if (user) {
-            profileForm.reset({
+            reset({
                 fullname: user.fullname || '',
                 email: user.email || '',
                 phone: user.phone || '',
                 address: user.address || '',
             });
         }
-    }, [user?.id, user?.fullname, user?.email, user?.phone, user?.address, profileForm.reset]);
+    }, [user, reset]);
 
     const handleProfileSubmit = async (values: ProfileFormValues) => {
         if (!user?.id) {
