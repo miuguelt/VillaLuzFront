@@ -11,7 +11,7 @@ ENV VITE_RUNTIME_ENV=$VITE_RUNTIME_ENV \
     VITE_FRONTEND_URL=$VITE_FRONTEND_URL
 
 COPY package*.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund --include=dev
 
 COPY . .
 RUN npm run build
