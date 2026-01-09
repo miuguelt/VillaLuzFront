@@ -1,7 +1,7 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
 
-ARG VITE_RUNTIME_ENV
+ARG VITE_RUNTIME_ENV=production
 ARG VITE_API_BASE_URL
 ARG VITE_FRONTEND_URL
 
@@ -20,6 +20,7 @@ RUN npm run build
 FROM node:22-alpine
 WORKDIR /app
 
+ARG VITE_RUNTIME_ENV=production
 ENV VITE_RUNTIME_ENV=$VITE_RUNTIME_ENV \
     NODE_ENV=$VITE_RUNTIME_ENV
 RUN npm install -g serve
