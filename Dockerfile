@@ -5,8 +5,8 @@ ARG VITE_RUNTIME_ENV=production
 ARG VITE_API_BASE_URL
 ARG VITE_FRONTEND_URL
 
-ENV VITE_RUNTIME_ENV=$VITE_RUNTIME_ENV \
-    NODE_ENV=$VITE_RUNTIME_ENV \
+ENV VITE_RUNTIME_ENV=${VITE_RUNTIME_ENV:-production} \
+    NODE_ENV=${VITE_RUNTIME_ENV:-production} \
     VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_FRONTEND_URL=$VITE_FRONTEND_URL
 
@@ -14,15 +14,15 @@ COPY package*.json ./
 RUN npm ci --no-audit --no-fund --include=dev
 
 COPY . .
-RUN npm run build || (echo "Build failed. Dumping npm logs..." && ls -la /root/.npm/_logs && cat /root/.npm/_logs/* && exit 1)
+RUN npm run build || (echo "Build failed. Dumping npm logs..." && ls -la /root/.npm/_logs || true && cat /root/.npm/_logs/* || true && exit 1)
 
 # Etapa final
 FROM node:22-alpine
 WORKDIR /app
 
 ARG VITE_RUNTIME_ENV=production
-ENV VITE_RUNTIME_ENV=$VITE_RUNTIME_ENV \
-    NODE_ENV=$VITE_RUNTIME_ENV
+ENV VITE_RUNTIME_ENV=${VITE_RUNTIME_ENV:-production} \
+    NODE_ENV=${VITE_RUNTIME_ENV:-production}
 RUN npm install -g serve
 RUN apk add --no-cache curl
 
