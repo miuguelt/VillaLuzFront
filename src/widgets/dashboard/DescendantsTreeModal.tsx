@@ -4,10 +4,16 @@ import React from 'react';
 import { cn } from '@/shared/ui/cn.ts';
 import { Baby } from 'lucide-react';
 import type { AnimalTreeSummary, AnimalTreeEdgeExamples } from '@/entities/animal/model/tree.types';
+import { animalsService } from '@/entities/animal/api/animal.service';
+import { useAuth } from '@/features/auth/model/useAuth';
 import { TreeHelpTooltip } from './TreeHelpTooltip';
+import { AnimalMiniCard } from './AnimalMiniCard';
+import { AnimalModalContent } from './animals/AnimalModalContent';
+import { AnimalHistoryModal } from './AnimalHistoryModal';
 
 interface AnimalNode {
   idAnimal?: number;
+  animal_id?: number;
   id?: number;
   record?: string;
   name?: string;
@@ -34,6 +40,8 @@ interface DescendantsTreeModalProps {
     total_children: number;
   };
   treeError?: string | null;
+  onNavigateToAnimal?: (animal: any) => void;
+  onOpenAncestorsTreeForAnimal?: (animal: any) => void;
 }
 
 const DescendantsTreeModal = ({
@@ -43,12 +51,19 @@ const DescendantsTreeModal = ({
   levels,
   counts,
   dependencyInfo,
-  treeError
+  treeError,
+  onNavigateToAnimal,
+  onOpenAncestorsTreeForAnimal
 }: DescendantsTreeModalProps) => {
   // Permitir que el modal se abra aunque falte el animal raíz.
   // Mostraremos estados vacíos/cargando dentro del contenido.
 
   const [depthShown, setDepthShown] = React.useState<number>(Math.max(1, (levels?.length ?? 1)));
+  const { user } = useAuth();
+  const [detailAnimal, setDetailAnimal] = React.useState<any | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = React.useState(false);
+  const [historyAnimal, setHistoryAnimal] = React.useState<any | null>(null);
 
   const displayLevels = React.useMemo(() => {
     return Array.isArray(levels) ? levels.slice(0, Math.max(1, depthShown)) : [];
@@ -66,16 +81,67 @@ const DescendantsTreeModal = ({
     }
   };
 
-  const getSexIcon = (sex?: string) => {
-    if (sex === 'Macho') return '♂';
-    if (sex === 'Hembra') return '♀';
-    return '•';
-  };
-
   const getId = (n: any): number | undefined => {
-    const id = n?.idAnimal ?? n?.id;
+    const id = n?.idAnimal ?? n?.id ?? n?.animal_id;
     return id && Number.isInteger(Number(id)) && Number(id) > 0 ? Number(id) : undefined;
   };
+
+  const getFatherId = (n: any): number | undefined => {
+    const fId = n?.idFather ?? n?.father_id ?? n?.father?.id ?? n?.father?.idAnimal;
+    return fId && Number.isInteger(Number(fId)) && Number(fId) > 0 ? Number(fId) : undefined;
+  };
+
+  const getMotherId = (n: any): number | undefined => {
+    const mId = n?.idMother ?? n?.mother_id ?? n?.mother?.id ?? n?.mother?.idAnimal;
+    return mId && Number.isInteger(Number(mId)) && Number(mId) > 0 ? Number(mId) : undefined;
+  };
+
+  const openAnimalDetail = async (clickedAnimal: AnimalNode) => {
+    const id = getId(clickedAnimal);
+    if (!id) return;
+    setIsDetailModalOpen(true);
+    setDetailAnimal(clickedAnimal);
+    try {
+      const full = await animalsService.getAnimalById(id);
+      setDetailAnimal(full);
+    } catch (error) {
+      console.error('Error loading animal details:', error);
+    }
+  };
+
+  const openAnimalDetailById = (id: number) => {
+    void openAnimalDetail({ id });
+  };
+
+  const openHistory = (record: any) => {
+    const payload = {
+      idAnimal: Number(record?.id ?? record?.idAnimal ?? record?.animal_id ?? 0),
+      record: record?.record || '',
+      breed: record?.breed,
+      birth_date: record?.birth_date,
+      sex: record?.sex || record?.gender,
+      status: record?.status,
+    };
+    setHistoryAnimal(payload);
+    setIsHistoryOpen(true);
+  };
+
+  const getBreedLabel = (record: any) => {
+    if (!record) return '-';
+    return record?.breed?.name || record?.breed_name || (record?.breeds_id || record?.breed_id ? `ID ${record.breeds_id ?? record.breed_id}` : '-');
+  };
+
+  const getParentLabel = (parent: any, parentId?: number) => {
+    if (parent?.record) return parent.record;
+    if (parent?.name) return parent.name;
+    return parentId ? `ID ${parentId}` : '-';
+  };
+
+  const detailFatherId = detailAnimal ? getFatherId(detailAnimal) : undefined;
+  const detailMotherId = detailAnimal ? getMotherId(detailAnimal) : undefined;
+  const detailBreedLabel = getBreedLabel(detailAnimal);
+  const detailFatherLabel = getParentLabel(detailAnimal?.father, detailFatherId);
+  const detailMotherLabel = getParentLabel(detailAnimal?.mother, detailMotherId);
 
   return (
     <GenericModal
@@ -208,68 +274,12 @@ const DescendantsTreeModal = ({
                               sex === 'Macho' ? "bg-gradient-to-b from-blue-500/50 to-transparent" : "bg-gradient-to-b from-pink-500/50 to-transparent"
                             )} />
                           )}
-
                           {/* Tarjeta del animal */}
-                          <div className={cn(
-                            "relative group w-full p-4 rounded-2xl border-2 transition-all duration-300",
-                            "hover:scale-105 hover:shadow-2xl hover:z-10",
-                            "backdrop-blur-sm",
-                            levelIndex === 0 && "bg-gradient-to-br from-primary/20 to-primary/10 border-primary/50 shadow-xl shadow-primary/20",
-                            levelIndex > 0 && sex === 'Macho' && "bg-gradient-to-br from-blue-100/80 to-blue-50/50 dark:from-blue-900/20 dark:to-blue-800/10 border-blue-300/50",
-                            levelIndex > 0 && sex === 'Hembra' && "bg-gradient-to-br from-pink-100/80 to-pink-50/50 dark:from-pink-900/20 dark:to-pink-800/10 border-pink-300/50",
-                            levelIndex > 0 && !sex && "bg-gradient-to-br from-card/80 to-muted/50 border-border/50"
-                          )}>
-                            {/* Brillo superior */}
-                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-
-                            <div className="flex flex-col items-center space-y-3 text-center">
-                              {/* Icono de sexo */}
-                              <div className={cn(
-                                "flex items-center justify-center w-10 h-10 rounded-full",
-                                "border-2 text-2xl font-bold transition-all duration-200",
-                                "group-hover:scale-110",
-                                sex === 'Macho' && "bg-blue-500/20 border-blue-500/50 text-blue-600 dark:text-blue-400",
-                                sex === 'Hembra' && "bg-pink-500/20 border-pink-500/50 text-pink-600 dark:text-pink-400",
-                                !sex && "bg-muted border-border/50 text-muted-foreground"
-                              )}>
-                                {getSexIcon(sex)}
-                              </div>
-
-                              {/* Información */}
-                              <div className="space-y-2 w-full">
-                                <p className={cn(
-                                  "font-bold text-sm sm:text-base truncate",
-                                  levelIndex === 0 && "text-primary",
-                                  levelIndex > 0 && "text-foreground"
-                                )} title={getAnimalLabel(descendant)}>
-                                  {getAnimalLabel(descendant) || 'Sin registro'}
-                                </p>
-
-                                {sex && (
-                                  <p className="text-xs font-medium text-foreground/70">
-                                    {sex}
-                                  </p>
-                                )}
-
-                                {(descendant as any).breed?.name && (
-                                  <p className="text-xs text-muted-foreground truncate px-2 py-0.5 rounded-full bg-background/50" title={(descendant as any).breed.name}>
-                                    {(descendant as any).breed.name}
-                                  </p>
-                                )}
-
-                                {(descendant as any).birth_date && (
-                                  <p className="text-[11px] text-muted-foreground/80">
-                                    {new Date((descendant as any).birth_date).toLocaleDateString('es-ES', {
-                                      year: 'numeric',
-                                      month: 'short',
-                                      day: 'numeric'
-                                    })}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
+                          <AnimalMiniCard
+                            animal={descendant}
+                            levelIndex={levelIndex}
+                            onClick={() => openAnimalDetail(descendant)}
+                          />
                           {/* Conexión al siguiente nivel */}
                           {levelIndex < displayLevels.length - 1 && (
                             <div className="w-1 h-6 bg-gradient-to-b from-primary/20 to-transparent rounded-full mt-4" />
@@ -302,8 +312,56 @@ const DescendantsTreeModal = ({
           </div>
         )}
       </div>
+
+      {/* Modal de detalle del animal seleccionado */}
+      {detailAnimal && (
+        <GenericModal
+          isOpen={isDetailModalOpen}
+          onOpenChange={setIsDetailModalOpen}
+          title={`Detalle - ${getAnimalLabel(detailAnimal)}`}
+          size="5xl"
+          enableBackdropBlur
+          enableNavigation={false}
+        >
+          <AnimalModalContent
+            animal={detailAnimal as any}
+            breedLabel={detailBreedLabel}
+            fatherLabel={detailFatherLabel}
+            motherLabel={detailMotherLabel}
+            onFatherClick={detailFatherId ? () => openAnimalDetailById(detailFatherId) : undefined}
+            onMotherClick={detailMotherId ? () => openAnimalDetailById(detailMotherId) : undefined}
+            currentUserId={user?.id}
+            onOpenHistory={() => openHistory(detailAnimal)}
+            onOpenAncestorsTree={() => {
+              if (!detailAnimal) return;
+              onOpenAncestorsTreeForAnimal?.(detailAnimal);
+              setIsDetailModalOpen(false);
+            }}
+            onOpenDescendantsTree={() => {
+              if (!detailAnimal) return;
+              onNavigateToAnimal?.(detailAnimal);
+              setIsDetailModalOpen(false);
+            }}
+          />
+        </GenericModal>
+      )}
+
+      {isHistoryOpen && historyAnimal && (
+        <AnimalHistoryModal
+          animal={historyAnimal}
+          onClose={() => {
+            setIsHistoryOpen(false);
+            setHistoryAnimal(null);
+          }}
+        />
+      )}
     </GenericModal>
   );
 };
 
 export default DescendantsTreeModal;
+
+
+
+
+

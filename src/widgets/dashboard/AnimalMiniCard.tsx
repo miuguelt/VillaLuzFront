@@ -19,10 +19,11 @@ export const AnimalMiniCard: React.FC<AnimalMiniCardProps> = ({
   onClick,
   className,
 }) => {
+  const sex = (animal as any)?.sex ?? (animal as any)?.gender;
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const animalId = useMemo(() => {
-    const raw = (animal as any)?.id ?? (animal as any)?.animal_id ?? null;
+    const raw = (animal as any)?.id ?? (animal as any)?.idAnimal ?? (animal as any)?.animal_id ?? null;
     const parsed = typeof raw === 'string' ? Number(raw) : raw;
     return typeof parsed === 'number' && Number.isFinite(parsed) ? parsed : null;
   }, [animal]);
@@ -62,6 +63,29 @@ export const AnimalMiniCard: React.FC<AnimalMiniCardProps> = ({
     window.addEventListener('animal-images:updated', handler as EventListener);
     return () => window.removeEventListener('animal-images:updated', handler as EventListener);
   }, [animalId]);
+
+  useEffect(() => {
+    if (!animalId || images.length > 0) return;
+    let cancelled = false;
+
+    const fetchImages = async () => {
+      try {
+        const response = await animalImageService.getAnimalImages(animalId);
+        if (cancelled) return;
+        if (response?.success) {
+          setImages(response.data.images);
+          setCurrentImageIndex(0);
+        }
+      } catch {
+        // noop: fallback al placeholder
+      }
+    };
+
+    fetchImages();
+    return () => {
+      cancelled = true;
+    };
+  }, [animalId, images.length]);
 
   const hasImages = images.length > 0;
 
@@ -123,13 +147,13 @@ export const AnimalMiniCard: React.FC<AnimalMiniCardProps> = ({
           levelIndex === 0 &&
             'bg-gradient-to-br from-primary/20 to-primary/10 border-primary/50 shadow-xl shadow-primary/20',
           levelIndex > 0 &&
-            animal.sex === 'Macho' &&
+            sex === 'Macho' &&
             'bg-gradient-to-br from-blue-100/80 to-blue-50/50 dark:from-blue-900/20 dark:to-blue-800/10 border-blue-300/50',
           levelIndex > 0 &&
-            animal.sex === 'Hembra' &&
+            sex === 'Hembra' &&
             'bg-gradient-to-br from-pink-100/80 to-pink-50/50 dark:from-pink-900/20 dark:to-pink-800/10 border-pink-300/50',
           levelIndex > 0 &&
-            !animal.sex &&
+            !sex &&
             'bg-gradient-to-br from-card/80 to-muted/50 border-border/50'
         )}
       >
@@ -204,12 +228,12 @@ export const AnimalMiniCard: React.FC<AnimalMiniCardProps> = ({
                 'flex items-center justify-center w-8 h-8 rounded-full',
                 'border-2 text-lg font-bold backdrop-blur-md',
                 'shadow-lg',
-                animal.sex === 'Macho' && 'bg-blue-500/90 border-blue-300 text-white',
-                animal.sex === 'Hembra' && 'bg-pink-500/90 border-pink-300 text-white',
-                !animal.sex && 'bg-muted/90 border-border text-muted-foreground'
+                sex === 'Macho' && 'bg-blue-500/90 border-blue-300 text-white',
+                sex === 'Hembra' && 'bg-pink-500/90 border-pink-300 text-white',
+                !sex && 'bg-muted/90 border-border text-muted-foreground'
               )}
             >
-              {getSexIcon(animal.sex)}
+              {getSexIcon(sex)}
             </div>
           </div>
         ) : (
@@ -221,12 +245,12 @@ export const AnimalMiniCard: React.FC<AnimalMiniCardProps> = ({
                 'absolute top-2 right-2',
                 'flex items-center justify-center w-8 h-8 rounded-full',
                 'border-2 text-lg font-bold backdrop-blur-sm',
-                animal.sex === 'Macho' && 'bg-blue-500/20 border-blue-500/50 text-blue-600 dark:text-blue-400',
-                animal.sex === 'Hembra' && 'bg-pink-500/20 border-pink-500/50 text-pink-600 dark:text-pink-400',
-                !animal.sex && 'bg-muted border-border/50 text-muted-foreground'
+                sex === 'Macho' && 'bg-blue-500/20 border-blue-500/50 text-blue-600 dark:text-blue-400',
+                sex === 'Hembra' && 'bg-pink-500/20 border-pink-500/50 text-pink-600 dark:text-pink-400',
+                !sex && 'bg-muted border-border/50 text-muted-foreground'
               )}
             >
-              {getSexIcon(animal.sex)}
+              {getSexIcon(sex)}
             </div>
           </div>
         )}
@@ -243,7 +267,7 @@ export const AnimalMiniCard: React.FC<AnimalMiniCardProps> = ({
             {getAnimalLabel(animal) || 'Sin registro'}
           </p>
 
-          {animal.sex && <p className="text-xs font-medium text-foreground/70">{animal.sex}</p>}
+          {sex && <p className="text-xs font-medium text-foreground/70">{sex}</p>}
 
           {animal.breed?.name && (
             <p

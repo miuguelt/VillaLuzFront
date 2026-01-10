@@ -352,7 +352,7 @@ export function AnimalModalContent({
         )}
 
         {/* Mejoras Genéticas - Verde */}
-        {!loading && (
+        {!loading && geneticImprovements.length > 0 && (
           <RelatedDataSection
             title="Mejoras Genéticas"
             icon={<TrendingUp className="h-5 w-5" />}
@@ -388,7 +388,7 @@ export function AnimalModalContent({
         )}
 
         {/* Enfermedades - Rojo */}
-        {!loading && (
+        {!loading && diseases.length > 0 && (
           <RelatedDataSection
             title="Enfermedades"
             icon={<Activity className="h-5 w-5" />}
@@ -424,7 +424,7 @@ export function AnimalModalContent({
         )}
 
         {/* Campos Asignados - Amarillo */}
-        {!loading && (
+        {!loading && fields.length > 0 && (
           <RelatedDataSection
             title="Campos Asignados"
             icon={<MapPin className="h-5 w-5" />}
@@ -463,7 +463,7 @@ export function AnimalModalContent({
         )}
 
         {/* Vacunaciones - Azul */}
-        {!loading && (
+        {!loading && vaccinations.length > 0 && (
           <RelatedDataSection
             title="Vacunaciones"
             icon={<Syringe className="h-5 w-5" />}
@@ -499,7 +499,7 @@ export function AnimalModalContent({
         )}
 
         {/* Tratamientos - Púrpura */}
-        {!loading && (
+        {!loading && treatments.length > 0 && (
           <RelatedDataSection
             title="Tratamientos"
             icon={<Pill className="h-5 w-5" />}
@@ -535,7 +535,7 @@ export function AnimalModalContent({
         )}
 
         {/* Controles - Naranja */}
-        {!loading && (
+        {!loading && controls.length > 0 && (
           <RelatedDataSection
             title="Controles"
             icon={<ClipboardList className="h-5 w-5" />}

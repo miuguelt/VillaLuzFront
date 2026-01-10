@@ -777,6 +777,8 @@ function AdminAnimalsPage() {
         dependencyInfo={ancestorsApi.dependencyInfo}
         treeError={ancestorsApi.error}
         loadingMore={ancestorsApi.loading}
+        onNavigateToAnimal={openGeneticTreeModal}
+        onOpenDescendantsTreeForAnimal={openDescendantsTreeModal}
         onLoadMore={async () => {
           if (!treeRootId || !ancestorsApi.graph) return;
           const merged = await ancestorsApi.loadMore('ancestors', treeRootId, ancestorsApi.graph, {
@@ -807,6 +809,8 @@ function AdminAnimalsPage() {
         dependencyInfo={descendantsApi.dependencyInfo}
         treeError={descendantsApi.error}
         loadingMore={descendantsApi.loading}
+        onNavigateToAnimal={openDescendantsTreeModal}
+        onOpenAncestorsTreeForAnimal={openGeneticTreeModal}
         onLoadMore={async () => {
           if (!descRootId || !descendantsApi.graph) return;
           const merged = await descendantsApi.loadMore('descendants', descRootId, descendantsApi.graph, {

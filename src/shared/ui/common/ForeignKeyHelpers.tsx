@@ -162,6 +162,8 @@ export const AnimalLink: React.FC<{ id: number | string; label: string }> = ({ i
             dependencyInfo={ancestorsApi.dependencyInfo}
             treeError={ancestorsApi.error}
             loadingMore={ancestorsApi.loading}
+            onNavigateToAnimal={openAncestorsTree}
+            onOpenDescendantsTreeForAnimal={openDescendantsTree}
             onLoadMore={async () => {
               if (!treeRootId || !ancestorsApi.graph) return;
               const merged = await ancestorsApi.loadMore('ancestors', treeRootId, ancestorsApi.graph, {
@@ -192,6 +194,8 @@ export const AnimalLink: React.FC<{ id: number | string; label: string }> = ({ i
             dependencyInfo={descendantsApi.dependencyInfo}
             treeError={descendantsApi.error}
             loadingMore={descendantsApi.loading}
+            onNavigateToAnimal={openDescendantsTree}
+            onOpenAncestorsTreeForAnimal={openAncestorsTree}
             onLoadMore={async () => {
               if (!descRootId || !descendantsApi.graph) return;
               const merged = await descendantsApi.loadMore('descendants', descRootId, descendantsApi.graph, {
