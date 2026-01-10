@@ -149,9 +149,13 @@ export function AnimalImageBanner({
   // Refrescar al recibir evento global
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { animalId?: number } | undefined;
+      const detail = (e as CustomEvent).detail as { animalId?: number; uploaded?: any[] } | undefined;
       if (!detail || detail.animalId === animalId) {
         fetchImages();
+        if (detail?.uploaded?.length) {
+          setTimeout(fetchImages, 800);
+          setTimeout(fetchImages, 1600);
+        }
       }
     };
     window.addEventListener('animal-images:updated', handler as EventListener);

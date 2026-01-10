@@ -170,7 +170,11 @@ class AnimalImageService extends BaseService<AnimalImage> {
 
     try {
       const response = await api.get<AnimalImagesResponse>(
-        ANIMAL_IMAGES_ENDPOINTS.GET_BY_ANIMAL(animalId)
+        ANIMAL_IMAGES_ENDPOINTS.GET_BY_ANIMAL(animalId),
+        {
+          params: { _ts: Date.now() },
+          headers: { 'Cache-Control': 'no-cache' },
+        }
       );
 
       // Asegurar que las URLs de las imágenes sean absolutas y evitar contenido mixto en dev

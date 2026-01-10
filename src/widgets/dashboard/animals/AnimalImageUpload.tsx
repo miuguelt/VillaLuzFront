@@ -224,15 +224,16 @@ export function AnimalImageUpload({
 
         // Mostrar toast de confirmación
         showToast(`✅ ${respMessage}`, 'success');
-
-        // Despachar evento global para que cualquier galería o banner se refresque
+        // Despachar evento global para que cualquier galer¡a o banner se refresque
         try {
-          window.dispatchEvent(new CustomEvent('animal-images:updated', {
-            detail: { animalId, uploaded: response.data.uploaded }
-          }));
+          const detail = { animalId, uploaded: response.data.uploaded };
+          window.dispatchEvent(new CustomEvent('animal-images:updated', { detail }));
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('animal-images:updated', { detail }));
+          }, 800);
         } catch (error) {
           if (process.env.NODE_ENV !== 'production') {
-            console.warn('[AnimalImageUpload] No se pudo emitir evento de actualización', error);
+            console.warn('[AnimalImageUpload] No se pudo emitir evento de actualizaci¢n', error);
           }
         }
       } else {

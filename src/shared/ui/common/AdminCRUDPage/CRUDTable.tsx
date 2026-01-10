@@ -86,6 +86,13 @@ const TableRow = memo(<T extends { id: number }>({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
+        const target = e.target as HTMLElement | null;
+        const isTypingTarget = !!target?.closest(
+          'input, textarea, select, [contenteditable="true"]'
+        );
+        if (isTypingTarget) {
+          return;
+        }
         if (e.key === 'Enter' || e.key === ' ' || (e as any).keyCode === 13) {
           e.preventDefault();
           if (onOpenDetail) {

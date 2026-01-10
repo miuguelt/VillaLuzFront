@@ -152,9 +152,13 @@ export function ImageManager({
   // Escuchar evento global de actualización de imágenes
   useEffect(() => {
     const handler = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { animalId?: number } | undefined;
+      const detail = (e as CustomEvent).detail as { animalId?: number; uploaded?: any[] } | undefined;
       if (!detail || detail.animalId === animalId) {
         setTimeout(fetchImages, 0);
+        if (detail?.uploaded?.length) {
+          setTimeout(fetchImages, 800);
+          setTimeout(fetchImages, 1600);
+        }
       }
     };
     window.addEventListener('animal-images:updated', handler as EventListener);
@@ -437,15 +441,16 @@ export function ImageManager({
           `✅ ${response.data.total_uploaded} imagen(es) subida(s) correctamente`,
           'success'
         );
-
-        // Despachar evento global para que cualquier galería o banner se refresque
+        // Despachar evento global para que cualquier galer¡a o banner se refresque
         try {
-          window.dispatchEvent(new CustomEvent('animal-images:updated', {
-            detail: { animalId, uploaded: response.data.uploaded }
-          }));
+          const detail = { animalId, uploaded: response.data.uploaded };
+          window.dispatchEvent(new CustomEvent('animal-images:updated', { detail }));
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('animal-images:updated', { detail }));
+          }, 800);
         } catch (error) {
           if (process.env.NODE_ENV !== 'production') {
-            console.warn('[ImageManager] Error emitiendo evento de actualización', error);
+            console.warn('[ImageManager] Error emitiendo evento de actualizaci¢n', error);
           }
         }
       } else {

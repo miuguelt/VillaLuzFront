@@ -197,11 +197,13 @@ const RoleBasedSideBar: React.FC<SidebarProps> = ({ isSidebarOpen, setIsSidebarO
               aria-label="Ir al perfil"
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/25">
-                <span className="font-semibold text-xs">{currentRole?.toString?.()?.charAt?.(0) ?? '?'}</span>
+                <span className="font-semibold text-xs">
+                  {(user?.fullname || currentRole || '?').toString().trim().charAt(0) || '?'}
+                </span>
               </div>
               <div className="flex flex-col leading-tight z-10">
-                <span className="font-semibold text-sm">{currentRole}</span>
-                <span className="text-xs text-text-secondary">Panel de control</span>
+                <span className="font-semibold text-sm">{user?.fullname || 'Usuario'}</span>
+                <span className="text-xs text-text-secondary">{currentRole || 'Rol'}</span>
               </div>
             </Link>
             <div className="flex items-center gap-2">
