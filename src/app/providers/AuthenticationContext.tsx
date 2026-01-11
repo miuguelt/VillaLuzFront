@@ -401,7 +401,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false) // evitar pantalla de carga si tenemos datos locales
       prefetchRoleRoutes(persisted.role)
       // Revalidar en background para actualizar o limpiar si expiró sesión
-      checkAuthStatus({ background: true })
+      checkAuthStatus({ background: true, force: true })
     } else {
       // Sin datos locales: llamar /auth/me para validar sesión basada en cookie HttpOnly si existe
       checkAuthStatus()
@@ -666,3 +666,4 @@ const RATE_LIMIT_COOLDOWN_MS = 60_000; // 60s de enfriamiento tras 429
 const AUTH_BC_NAME = 'auth:sync'
 const INFLIGHT_SUPPRESSION_WINDOW_MS = 5000
 const AUTH_BC_FALLBACK_KEY = 'auth:sync:storage'
+

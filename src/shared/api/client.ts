@@ -19,7 +19,19 @@ const HTTP_CACHE_TTL = Number(env.VITE_HTTP_CACHE_TTL ?? 20000); // TTL por defe
 const LOGIN_REDIRECT_PATH = env.VITE_LOGIN_PATH || '/login';
 const SESSION_STORAGE_KEYS = [AUTH_STORAGE_KEY, 'access_token'];
 const SESSION_COOKIE_CANDIDATES = ['access_token_cookie', 'access_token', 'csrf_access_token', 'csrf_refresh_token'];
+
+
 const AUTH_SESSION_ACTIVE_KEY = 'auth:session_active';
+
+const AUTH_STATE_KEYS = [
+  'auth:user',
+  'auth:recent_ts',
+  'auth:user:cache',
+  'auth:auto_login_block',
+  AUTH_SESSION_ACTIVE_KEY,
+  'dev_user_data_session',
+  'finca_auth_login_path',
+];
 
 function hasClientSession(): boolean {
   // Enforce re-authentication after a browser restart: only consider a session valid if the app
@@ -392,7 +404,7 @@ async function callBackendLogout(logoutUrl?: string) {
 }
 
 function clearClientTokens() {
-  const keys = SESSION_STORAGE_KEYS;
+  const keys = new Set([...SESSION_STORAGE_KEYS, ...AUTH_STATE_KEYS]);
   for (const key of keys) {
     try {
       if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
@@ -745,3 +757,6 @@ const originalGet = api.get.bind(api);
 
 export default api;
 export { unwrapApi } from '@/shared/utils/apiUnwrap';
+
+
+
