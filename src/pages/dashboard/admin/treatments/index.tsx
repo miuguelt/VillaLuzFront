@@ -1254,6 +1254,28 @@ const AdminTreatmentsPage: React.FC = () => {
           confirmLabel="Desvincular"
           confirmVariant="destructive"
         />
+        <ConfirmDialog
+          open={confirmDeleteVaccineOpen}
+          onOpenChange={setConfirmDeleteVaccineOpen}
+          title="Desvincular vacuna del tratamiento"
+          description={pendingDeleteVaccine ? `¿Deseas desvincular la vacuna ${pendingDeleteVaccine.vaccine_name ?? (pendingDeleteVaccine.vaccine_id ? (vaccineLabelById.get(Number(pendingDeleteVaccine.vaccine_id)) || `#${pendingDeleteVaccine.vaccine_id}`) : `#${pendingDeleteVaccine.id}`)} del tratamiento?` : '¿Deseas desvincular esta vacuna?'}
+          confirmLabel="Desvincular"
+          cancelLabel="Cancelar"
+          onConfirm={confirmDeleteVaccine}
+          confirmVariant="destructive"
+          size="sm"
+        />
+        <ConfirmDialog
+          open={confirmDeleteMedicationOpen}
+          onOpenChange={setConfirmDeleteMedicationOpen}
+          title="Desvincular medicamento del tratamiento"
+          description={pendingDeleteMedication ? `¿Deseas desvincular el medicamento ${pendingDeleteMedication.medication_name ?? (pendingDeleteMedication.medication_id ? (medicationLabelById.get(Number(pendingDeleteMedication.medication_id)) || `#${pendingDeleteMedication.medication_id}`) : `#${pendingDeleteMedication.id}`)} del tratamiento?` : '¿Deseas desvincular este medicamento?'}
+          confirmLabel="Desvincular"
+          cancelLabel="Cancelar"
+          onConfirm={confirmDeleteMedication}
+          confirmVariant="destructive"
+          size="sm"
+        />
       </div>
     );
   };
