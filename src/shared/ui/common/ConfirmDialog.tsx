@@ -97,9 +97,14 @@ export function ConfirmDialog({
         <div className="mb-4 space-y-3">
           {/* Ícono de advertencia */}
           {showWarningIcon && (
-            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-              <span className="font-semibold text-sm">Advertencia de Integridad Referencial</span>
+            <div className="flex items-start gap-2 text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <div className="font-semibold text-sm">Integridad referencial: eliminacion bloqueada</div>
+                <div className="text-xs text-amber-800/90 dark:text-amber-300/90">
+                  Hay registros relacionados. Elimine o reasigne esos registros antes de intentar de nuevo.
+                </div>
+              </div>
             </div>
           )}
 

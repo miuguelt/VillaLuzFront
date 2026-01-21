@@ -8,6 +8,10 @@ import { useCache, useCacheKey } from '@/app/providers/CacheContext';
 const __resourceRefetchers = new Set<() => Promise<any>>();
 // Global in-flight deduplication per cache key to coalesce concurrent refetches
 const __resourceInflight = new Map<string, Promise<any>>();
+// Global throttling per cache key to prevent excessive refetch frequency
+const __resourceLastFetchAt = new Map<string, number>();
+// Backoff map per endpoint prefix informed by client rate limit events
+const __endpointBackoffUntil = new Map<string, number>();
 
 export async function refetchAllResources(): Promise<void> {
   const fns = Array.from(__resourceRefetchers);
@@ -88,7 +92,9 @@ export function useResource<T extends { id?: number | string }, P extends Record
   const [refreshing, setRefreshing] = useState(false);
   // Controles de tiempo real
   const realtimeEnabled = options.enableRealtime === true;
-  const pollInterval = typeof options.pollIntervalMs === 'number' ? Math.max(2000, options.pollIntervalMs) : 0;
+  const pollInterval = typeof options.pollIntervalMs === 'number'
+    ? (options.pollIntervalMs > 0 ? Math.max(2000, options.pollIntervalMs) : 0)
+    : 0;
   const refetchOnFocus = options.refetchOnFocus !== false; // default true
   const refetchOnReconnect = options.refetchOnReconnect !== false; // default true
   const pollTimerRef = useRef<any>(null);
@@ -160,6 +166,22 @@ export function useResource<T extends { id?: number | string }, P extends Record
     }
   }, []);
 
+  // Mutations (create/update/delete) no deben setear el `error` global del recurso,
+  // porque ese `error` se usa para renderizar ErrorState de la vista principal.
+  const safeExecuteMutation = useCallback(async <R,>(fn: () => Promise<R>): Promise<R | undefined> => {
+    try {
+      setLoading(true);
+      return await fn();
+    } catch (e: any) {
+      if (axios.isCancel(e)) {
+        return undefined;
+      }
+      throw e;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const buildEffectiveParams = useCallback((): Record<string, any> | undefined => {
     // Combinar en orden de prioridad: query params URL -> params pasados a refetch -> initialParams
     const base = { ...(initialParams as any) };
@@ -181,16 +203,70 @@ export function useResource<T extends { id?: number | string }, P extends Record
   const refetch = useCallback(async (params?: P): Promise<T[]> => {
     lastParams.current = params || lastParams.current;
     const effective = buildEffectiveParams();
+    const cacheKey = generateKey(prefix, effective);
+    const nowTs = Date.now();
+    const lastTs = __resourceLastFetchAt.get(cacheKey) || 0;
+    const backoffUntil = __endpointBackoffUntil.get(prefix) || 0;
+    // Guard: si existe backoff activo para el endpoint, saltar refetch de red
+    if (backoffUntil && nowTs < backoffUntil) {
+      return data;
+    }
+    // Throttle: evitar refetchs de alta frecuencia por efectos/estado
+    if (nowTs - lastTs < 1500) {
+      return data;
+    }
     // Cancelar cualquier petición anterior antes de iniciar una nueva
     try { cancelSource.current.cancel('Refetching: cancel previous request'); } catch { /* noop */ }
     cancelSource.current = axios.CancelToken.source();
     const effectiveWithToken = { ...(effective || {}), cancelToken: cancelSource.current.token } as any;
 
     // 1) Intentar cache persistente (si cache=true)
-    const cacheKey = generateKey(prefix, effective);
+    __resourceLastFetchAt.set(cacheKey, nowTs);
 
     const hasData = Array.isArray(data) && data.length > 0;
     if (hasData) setRefreshing(true);
+
+    const applyStableOrder = (list: T[]): T[] => {
+      if (!Array.isArray(list) || list.length === 0) return list;
+      if (!Array.isArray(data) || data.length === 0) return list;
+
+      const now = Date.now();
+      for (const [id, ts] of Array.from(recentlyUpdatedTimestamps.current.entries())) {
+        if (now - ts > 120000) {
+          recentlyUpdatedIds.current.delete(id);
+          recentlyUpdatedTimestamps.current.delete(id);
+          recentlyUpdatedItems.current.delete(id);
+        }
+      }
+
+      if (recentlyUpdatedIds.current.size === 0) return list;
+
+      const nextMap = new Map<string, T>();
+      list.forEach((item) => {
+        const id = String((item as any)?.id);
+        if (id && id !== 'undefined') nextMap.set(id, item);
+      });
+
+      const ordered: T[] = [];
+      const used = new Set<string>();
+      data.forEach((prevItem) => {
+        const id = String((prevItem as any)?.id);
+        if (!id || id === 'undefined') return;
+        const nextItem = nextMap.get(id);
+        if (nextItem) {
+          ordered.push(nextItem);
+          used.add(id);
+        }
+      });
+
+      list.forEach((item) => {
+        const id = String((item as any)?.id);
+        if (!id || id === 'undefined' || used.has(id)) return;
+        ordered.push(item);
+      });
+
+      return ordered.length > 0 ? ordered : list;
+    };
 
     try {
       // Optimización: usar caché en memoria primero para respuestas rápidas
@@ -198,66 +274,79 @@ export function useResource<T extends { id?: number | string }, P extends Record
       const now = Date.now();
       const shouldSkipCache = now < skipCacheUntil.current;
       const shouldUseCache = cache && !shouldSkipCache;
+      if (shouldSkipCache) {
+        effectiveWithToken.cache_bust = Date.now();
+      }
 
       if (shouldUseCache) {
         const cached = getCache<{ items?: T[]; data?: T[]; meta?: any; timestamp?: number }>(cacheKey);
         if (cached && cached.timestamp) {
-          const cacheAge = Date.now() - cached.timestamp;
-          // Si el caché es reciente (< 30s), usarlo inmediatamente sin mostrar loading
-          if (cacheAge < 30000) {
-            const items = (cached.items || cached.data || []) as T[];
-            const finalList = map ? map(items) : items;
-            setData(finalList);
-            if (cached.meta) {
-              setMeta({
-                page: Number(cached.meta.page ?? effective?.page ?? 1),
-                limit: Number(cached.meta.limit ?? effective?.limit ?? finalList.length ?? 10),
-                total: Number(cached.meta.total ?? finalList.length ?? 0),
-                totalPages: cached.meta.totalPages,
-                hasNextPage: cached.meta.hasNextPage,
-                hasPreviousPage: cached.meta.hasPreviousPage,
-                rawMeta: cached.meta.rawMeta,
-              });
-            } else {
-              setMeta(null);
-            }
-            // Refrescar en background inmediatamente (sin esperas en tiempo)
-            // Lanzar la actualización sin bloquear la UI (deduplicado por cacheKey)
-            if (!__resourceInflight.has(cacheKey)) {
-              const bgPromise = safeExecute(async () => {
-                const hasPaging = effective && (effective.page !== undefined || effective.limit !== undefined);
-                if (hasPaging) {
-                  const resp: any = await (service as any).getPaginated(effectiveWithToken);
-                  const items: T[] = (resp?.data ?? resp) as T[];
-                  const finalList = map ? map(items) : items;
+          const items = (cached.items || cached.data || []) as T[];
+          const finalList = map ? map(items) : items;
+          setData(finalList);
+          if (cached.meta) {
+            setMeta({
+              page: Number(cached.meta.page ?? effective?.page ?? 1),
+              limit: Number(cached.meta.limit ?? effective?.limit ?? finalList.length ?? 10),
+              total: Number(cached.meta.total ?? finalList.length ?? 0),
+              totalPages: cached.meta.totalPages,
+              hasNextPage: cached.meta.hasNextPage,
+              hasPreviousPage: cached.meta.hasPreviousPage,
+              rawMeta: cached.meta.rawMeta,
+            });
+          } else {
+            setMeta(null);
+          }
+          // Refrescar en background inmediatamente (sin esperas en tiempo)
+          // Lanzar la actualizacion sin bloquear la UI (deduplicado por cacheKey)
+          const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine !== false;
+          if (isOnline && !__resourceInflight.has(cacheKey)) {
+            const bgParams = { ...effectiveWithToken, cache_bust: Date.now() };
+            const bgPromise = safeExecute(async () => {
+              const hasPaging = effective && (effective.page !== undefined || effective.limit !== undefined);
+              if (hasPaging) {
+                const resp: any = await (service as any).getPaginated(bgParams);
+                const items: T[] = (resp?.data ?? resp) as T[];
+                const finalList = map ? map(items) : items;
 
-                  // MERGE INTELIGENTE también en refresco en background
-                  const serverIds = new Set(finalList.map(item => String((item as any)?.id)));
-                  const missingRecentItems: T[] = [];
-                  for (const recentId of Array.from(recentlyCreatedIds.current)) {
-                    if (!serverIds.has(recentId)) {
-                      let localItem = recentlyCreatedItems.current.get(recentId);
-                      if (!localItem) {
-                        localItem = data.find(item => String((item as any)?.id) === recentId);
-                      }
-                      if (localItem) missingRecentItems.push(localItem);
+                // MERGE INTELIGENTE tambien en refresco en background
+                const serverIds = new Set(finalList.map(item => String((item as any)?.id)));
+                const missingRecentItems: T[] = [];
+                for (const recentId of Array.from(recentlyCreatedIds.current)) {
+                  if (!serverIds.has(recentId)) {
+                    let localItem = recentlyCreatedItems.current.get(recentId);
+                    if (!localItem) {
+                      localItem = data.find(item => String((item as any)?.id) === recentId);
                     }
+                    if (localItem) missingRecentItems.push(localItem);
                   }
-                  let mergedList = missingRecentItems.length > 0
-                    ? [...missingRecentItems, ...finalList]
-                    : finalList;
-                  const effectiveLimit = Number(resp?.limit ?? effectiveWithToken?.limit);
-                  if (missingRecentItems.length > 0 && effectiveLimit && mergedList.length > effectiveLimit) {
-                    mergedList = mergedList.slice(0, effectiveLimit);
-                  }
-                  // Filtrar eliminados recientes
-                  const deletedIds = recentlyDeletedIds.current;
-                  if (deletedIds.size > 0) {
-                    mergedList = mergedList.filter(item => !deletedIds.has(String((item as any)?.id)));
-                  }
+                }
+                let mergedList = missingRecentItems.length > 0
+                  ? [...missingRecentItems, ...finalList]
+                  : finalList;
+                const effectiveLimit = Number(resp?.limit ?? effectiveWithToken?.limit);
+                if (missingRecentItems.length > 0 && effectiveLimit && mergedList.length > effectiveLimit) {
+                  mergedList = mergedList.slice(0, effectiveLimit);
+                }
+                // Filtrar eliminados recientes
+                const deletedIds = recentlyDeletedIds.current;
+                if (deletedIds.size > 0) {
+                  mergedList = mergedList.filter(item => !deletedIds.has(String((item as any)?.id)));
+                }
 
-                  setData(mergedList);
-                  setMeta({
+                setData(applyStableOrder(mergedList));
+                setMeta({
+                  page: Number(resp?.page ?? effectiveWithToken?.page ?? 1),
+                  limit: Number(resp?.limit ?? effectiveWithToken?.limit ?? mergedList.length ?? 10),
+                  total: Number(resp?.total ?? mergedList.length ?? 0),
+                  totalPages: resp?.totalPages,
+                  hasNextPage: resp?.hasNextPage,
+                  hasPreviousPage: resp?.hasPreviousPage,
+                  rawMeta: resp?.rawMeta,
+                });
+                setCache(cacheKey, {
+                  items: mergedList,
+                  meta: {
                     page: Number(resp?.page ?? effectiveWithToken?.page ?? 1),
                     limit: Number(resp?.limit ?? effectiveWithToken?.limit ?? mergedList.length ?? 10),
                     total: Number(resp?.total ?? mergedList.length ?? 0),
@@ -265,54 +354,42 @@ export function useResource<T extends { id?: number | string }, P extends Record
                     hasNextPage: resp?.hasNextPage,
                     hasPreviousPage: resp?.hasPreviousPage,
                     rawMeta: resp?.rawMeta,
-                  });
-                  setCache(cacheKey, {
-                    items: mergedList,
-                    meta: {
-                      page: Number(resp?.page ?? effectiveWithToken?.page ?? 1),
-                      limit: Number(resp?.limit ?? effectiveWithToken?.limit ?? mergedList.length ?? 10),
-                      total: Number(resp?.total ?? mergedList.length ?? 0),
-                      totalPages: resp?.totalPages,
-                      hasNextPage: resp?.hasNextPage,
-                      hasPreviousPage: resp?.hasPreviousPage,
-                      rawMeta: resp?.rawMeta,
-                    },
-                    timestamp: Date.now(),
-                    includesLocalRecent: missingRecentItems.length > 0,
-                    recentIds: Array.from(recentlyCreatedIds.current)
-                  }, cacheTTL);
-                } else {
-                  const list = await service.getAll(effectiveWithToken);
-                  const finalList = map ? map(list) : list;
+                  },
+                  timestamp: Date.now(),
+                  includesLocalRecent: missingRecentItems.length > 0,
+                  recentIds: Array.from(recentlyCreatedIds.current)
+                }, cacheTTL);
+              } else {
+                const list = await service.getAll(bgParams);
+                const finalList = map ? map(list) : list;
 
-                  // MERGE también en background para no perder ítems recientes
-                  const serverIds = new Set(finalList.map(item => String((item as any)?.id)));
-                  const missingRecentItems: T[] = [];
-                  for (const recentId of Array.from(recentlyCreatedIds.current)) {
-                    if (!serverIds.has(recentId)) {
-                      let localItem = recentlyCreatedItems.current.get(recentId);
-                      if (!localItem) {
-                        localItem = data.find(item => String((item as any)?.id) === recentId);
-                      }
-                      if (localItem) missingRecentItems.push(localItem);
+                // MERGE tambien en background para no perder items recientes
+                const serverIds = new Set(finalList.map(item => String((item as any)?.id)));
+                const missingRecentItems: T[] = [];
+                for (const recentId of Array.from(recentlyCreatedIds.current)) {
+                  if (!serverIds.has(recentId)) {
+                    let localItem = recentlyCreatedItems.current.get(recentId);
+                    if (!localItem) {
+                      localItem = data.find(item => String((item as any)?.id) === recentId);
                     }
+                    if (localItem) missingRecentItems.push(localItem);
                   }
-                  const mergedList = missingRecentItems.length > 0
-                    ? [...missingRecentItems, ...finalList]
-                    : finalList;
-
-                  setData(mergedList);
-                  setMeta(null);
-                  setCache(cacheKey, { data: mergedList, timestamp: Date.now(), includesLocalRecent: missingRecentItems.length > 0, recentIds: Array.from(recentlyCreatedIds.current) }, cacheTTL);
                 }
-              });
-              __resourceInflight.set(cacheKey, bgPromise as Promise<any>);
-              void bgPromise.finally(() => { __resourceInflight.delete(cacheKey); }).catch(() => {
-                // Silenciosamente fallar background refresh
-              });
-            }
-            return finalList;
+                const mergedList = missingRecentItems.length > 0
+                  ? [...missingRecentItems, ...finalList]
+                  : finalList;
+
+                setData(applyStableOrder(mergedList));
+                setMeta(null);
+                setCache(cacheKey, { data: mergedList, timestamp: Date.now(), includesLocalRecent: missingRecentItems.length > 0, recentIds: Array.from(recentlyCreatedIds.current) }, cacheTTL);
+              }
+            });
+            __resourceInflight.set(cacheKey, bgPromise as Promise<any>);
+            void bgPromise.finally(() => { __resourceInflight.delete(cacheKey); }).catch(() => {
+              // Silenciosamente fallar background refresh
+            });
           }
+          return finalList;
         }
       }
 
@@ -394,7 +471,7 @@ export function useResource<T extends { id?: number | string }, P extends Record
             }
           }
 
-          setData(mergedList);
+          setData(applyStableOrder(mergedList));
           setMeta({
             page: Number(resp?.page ?? effectiveWithToken?.page ?? 1),
             limit: Number(resp?.limit ?? effectiveWithToken?.limit ?? mergedList.length ?? 10),
@@ -491,7 +568,7 @@ export function useResource<T extends { id?: number | string }, P extends Record
           }
         }
 
-        setData(mergedList);
+        setData(applyStableOrder(mergedList));
         setMeta(null);
         if (cache) {
           setCache(cacheKey, { data: finalList, timestamp: Date.now() }, cacheTTL);
@@ -503,10 +580,10 @@ export function useResource<T extends { id?: number | string }, P extends Record
       const result = await fetchPromise;
       __resourceInflight.delete(cacheKey);
       if (result === undefined) {
-      // Request was canceled, return current data
-      return data;
-    }
-    return result;
+        // Request was canceled, return current data
+        return data;
+      }
+      return result;
     } finally {
       if (hasData) setRefreshing(false);
       // NO resetear skipCacheUntil aquí - dejarlo expirar naturalmente por timestamp
@@ -518,6 +595,10 @@ export function useResource<T extends { id?: number | string }, P extends Record
   const recentlyCreatedTimestamps = useRef<Map<string, number>>(new Map());
   const recentlyCreatedItems = useRef<Map<string, T>>(new Map()); // Guardar items completos
 
+  const recentlyUpdatedIds = useRef<Set<string>>(new Set());
+  const recentlyUpdatedTimestamps = useRef<Map<string, number>>(new Map());
+  const recentlyUpdatedItems = useRef<Map<string, T>>(new Map());
+
   // Ref para trackear items recién eliminados que deben filtrarse del refetch si el backend aún los devuelve
   const recentlyDeletedIds = useRef<Set<string>>(new Set());
   const recentlyDeletedTimestamps = useRef<Map<string, number>>(new Map());
@@ -527,7 +608,7 @@ export function useResource<T extends { id?: number | string }, P extends Record
     // Marcar CRUD en progreso para pausar polling
     crudInProgress.current = true;
     try {
-      const result = await safeExecute(async () => {
+      const result = await safeExecuteMutation(async () => {
         const created = await service.create(payload);
 
         // Trackear el ID del item creado para merge inteligente
@@ -590,21 +671,24 @@ export function useResource<T extends { id?: number | string }, P extends Record
       // Marcar CRUD como completado inmediatamente - confiar en que el refetch sincronizará
       crudInProgress.current = false;
     }
-  }, [service, safeExecute, invalidateByEndpoint, prefix]);
+  }, [service, safeExecuteMutation, invalidateByEndpoint, prefix]);
 
   const updateItem = useCallback(async (id: number | string, payload: Partial<T>) => {
     // Marcar CRUD en progreso para pausar polling
     crudInProgress.current = true;
     try {
-      const result = await safeExecute(async () => {
-        const updated = await service.update(id, payload);
+      const result = await safeExecuteMutation(async () => {
+        const updatedRaw = await service.update(id, payload);
+        const updated = (updatedRaw && typeof updatedRaw === 'object')
+          ? { ...(payload as any), ...(updatedRaw as any) }
+          : { ...(payload as any), id };
 
         // Trackear el ID del item actualizado
         const updatedId = String(id);
         if (updatedId && updatedId !== 'undefined') {
-          recentlyCreatedIds.current.add(updatedId);
-          recentlyCreatedTimestamps.current.set(updatedId, Date.now());
-          recentlyCreatedItems.current.set(updatedId, updated); // Guardar item completo actualizado
+          recentlyUpdatedIds.current.add(updatedId);
+          recentlyUpdatedTimestamps.current.set(updatedId, Date.now());
+          recentlyUpdatedItems.current.set(updatedId, updated); // Guardar item completo actualizado
         }
 
         // Invalidar caché ANTES de actualizar estado (persistente + en memoria del servicio)
@@ -615,14 +699,41 @@ export function useResource<T extends { id?: number | string }, P extends Record
         // Forzar bypass de caché por 30 segundos para asegurar datos frescos
         skipCacheUntil.current = Date.now() + 30000;
 
-        // Actualización optimista del estado local
-        setData(prev => prev.map(i => (i.id === id ? { ...i, ...updated } : i)));
+        // Actualización optimista del estado local (normalizar IDs para evitar mismatch string/number)
+        const applyAliasSync = (prevItem: any, nextItem: any) => {
+          const hasKey = (obj: any, key: string) => obj && Object.prototype.hasOwnProperty.call(obj, key);
+          const mirrorIfNeeded = (a: string, b: string) => {
+            const aExists = hasKey(prevItem, a) || hasKey(nextItem, a);
+            const bExists = hasKey(prevItem, b) || hasKey(nextItem, b);
+            if (!aExists && !bExists) return;
+            const aVal = (nextItem as any)[a];
+            const bVal = (nextItem as any)[b];
+            if (aVal !== undefined && bVal === undefined && bExists) (nextItem as any)[b] = aVal;
+            if (bVal !== undefined && aVal === undefined && aExists) (nextItem as any)[a] = bVal;
+          };
+          mirrorIfNeeded('diagnosis', 'description');
+          mirrorIfNeeded('dosis', 'dose');
+          mirrorIfNeeded('frequency', 'frecuencia');
+          mirrorIfNeeded('observations', 'notes');
+          mirrorIfNeeded('status', 'estado');
+          return nextItem;
+        };
+
+        setData(prev => prev.map((i: any) => {
+          if (String(i?.id) !== String(id)) return i;
+          const next = { ...i, ...updated };
+          return applyAliasSync(i, next);
+        }));
 
         console.log('[useResource] Item actualizado exitosamente:', {
           id: updatedId,
           payload,
           updated
         });
+
+        if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+          void refetch();
+        }
 
         return updated;
       });
@@ -633,18 +744,18 @@ export function useResource<T extends { id?: number | string }, P extends Record
       return result;
     } catch (error) {
       console.error('[useResource] Error al actualizar item:', error);
-      return null;
+      throw error;
     } finally {
       // Marcar CRUD como completado inmediatamente
       crudInProgress.current = false;
     }
-  }, [service, safeExecute, invalidateByEndpoint, prefix]);
+  }, [service, safeExecuteMutation, invalidateByEndpoint, prefix, refetch]);
 
   const deleteItem = useCallback(async (id: number | string) => {
     // Marcar CRUD en progreso para pausar polling
     crudInProgress.current = true;
     try {
-      const result = await safeExecute(async () => {
+      const result = await safeExecuteMutation(async () => {
         try {
           // El await aquí garantiza que el backend completó la eliminación
           const ok = await service.delete(id);
@@ -724,7 +835,7 @@ export function useResource<T extends { id?: number | string }, P extends Record
       // Marcar CRUD como completado inmediatamente
       crudInProgress.current = false;
     }
-  }, [service, safeExecute, invalidateByEndpoint, prefix]);
+  }, [service, safeExecuteMutation, invalidateByEndpoint, prefix]);
 
   // Initial + deps effect
   useEffect(() => {
@@ -791,6 +902,57 @@ export function useResource<T extends { id?: number | string }, P extends Record
     }
     return () => {};
   }, [realtimeEnabled, refetchOnFocus, refetchOnReconnect, refetch]);
+
+  useEffect(() => {
+    if (!realtimeEnabled) return;
+    const endpointSlug = (() => {
+      const ep = entityKeyRef.current || '';
+      const parts = String(ep).split('/').filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : ep;
+    })();
+    const onResourceChanged = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      const slug = String(detail?.endpoint || '');
+      if (!slug || slug !== endpointSlug) return;
+      if (crudInProgress.current) return;
+      skipCacheUntil.current = Date.now() + 5000;
+      void refetch().catch(() => {});
+    };
+    const onGlobalChange = () => {
+      if (crudInProgress.current) return;
+      skipCacheUntil.current = Date.now() + 5000;
+      void refetch().catch(() => {});
+    };
+    window.addEventListener('server-resource-changed', onResourceChanged as EventListener);
+    window.addEventListener('server-global-change', onGlobalChange as EventListener);
+    return () => {
+      window.removeEventListener('server-resource-changed', onResourceChanged as EventListener);
+      window.removeEventListener('server-global-change', onGlobalChange as EventListener);
+    };
+  }, [realtimeEnabled, refetch]);
+
+  // Integración con backoff de rate limit del cliente
+  useEffect(() => {
+    const handler = (evt: any) => {
+      try {
+        const detail = evt?.detail || {};
+        const endpointPath: string = String(detail.endpoint || '');
+        // Extraer slug del final del path (e.g., '/api/v1/medications' -> 'medications')
+        const parts = endpointPath.split('/').filter(Boolean);
+        const slug = parts.length ? parts[parts.length - 1] : endpointPath;
+        const waitSeconds = typeof detail.waitSeconds === 'number' && detail.waitSeconds > 0
+          ? detail.waitSeconds
+          : undefined;
+        const until = Date.now() + (waitSeconds ? waitSeconds * 1000 : 30000);
+        __endpointBackoffUntil.set(slug, until);
+      } catch { /* noop */ }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('rate-limit-exceeded', handler as any);
+      return () => window.removeEventListener('rate-limit-exceeded', handler as any);
+    }
+    return () => {};
+  }, []);
 
   // Register this resource for global refetch on network restore
   useEffect(() => {

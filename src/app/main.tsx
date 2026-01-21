@@ -18,6 +18,8 @@ import { PWAUpdateHandler } from '@/shared/ui/common/PWAUpdateHandler'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { PrefetchManager } from '@/shared/ui/common/PrefetchManager'
 import { OnlineStatusIndicator } from '@/shared/ui/common/OnlineStatusIndicator'
+import sse, { connectSSE, closeSSE } from '@/lib/events'
+import { publishEvent, subscribeBridge, claimLeadership } from '@/lib/eventsBridge'
 
 // Configurar React Query Client con optimizaciones agresivas de caché
 const queryClient = new QueryClient({
@@ -291,9 +293,10 @@ function GlobalNetworkHandlers() {
       const now = Date.now();
       if (now - lastRateLimitAtRef.current < 15000) return; // evitar spam de toasts
       lastRateLimitAtRef.current = now;
+      const wait = typeof detail?.waitSeconds === 'number' && detail.waitSeconds > 0 ? detail.waitSeconds : undefined;
+      const waitText = wait ? ` Inténtalo nuevamente en ${wait} segundos.` : '';
       showToast(
-        `Se alcanzó el límite de solicitudes en ${endpointLabel}. ` +
-          `El servidor indicó RATE_LIMIT_EXCEEDED. Intenta nuevamente en breve; reduciremos la frecuencia automáticamente.`,
+        `Se alcanzó el límite de solicitudes en ${endpointLabel}. El servidor indicó RATE_LIMIT_EXCEEDED.${waitText}`,
         'warning',
         6000
       );
@@ -303,6 +306,67 @@ function GlobalNetworkHandlers() {
       window.removeEventListener('rate-limit-exceeded', onRateLimitExceeded as EventListener);
     };
   }, [showToast]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const parseEvent = (raw: any) => {
+      try {
+        const obj = typeof raw === 'string' ? JSON.parse(raw) : raw || {};
+        const endpoint = obj.endpoint || obj.path || obj.resource || obj.collection || obj.model || obj.entity || obj.table;
+        const action = obj.action || obj.event || obj.type;
+        const id = obj.id ?? obj.pk ?? obj.item_id ?? obj.itemId;
+        const ep = endpoint ? String(endpoint).split('/').filter(Boolean).pop() : undefined;
+        return { endpoint: ep, action, id };
+      } catch {
+        return {};
+      }
+    };
+
+    let unsubscribeSse: (() => void) | null = null;
+    let unsubscribeBridge: (() => void) | null = null;
+    let releaseLeader: (() => void) | null = null;
+    let isCurrentLeader = false;
+
+    const init = () => {
+      const { isLeader, release } = claimLeadership();
+      releaseLeader = release;
+      if (isLeader) {
+        isCurrentLeader = true;
+        connectSSE();
+        unsubscribeSse = sse.subscribe((payload) => {
+          publishEvent(payload);
+          const parsed = parseEvent(payload);
+          try { window.dispatchEvent(new CustomEvent('server-global-change', { detail: parsed })); } catch { /* noop */ }
+          try { window.dispatchEvent(new CustomEvent('server-resource-changed', { detail: parsed })); } catch { /* noop */ }
+        });
+      } else {
+        isCurrentLeader = false;
+        unsubscribeBridge = subscribeBridge((payload) => {
+          const parsed = parseEvent(payload);
+          try { window.dispatchEvent(new CustomEvent('server-global-change', { detail: parsed })); } catch { /* noop */ }
+          try { window.dispatchEvent(new CustomEvent('server-resource-changed', { detail: parsed })); } catch { /* noop */ }
+        });
+      }
+    };
+
+    if (!cookiesReadyRef.current && !hasSessionCookies()) {
+      const t = setTimeout(() => {
+        cookiesReadyRef.current = hasSessionCookies();
+        if (cookiesReadyRef.current) init();
+      }, 1000);
+      return () => clearTimeout(t);
+    }
+    init();
+
+    return () => {
+      if (isCurrentLeader) {
+        closeSSE();
+      }
+      try { unsubscribeSse?.(); } catch { /* noop */ }
+      try { unsubscribeBridge?.(); } catch { /* noop */ }
+      try { releaseLeader?.(); } catch { /* noop */ }
+    };
+  }, [isAuthenticated]);
 
   // Precarga inteligente SÓLO cuando la autenticación está lista y DESPUÉS de que cargue el dashboard
   useEffect(() => {

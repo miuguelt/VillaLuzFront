@@ -1,4 +1,5 @@
 import { getCookie } from '@/shared/utils/cookieUtils';
+import { apiFetch } from '@/shared/api/apiFetch';
 
 /**
  * Sistema de cola para operaciones offline
@@ -140,18 +141,26 @@ class OfflineQueue {
         };
 
         // Si el backend requiere CSRF basado en cookies, replicar encabezados
-        const csrfToken = getCookie('csrf_access_token');
-        if (csrfToken) {
+        const csrfToken = getCookie('csrf_access_token') ?? undefined;
+        if (csrfToken && csrfToken.trim().length > 0) {
           headers['X-CSRF-Token'] = headers['X-CSRF-Token'] || csrfToken;
           headers['X-CSRF-TOKEN'] = headers['X-CSRF-TOKEN'] || csrfToken;
         }
 
-        const response = await fetch(operation.url, {
+        const res = await apiFetch({
+          url: operation.url,
           method: operation.method,
+          data: operation.data,
           headers,
-          body: operation.data ? JSON.stringify(operation.data) : undefined,
-          credentials: 'include'
-        });
+          withCredentials: true,
+          validateStatus: () => true,
+        } as any);
+
+        const response = {
+          ok: res.status >= 200 && res.status < 300,
+          status: res.status,
+          statusText: res.statusText,
+        };
 
         if (response.ok) {
           operation.status = 'completed';

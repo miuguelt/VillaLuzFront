@@ -8,26 +8,18 @@ Frontend de la aplicación de gestión de finca desarrollado con React, TypeScri
 
 Todo el material de referencia (guías, resúmenes y manuales) está centralizado en `docs/README.md`.
 
-## 🧱 Estructura de carpetas (frontend)
+## 🧱 Estructura de carpetas (Feature-Sliced Design)
 
-- `src/main.tsx`: punto de entrada. Registra el Service Worker PWA, configura React Query (modo `offlineFirst`) y monta los *providers* globales (router, contextos de tema, caché, toasts y autenticación).
-- `src/components/`
-  - `components/ui/`: librería de UI basada en Radix/Heroui (botones, tablas, formularios, toasts, etc.).
-  - `components/common/`: piezas reutilizables de negocio (modales genéricos, indicadores PWA/offline, manejo de errores, formularios base).
-  - `components/dashboard/`: layout y widgets del dashboard por rol (tarjetas, estadísticas, sidebars, menús de acciones).
-  - `components/routes/`: routing de alto nivel (`AppRoutes`, `ProtectedRoute`).
-- `src/pages/`: páginas de la app organizadas por dominio (`landing`, `login`, `dashboard/admin/*`, `dashboard/apprentice/*`, `dashboard/instructor/*`, `analytics/*`, etc.).
-- `src/context/`: contextos globales (`AuthenticationContext`, `CacheContext`, `ThemeContext`, `ToastContext`, etc.) y tests en `src/context/__tests__`.
-- `src/services/`
-  - `services/api.ts`: cliente HTTP central (axios + interceptores, caché HTTP + IndexedDB, manejo de rate limit y refresh).
-  - `services/baseService.ts`: clase base con CRUD, búsqueda, paginación, caché y soporte offline (cola de escrituras).
-  - `services/*Service.ts`: servicios por recurso (`animals`, `vaccines`, `fields`, `users`, etc.).
-  - `services/pwaApiClient.ts`: cliente PWA avanzado con ETags, `/metadata` y sincronización incremental.
-- `src/utils/`: utilidades transversales (IndexedDB cache, cola offline, JWT, fechas, paginación, logging, viewport, etags, etc.).
-- `src/hooks/`
-  - Hooks transversales (`useAuth`, `useOnlineStatus`, `useResource`, `usePWASync`, etc.).
-  - Subcarpetas por dominio (`hooks/animal`, `hooks/vaccination`, `hooks/field`, etc.) para lógica específica.
-- `src/config/`, `src/constants/`, `src/types/`: configuración de endpoints/API, enums, tipos compartidos y contratos de datos.
+El proyecto utiliza **Feature-Sliced Design (FSD)** adaptado. Para una guía detallada de desarrollo, ver [docs/architecture/GUIA_ESTANDAR_DESARROLLO.md](docs/architecture/GUIA_ESTANDAR_DESARROLLO.md).
+
+- `src/app/`: Configuración global, providers y estilos base.
+- `src/shared/`: Código reutilizable y agnóstico al negocio (UI Kit, API client `BaseService`, Utils).
+- `src/entities/`: Modelos de negocio (Animal, User, Vaccine). Contienen lógica de datos y componentes visuales simples.
+- `src/features/`: Casos de uso interactivos (Login, Crear Animal, Reportar Enfermedad).
+- `src/widgets/`: Bloques de UI compuestos que unen features y entidades (Sidebar, DashboardStats).
+- `src/pages/`: Páginas completas listas para el router.
+
+Para instructores y aprendices, revisar la [Guía Pedagógica](docs/onboarding/GUIA_PEDAGOGICA.md).
 
 La app está pensada para escalar por **dominio funcional**. Para añadir un nuevo recurso del backend (por ejemplo `cattle_groups`), el patrón recomendado es:
 
@@ -327,8 +319,6 @@ Leyenda `...` indica el resto del paquete CRUD + search/stats/bulk.
 3. Release Mayor: Eliminar los wrappers y actualizar documentación.
 
 Si necesitas el wrapper y recibes advertencia de deprecación, migra cuanto antes a la forma `xxxService.metodo()`.
-
-
 
 Currently, two official plugins are available:
 

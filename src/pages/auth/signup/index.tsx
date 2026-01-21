@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Alert, AlertDescription } from '@/shared/ui/alert';
 import { Eye, EyeOff, User, Mail, Lock, UserPlus, Phone, CheckCircle2, Loader2 } from 'lucide-react';
 import { usersService } from '@/entities/user/api/user.service';
+import { getUserProfile } from '@/features/auth/api/auth.service';
+import { useToast } from '@/app/providers/ToastContext';
 
 interface SignUpFormData {
   name: string;
@@ -41,6 +43,7 @@ const PHONE_REGEX = /^[+]?[0-9\s-]{7,15}$/;
 
 const SignUpForm: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [formData, setFormData] = useState<SignUpFormData>({
     name: '',
     email: '',
@@ -58,6 +61,42 @@ const SignUpForm: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [touched, setTouched] = useState<Partial<Record<keyof SignUpFormData, boolean>>>({});
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+
+  const setFieldError = (fieldName: keyof FormErrors, message?: string) => {
+    setErrors((prev) => ({ ...prev, [fieldName]: message }));
+  };
+
+  const mapBackendFieldToUI = (field: string): keyof FormErrors | undefined => {
+    const m: Record<string, keyof FormErrors> = {
+      fullname: 'name',
+      name: 'name',
+      email: 'email',
+      phone: 'phone',
+      identification: 'identification_number',
+      identification_number: 'identification_number',
+      address: 'address',
+      password: 'password',
+      confirm_password: 'confirmPassword',
+      confirmPassword: 'confirmPassword',
+      role: undefined as any,
+    };
+    return m[field];
+  };
+
+  const labelForField = (field: string): string => {
+    const map: Record<string, string> = {
+      email: 'correo',
+      fullname: 'nombre',
+      name: 'nombre',
+      phone: 'teléfono',
+      identification: 'número de identificación',
+      identification_number: 'número de identificación',
+      address: 'dirección',
+    };
+    return map[field] || field;
+  };
 
   const mapBackendValidationErrors = (details: any) => {
     if (!details || typeof details !== 'object') return;
@@ -149,6 +188,41 @@ const SignUpForm: React.FC = () => {
   );
   const validationSnapshot = useMemo(() => buildValidationErrors(formData), [formData]);
   const isFormValid = Object.keys(validationSnapshot).length === 0;
+  const hasInteracted = submitAttempted || Object.keys(touched).length > 0;
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const field = e.target.name as keyof SignUpFormData;
+    setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }));
+  };
+
+  const getFieldError = (field: keyof FormErrors) => {
+    const existing = errors[field];
+    if (existing) return existing;
+    if (!hasInteracted) return undefined;
+    if (!submitAttempted && !touched[field as keyof SignUpFormData]) return undefined;
+    return validationSnapshot[field];
+  };
+
+  const blockingReasons = useMemo(() => {
+    if (isFormValid) return [];
+
+    const FIELD_LABELS: Partial<Record<keyof FormErrors, string>> = {
+      name: 'Nombre completo',
+      email: 'Correo electrónico',
+      phone: 'Teléfono',
+      identification_number: 'Número de identificación',
+      password: 'Contraseña',
+      confirmPassword: 'Confirmar contraseña',
+    };
+
+    return (Object.entries(validationSnapshot) as Array<[keyof FormErrors, string | undefined]>)
+      .filter(([, message]) => Boolean(message))
+      .map(([field, message]) => {
+        const label = FIELD_LABELS[field] || String(field);
+        return `${label}: ${message}`;
+      })
+      .slice(0, 4);
+  }, [isFormValid, validationSnapshot]);
 
   const validateForm = (): boolean => {
     const newErrors = buildValidationErrors(formData);
@@ -162,6 +236,9 @@ const SignUpForm: React.FC = () => {
       ...prev,
       [name]: value
     }));
+    setTouched((prev) =>
+      prev[name as keyof SignUpFormData] ? prev : { ...prev, [name]: true }
+    );
 
     // Clear specific error when user starts typing
     if (errors[name as keyof FormErrors] || errors.general) {
@@ -178,17 +255,19 @@ const SignUpForm: React.FC = () => {
     setErrors({});
     setSuccess(false);
     setSuccessMessage('');
+    setSubmitAttempted(true);
 
     if (!validateForm()) {
       return;
     }
 
     setLoading(true);
+    let userData: any = null;
 
     try {
       // Prepare data for backend
       const cleanedPhone = formData.phone.replace(/[\s-]+/g, '').trim();
-      const userData = {
+      userData = {
         fullname: formData.name.trim(),
         email: formData.email.trim().toLowerCase(),
         phone: cleanedPhone,
@@ -228,13 +307,73 @@ const SignUpForm: React.FC = () => {
     } catch (error: any) {
       console.error('Error registering user:', error);
 
-      const data = error?.response?.data || error?.data;
-      const status = error?.response?.status ?? error?.status;
-      const backendMessage = error?.message || data?.message || data?.detail || data?.error;
+      const attemptAuthenticatedCreate = async () => {
+        try {
+          const profile = await getUserProfile();
+          if (!profile?.user) return { ok: false as const };
+        } catch {
+          return { ok: false as const };
+        }
+
+        try {
+          const created = (await usersService.createUser(userData as any)) as any;
+          return { ok: true as const, created };
+        } catch (authError: any) {
+          return { ok: false as const, error: authError };
+        }
+      };
+
+      const initialStatus = error?.response?.status ?? error?.status;
+      let effectiveError: any = error;
+
+      if (initialStatus === 401 || initialStatus === 403) {
+        const fallback = await attemptAuthenticatedCreate();
+        if (fallback.ok) {
+          const message = fallback.created?.message || fallback.created?.detail || 'Cuenta creada exitosamente. Por favor inicia sesi¢n.';
+          setSuccessMessage(message);
+          setSuccess(true);
+          setTimeout(() => {
+            navigate('/login', {
+              state: {
+                message,
+                email: formData.email
+              }
+            });
+          }, 1800);
+          return;
+        }
+        if (fallback.error) {
+          effectiveError = fallback.error;
+        }
+      }
+
+      const data = (effectiveError as any)?.original?.response?.data || effectiveError?.response?.data || effectiveError?.data;
+      const status = (effectiveError as any)?.status ?? effectiveError?.response?.status ?? effectiveError?.status;
+      const backendMessage = effectiveError?.message || data?.message || data?.detail || data?.error;
       const detailedReason =
         backendMessage ||
         data?.details?.message ||
         (typeof data === 'string' ? data : undefined);
+
+      const details =
+        (effectiveError as any)?.details ||
+        data?.error?.details ||
+        data?.details ||
+        undefined;
+      const traceId =
+        data?.error?.trace_id ||
+        data?.error?.traceId ||
+        data?.trace_id ||
+        data?.traceId ||
+        undefined;
+      const conflict = details?.conflict;
+      const validationErrors =
+        (effectiveError as any)?.validationErrors ||
+        details?.validation_errors ||
+        details?.errors ||
+        data?.details?.validation_errors ||
+        data?.validation_errors ||
+        data?.errors;
 
       // 403: registro público no disponible
       if (status === 403) {
@@ -254,13 +393,30 @@ const SignUpForm: React.FC = () => {
       }
       // 409: conflicto de unicidad
       else if (status === 409) {
-        setErrors({
-          general: detailedReason || 'Usuario ya existe',
-        });
+        let msg = detailedReason || 'Conflicto de datos';
+        if (conflict && typeof conflict === 'object') {
+          if (conflict.field && typeof conflict.field === 'string') {
+            const label = labelForField(conflict.field);
+            msg = `Ya existe un usuario con ese ${label}. Cambia el ${label}.`;
+            const uiField = mapBackendFieldToUI(conflict.field);
+            if (uiField) setFieldError(uiField, msg);
+          } else if (Array.isArray(conflict.fields) && conflict.fields.length > 0) {
+            msg = 'Ya existe un usuario con esa combinación de datos. Modifica uno de esos campos.';
+            conflict.fields.forEach((f: string) => {
+              const uiField = mapBackendFieldToUI(f);
+              if (uiField) setFieldError(uiField, msg);
+            });
+          }
+        }
+        if (traceId) {
+          try { console.error('[SignUp][409] Trace ID:', traceId); } catch { void 0; }
+        }
+        showToast(`${msg}${traceId ? ` (Trace ID: ${traceId})` : ''}`, 'error');
+        setErrors((prev) => ({ ...prev, general: msg }));
       }
       // 422: validaciones
-      else if (status === 422 || data?.details?.validation_errors) {
-        mapBackendValidationErrors(data?.details || data?.error?.details || data);
+      else if (status === 422 || validationErrors) {
+        mapBackendValidationErrors(validationErrors || details || data);
         setErrors((prev) => ({
           ...prev,
           general: data?.message || detailedReason || 'Errores de validación. Revisa los campos.',
@@ -363,13 +519,14 @@ const SignUpForm: React.FC = () => {
                   placeholder="Tu nombre completo"
                   value={formData.name}
                   onChange={handleInputChange}
-                  className={`pl-10 ${errors.name ? 'border-red-500 focus:border-red-500' : ''}`}
+                  onBlur={handleBlur}
+                  className={`pl-10 ${getFieldError('name') ? 'border-red-500 focus:border-red-500' : ''}`}
                   disabled={loading}
                   autoComplete="name"
                 />
               </div>
-              {errors.name && (
-                <p className="text-sm text-red-600">{errors.name}</p>
+              {getFieldError('name') && (
+                <p className="text-sm text-red-600">{getFieldError('name')}</p>
               )}
             </div>
 
@@ -385,13 +542,14 @@ const SignUpForm: React.FC = () => {
                   placeholder="tu@email.com"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className={`pl-10 ${errors.email ? 'border-red-500 focus:border-red-500' : ''}`}
+                  onBlur={handleBlur}
+                  className={`pl-10 ${getFieldError('email') ? 'border-red-500 focus:border-red-500' : ''}`}
                   disabled={loading}
                   autoComplete="email"
                 />
               </div>
-              {errors.email && (
-                <p className="text-sm text-red-600">{errors.email}</p>
+              {getFieldError('email') && (
+                <p className="text-sm text-red-600">{getFieldError('email')}</p>
               )}
             </div>
 
@@ -407,13 +565,14 @@ const SignUpForm: React.FC = () => {
                   placeholder="Tu número de teléfono"
                   value={formData.phone}
                   onChange={handleInputChange}
-                  className={`pl-10 ${errors.phone ? 'border-red-500 focus:border-red-500' : ''}`}
+                  onBlur={handleBlur}
+                  className={`pl-10 ${getFieldError('phone') ? 'border-red-500 focus:border-red-500' : ''}`}
                   disabled={loading}
                   autoComplete="tel"
                 />
               </div>
-              {errors.phone && (
-                <p className="text-sm text-red-600">{errors.phone}</p>
+              {getFieldError('phone') && (
+                <p className="text-sm text-red-600">{getFieldError('phone')}</p>
               )}
             </div>
 
@@ -427,11 +586,12 @@ const SignUpForm: React.FC = () => {
                 placeholder="Calle, ciudad, referencia"
                 value={formData.address}
                 onChange={handleInputChange}
+                onBlur={handleBlur}
                 disabled={loading}
                 autoComplete="street-address"
               />
-              {errors.address && (
-                <p className="text-sm text-red-600">{errors.address}</p>
+              {getFieldError('address') && (
+                <p className="text-sm text-red-600">{getFieldError('address')}</p>
               )}
             </div>
 
@@ -447,27 +607,29 @@ const SignUpForm: React.FC = () => {
                   placeholder="Tu número de identificación"
                   value={formData.identification_number}
                   onChange={handleInputChange}
-                  className={`pl-10 ${errors.identification_number ? 'border-red-500 focus:border-red-500' : ''}`}
+                  onBlur={handleBlur}
+                  className={`pl-10 ${getFieldError('identification_number') ? 'border-red-500 focus:border-red-500' : ''}`}
                   disabled={loading}
                   autoComplete="off"
                 />
               </div>
-              {errors.identification_number && (
-                <p className="text-sm text-red-600">{errors.identification_number}</p>
+              {getFieldError('identification_number') && (
+                <p className="text-sm text-red-600">{getFieldError('identification_number')}</p>
               )}
             </div>
 
             {/* Rol */}
             <div className="space-y-1.5">
               <Label htmlFor="role">Rol</Label>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                disabled={loading}
-              >
+                <select
+                  id="role"
+                  name="role"
+                  value={formData.role}
+                  onChange={handleInputChange}
+                  onBlur={handleBlur}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  disabled={loading}
+                >
                 <option value="Aprendiz">Aprendiz</option>
                 <option value="Instructor">Instructor</option>
                 <option value="Administrador">Administrador</option>
@@ -486,7 +648,8 @@ const SignUpForm: React.FC = () => {
                   placeholder="••••••••"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className={`pl-10 pr-10 ${errors.password ? 'border-red-500 focus:border-red-500' : ''}`}
+                  onBlur={handleBlur}
+                  className={`pl-10 pr-10 ${getFieldError('password') ? 'border-red-500 focus:border-red-500' : ''}`}
                   disabled={loading}
                   autoComplete="new-password"
                 />
@@ -499,8 +662,8 @@ const SignUpForm: React.FC = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {errors.password && (
-                <p className="text-sm text-red-600">{errors.password}</p>
+              {getFieldError('password') && (
+                <p className="text-sm text-red-600">{getFieldError('password')}</p>
               )}
             </div>
 
@@ -516,7 +679,8 @@ const SignUpForm: React.FC = () => {
                   placeholder="••••••••"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className={`pl-10 pr-10 ${errors.confirmPassword ? 'border-red-500 focus:border-red-500' : ''}`}
+                  onBlur={handleBlur}
+                  className={`pl-10 pr-10 ${getFieldError('confirmPassword') ? 'border-red-500 focus:border-red-500' : ''}`}
                   disabled={loading}
                   autoComplete="new-password"
                 />
@@ -529,8 +693,8 @@ const SignUpForm: React.FC = () => {
                   {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {errors.confirmPassword && (
-                <p className="text-sm text-red-600">{errors.confirmPassword}</p>
+              {getFieldError('confirmPassword') && (
+                <p className="text-sm text-red-600">{getFieldError('confirmPassword')}</p>
               )}
             </div>
 
@@ -565,6 +729,11 @@ const SignUpForm: React.FC = () => {
               disabled={loading || !isFormValid}
               className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 focus:ring-green-500 focus:ring-offset-green-200 text-white transition ease-in duration-200 text-center text-base font-semibold shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed gap-2"
               aria-label={loading ? 'Creando cuenta de usuario' : 'Crear cuenta de usuario'}
+              title={
+                !loading && !isFormValid && hasInteracted && blockingReasons.length
+                  ? blockingReasons.join(' | ')
+                  : undefined
+              }
             >
               {loading ? (
                 <>
@@ -578,6 +747,17 @@ const SignUpForm: React.FC = () => {
                 </>
               )}
             </Button>
+
+            {!loading && !isFormValid && hasInteracted && blockingReasons.length > 0 && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <p className="font-semibold">Para habilitar "Crear cuenta", revisa:</p>
+                <ul className="mt-1 list-disc pl-5 space-y-0.5">
+                  {blockingReasons.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </form>
 
           <div className="text-center mt-4">

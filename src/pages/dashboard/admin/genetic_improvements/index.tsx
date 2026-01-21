@@ -266,9 +266,11 @@ const AdminGeneticImprovementsPage = () => {
       validateForm={validateForm}
       customDetailContent={customDetailContent}
       realtime={true}
-      pollIntervalMs={8000}
-      refetchOnFocus={true}
+      pollIntervalMs={0}
+      refetchOnFocus={false}
       refetchOnReconnect={true}
+      cache={true}
+      cacheTTL={300000}
       enhancedHover={true}
     />
   );

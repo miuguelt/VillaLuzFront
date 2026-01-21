@@ -26,7 +26,8 @@ import {
 } from 'lucide-react';
 // OPTIMIZACIÓN: Lazy loading de componentes pesados
 import { usePermissions } from '@/shared/hooks/useJWT';
-import api, { unwrapApi } from '@/shared/api/client';
+import { unwrapApi } from '@/shared/api/client';
+import { apiFetch } from '@/shared/api/apiFetch';
 import { useT } from '@/shared/i18n';
 import axios from 'axios';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
@@ -238,13 +239,15 @@ const AdminDashboard: React.FC = () => {
     setLoading(true)
     try {
       // Optimización: traer solo usuarios recientes y datos mínimos para el panel
-      const res = await api.get('/users', {
+      const res = await apiFetch({
+        url: '/users',
+        method: 'GET',
         params: {
           limit: 20,
           sort: 'createdAt',
           dir: 'desc',
         }
-      })
+      } as any)
       const data: User[] = unwrapApi<User[]>(res)
       setUsers(data)
       // Nota: los conteos globales de usuarios provienen de useDashboardCounts.
@@ -292,10 +295,12 @@ const AdminDashboard: React.FC = () => {
     isFetchingAlertsRef.current = true
     try {
       // OPTIMIZACIÓN: Timeout extendido solo para este endpoint (puede ser lento)
-      const res = await api.get('/analytics/alerts', {
+      const res = await apiFetch({
+        url: '/analytics/alerts',
+        method: 'GET',
         params: { limit: 50 },
         timeout: 30000 // 30 segundos (vs 10s default)
-      })
+      } as any)
       const payload = unwrapApi<any>(res)
       const rawAlerts: any[] = Array.isArray(payload) ? payload : (payload?.alerts ?? [])
       const normalized: SystemAlert[] = rawAlerts.map((a: any) => ({

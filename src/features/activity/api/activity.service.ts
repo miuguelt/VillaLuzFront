@@ -1,3 +1,5 @@
+import { apiFetch } from '@/shared/api/apiFetch';
+
 export type ActivityAction = 'create' | 'update' | 'delete' | 'alert' | 'system';
 export type ActivitySeverity = 'low' | 'medium' | 'high';
 export type ActivityEntity =
@@ -44,6 +46,10 @@ export type ActivityQuery = {
   animalId?: number | string;
   entityId?: number | string;
   userId?: number | string;
+  fields?: string | string[];
+  include?: string | string[];
+  scope?: string;
+  cursor?: string;
 };
 
 export type ActivityPage = {
@@ -53,6 +59,7 @@ export type ActivityPage = {
   total?: number;
   total_pages?: number;
   has_next?: boolean;
+  next_cursor?: string;
 };
 
 const toNumber = (value: any): number | undefined => {
@@ -72,17 +79,6 @@ const extractItems = (payload: any): ActivityItem[] => {
 
 type FetchOpts = { signal?: AbortSignal };
 
-const readJson = async (res: Response) => res.json().catch(() => ({}));
-
-const ensureOk = async (res: Response) => {
-  const json = await readJson(res);
-  if (!res.ok) {
-    const message = json?.message || json?.error || json?.detail || 'Error cargando actividad';
-    throw new Error(message);
-  }
-  return json;
-};
-
 const buildActivityParams = ({
   page,
   limit,
@@ -95,13 +91,22 @@ const buildActivityParams = ({
   animalId,
   entityId,
   userId,
+  fields,
+  include,
+  scope,
+  cursor,
 }: ActivityQuery) => {
   const resolvedPage = page ?? 1;
   const resolvedPerPage = per_page ?? limit ?? 20;
 
-  const params = new URLSearchParams({
-    page: String(resolvedPage),
-  });
+  const params = new URLSearchParams();
+  // Solo enviar 'page' si no estamos usando cursor, o si el backend soporta ambos (híbrido).
+  // La guía sugiere cursor para timeline.
+  if (!cursor) {
+    params.set('page', String(resolvedPage));
+  } else {
+    params.set('cursor', cursor);
+  }
 
   params.set('per_page', String(resolvedPerPage));
   params.set('limit', String(resolvedPerPage));
@@ -115,8 +120,48 @@ const buildActivityParams = ({
   if (entityId != null && String(entityId).trim() !== '') params.set('entity_id', String(entityId));
   if (userId != null && String(userId).trim() !== '') params.set('user_id', String(userId));
 
+  if (fields) params.set('fields', Array.isArray(fields) ? fields.join(',') : fields);
+  if (include) params.set('include', Array.isArray(include) ? include.join(',') : include);
+  if (scope) params.set('scope', scope);
+
   return { params, resolvedPage, resolvedPerPage };
 };
+
+function readPagination(raw: any): any {
+  return (
+    raw?.meta?.pagination ??
+    raw?.data?.meta?.pagination ??
+    raw?.data?.pagination ??
+    raw?.data?.meta ??
+    raw?.meta ??
+    raw?.pagination ??
+    raw ??
+    {}
+  );
+}
+
+function toActivityPage(raw: any, fallback: { page: number; limit: number }): ActivityPage {
+  const data = raw?.data ?? raw;
+  const items = extractItems(data);
+
+  const pagination = readPagination(raw);
+  const resolvedPage = toNumber(pagination.page) ?? fallback.page;
+  const resolvedLimit =
+    toNumber(pagination.limit) ??
+    toNumber(pagination.per_page) ??
+    toNumber(pagination.perPage) ??
+    fallback.limit;
+
+  return {
+    items,
+    page: resolvedPage,
+    limit: resolvedLimit,
+    total: toNumber(pagination.total),
+    total_pages: toNumber(pagination.total_pages) ?? toNumber(pagination.totalPages),
+    has_next: typeof pagination.has_next === 'boolean' ? pagination.has_next : undefined,
+    next_cursor: pagination.next_cursor || pagination.cursor || undefined,
+  };
+}
 
 export async function fetchActivity(
   {
@@ -132,7 +177,7 @@ export async function fetchActivity(
     entityId,
     userId,
   }: ActivityQuery = {},
-  opts: { signal?: AbortSignal } = {}
+  opts: FetchOpts = {}
 ): Promise<ActivityPage> {
   const { params } = buildActivityParams({
     page,
@@ -150,45 +195,12 @@ export async function fetchActivity(
 
   const basePath =
     userId != null && String(userId).trim() !== ''
-      ? `/api/v1/users/${encodeURIComponent(String(userId))}/activity`
-      : '/api/v1/activity';
+      ? `users/${encodeURIComponent(String(userId))}/activity`
+      : 'activity';
 
-  const res = await fetch(`${basePath}?${params.toString()}`, {
-    method: 'GET',
-    credentials: 'include',
-    signal: opts.signal,
-  });
+  const res = await apiFetch<any>({ url: `${basePath}?${params.toString()}`, method: 'GET', signal: opts.signal });
 
-  const json = await ensureOk(res);
-
-  const data = json?.data ?? json;
-  const items = extractItems(data);
-
-  const pagination =
-    json?.meta?.pagination ??
-    json?.data?.meta?.pagination ??
-    json?.data?.pagination ??
-    data?.meta?.pagination ??
-    data?.pagination ??
-    data?.meta ??
-    data ??
-    {};
-
-  const resolvedPage = toNumber(pagination.page) ?? page;
-  const resolvedLimit =
-    toNumber(pagination.limit) ??
-    toNumber(pagination.per_page) ??
-    toNumber(pagination.perPage) ??
-    limit;
-
-  return {
-    items,
-    page: resolvedPage,
-    limit: resolvedLimit,
-    total: toNumber(pagination.total),
-    total_pages: toNumber(pagination.total_pages) ?? toNumber(pagination.totalPages),
-    has_next: typeof pagination.has_next === 'boolean' ? pagination.has_next : undefined,
-  };
+  return toActivityPage(res.data, { page, limit });
 }
 
 export type ActivitySummaryWindow = {
@@ -206,56 +218,17 @@ export type MyActivitySummary = {
   window_30d?: ActivitySummaryWindow;
 };
 
-export async function fetchMyActivity(
-  query: ActivityQuery = {},
-  opts: FetchOpts = {}
-): Promise<ActivityPage> {
+export async function fetchMyActivity(query: ActivityQuery = {}, opts: FetchOpts = {}): Promise<ActivityPage> {
   const { params, resolvedPage, resolvedPerPage } = buildActivityParams(query);
 
-  const res = await fetch(`/api/v1/activity/me?${params.toString()}`, {
-    method: 'GET',
-    credentials: 'include',
-    signal: opts.signal,
-  });
+  const res = await apiFetch<any>({ url: `activity/me?${params.toString()}`, method: 'GET', signal: opts.signal });
 
-  const json = await ensureOk(res);
-  const data = json?.data ?? json;
-  const items = extractItems(data);
-
-  const pagination =
-    json?.meta?.pagination ??
-    json?.data?.meta?.pagination ??
-    json?.data?.pagination ??
-    data?.meta?.pagination ??
-    data?.pagination ??
-    data?.meta ??
-    data ??
-    {};
-
-  const resolvedLimit =
-    toNumber(pagination.limit) ??
-    toNumber(pagination.per_page) ??
-    toNumber(pagination.perPage) ??
-    resolvedPerPage;
-
-  return {
-    items,
-    page: toNumber(pagination.page) ?? resolvedPage,
-    limit: resolvedLimit,
-    total: toNumber(pagination.total),
-    total_pages: toNumber(pagination.total_pages) ?? toNumber(pagination.totalPages),
-    has_next: typeof pagination.has_next === 'boolean' ? pagination.has_next : undefined,
-  };
+  return toActivityPage(res.data, { page: resolvedPage, limit: resolvedPerPage });
 }
 
 export async function fetchMyActivitySummary(opts: FetchOpts = {}): Promise<MyActivitySummary> {
-  const res = await fetch('/api/v1/activity/me/summary', {
-    method: 'GET',
-    credentials: 'include',
-    signal: opts.signal,
-  });
-  const json = await ensureOk(res);
-  return (json?.data ?? json) as MyActivitySummary;
+  const res = await apiFetch<any>({ url: 'activity/me/summary', method: 'GET', signal: opts.signal });
+  return (res.data?.data ?? res.data) as MyActivitySummary;
 }
 
 export async function fetchMyActivityStats(
@@ -264,13 +237,10 @@ export async function fetchMyActivityStats(
 ) {
   const { params } = buildActivityParams(query);
   params.set('days', String(days));
-  const res = await fetch(`/api/v1/activity/me/stats?${params.toString()}`, {
-    method: 'GET',
-    credentials: 'include',
-    signal: opts.signal,
-  });
-  const json = await ensureOk(res);
-  return json?.data ?? json;
+
+  const res = await apiFetch<any>({ url: `activity/me/stats?${params.toString()}`, method: 'GET', signal: opts.signal });
+
+  return res.data?.data ?? res.data;
 }
 
 export async function fetchActivityStats(
@@ -279,25 +249,16 @@ export async function fetchActivityStats(
 ) {
   const { params } = buildActivityParams(query);
   params.set('days', String(days));
-  const res = await fetch(`/api/v1/activity/stats?${params.toString()}`, {
-    method: 'GET',
-    credentials: 'include',
-    signal: opts.signal,
-  });
-  const json = await ensureOk(res);
-  return json?.data ?? json;
+
+  const res = await apiFetch<any>({ url: `activity/stats?${params.toString()}`, method: 'GET', signal: opts.signal });
+
+  return res.data?.data ?? res.data;
 }
 
-export async function fetchActivityFilters(
-  { days = 365 }: { days?: number } = {},
-  opts: FetchOpts = {}
-) {
+export async function fetchActivityFilters({ days = 365 }: { days?: number } = {}, opts: FetchOpts = {}) {
   const params = new URLSearchParams({ days: String(days) });
-  const res = await fetch(`/api/v1/activity/filters?${params.toString()}`, {
-    method: 'GET',
-    credentials: 'include',
-    signal: opts.signal,
-  });
-  const json = await ensureOk(res);
-  return json?.data ?? json;
+
+  const res = await apiFetch<any>({ url: `activity/filters?${params.toString()}`, method: 'GET', signal: opts.signal });
+
+  return res.data?.data ?? res.data;
 }

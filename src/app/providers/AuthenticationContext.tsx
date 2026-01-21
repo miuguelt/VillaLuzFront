@@ -2,6 +2,7 @@ import { createContext, useState, useEffect, ReactNode, useCallback, useRef, use
 import { useNavigate } from "react-router-dom"
 import { User, AuthContextType, Role, role as RoleType } from "@/entities/user/model/types"
 import { getUserProfile, normalizeRole, authServiceLogout } from "@/features/auth/api/auth.service"
+import sse from "@/lib/events"
 import { isDevelopment } from "@/shared/utils/envConfig"
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -457,6 +458,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const logout = async () => {
               try {
                 await authServiceLogout()
+                try { sse.close() } catch { /* noop */ }
                 clearAuthState()
                 postBC('logout')
                 navigate('/', { replace: true })

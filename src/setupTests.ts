@@ -40,3 +40,17 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: jest.fn(),
   })),
 });
+
+const originalWarn = console.warn.bind(console);
+console.warn = (...args: any[]) => {
+  const msg = args?.[0];
+  if (typeof msg === 'string' && msg.includes('Missing `Description` or `aria-describedby')) return;
+  originalWarn(...args);
+};
+
+const originalError = console.error.bind(console);
+console.error = (...args: any[]) => {
+  const msg = args?.[0];
+  if (typeof msg === 'string' && msg.includes('`DialogContent` requires a `DialogTitle`')) return;
+  originalError(...args);
+};

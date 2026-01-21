@@ -1,6 +1,7 @@
 import React from 'react';
 import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared/ui/common/AdminCRUDPage';
 import { diseaseService } from '@/entities/disease/api/disease.service';
+import { animalDiseasesService } from '@/entities/animal-disease/api/animalDiseases.service';
 import type { DiseaseResponse } from '@/shared/api/generated/swaggerTypes';
 
 // Columnas de la tabla (width numérico -> w-{n})
@@ -45,6 +46,24 @@ const crudConfig: CRUDConfig<DiseaseResponse & { [k: string]: any }, DiseaseForm
   enableCreateModal: true,
   enableEditModal: true,
   enableDelete: true,
+  preDeleteCheck: async (id: number) => {
+    try {
+      const resp = await animalDiseasesService.getAnimalDiseases({ page: 1, limit: 1, disease_id: id as any });
+      const items = (resp as any)?.data || (resp as any)?.items || resp || [];
+      if (Array.isArray(items) && items.length > 0) {
+        return {
+          hasDependencies: true,
+          message: 'No se puede eliminar esta enfermedad porque tiene animales enfermos asociados.'
+        };
+      }
+    } catch {
+      return {
+        hasDependencies: true,
+        message: 'No se pudo verificar dependencias. Intente de nuevo en unos segundos.'
+      };
+    }
+    return { hasDependencies: false };
+  },
 };
 
 // Mapear respuesta a formulario
@@ -75,6 +94,12 @@ const AdminDiseasesPage = () => (
     initialFormData={initialFormData}
     mapResponseToForm={mapResponseToForm}
     validateForm={validateForm}
+    realtime={true}
+    pollIntervalMs={0}
+    refetchOnFocus={false}
+    refetchOnReconnect={true}
+    cache={true}
+    cacheTTL={300000}
     enhancedHover={true}
   />
 );

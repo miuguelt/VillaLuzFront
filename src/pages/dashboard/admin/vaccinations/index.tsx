@@ -202,8 +202,8 @@ function AdminVaccinationsPage() {
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
       realtime={true}
-      pollIntervalMs={8000}
-      refetchOnFocus={true}
+      pollIntervalMs={0}
+      refetchOnFocus={false}
       refetchOnReconnect={true}
       enhancedHover={true}
     />

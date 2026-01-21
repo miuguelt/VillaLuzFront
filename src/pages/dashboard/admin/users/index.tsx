@@ -201,7 +201,7 @@ const renderUserCard = (user: UserResponse & { [k: string]: any }) => {
       {/* Identificación en fila completa */}
       <div className="col-span-2 mb-2">
         <div className="text-muted-foreground/80 text-[10px] mb-0.5">Identificación</div>
-        <div className="font-medium text-[14px] break-all" title={user.identification}>{user.identification}</div>
+        <div className="font-medium text-[14px] break-all" title={String(user.identification ?? '')}>{user.identification}</div>
       </div>
 
       <div className="min-w-0 overflow-hidden">
@@ -278,9 +278,11 @@ const AdminUsersPageWrapper = () => {
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
       realtime={true}
-      pollIntervalMs={8000}
-      refetchOnFocus={true}
+      pollIntervalMs={0}
+      refetchOnFocus={false}
       refetchOnReconnect={true}
+      cache={true}
+      cacheTTL={300000}
       enhancedHover={true}
     />
   );

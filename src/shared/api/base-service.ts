@@ -1,4 +1,5 @@
 import api from './client';
+import { apiFetch } from '@/shared/api/apiFetch';
 import { PageResult } from '@/shared/types/common.types';
 import { extractListFromResponse } from './listExtractor';
 import { normalizePagination } from './responseNormalizer';
@@ -252,13 +253,19 @@ export class BaseService<T> {
     delete sanitizedParams.sort_order;
     delete sanitizedParams.search;
 
-    const cacheKey = this.getCacheKey(sanitizedParams);
-    const cached = await this.getFromCache(cacheKey);
+    const requestParams: Record<string, any> = { ...sanitizedParams };
+    const shouldBypassCache = Object.prototype.hasOwnProperty.call(requestParams, 'cache_bust') && requestParams.cache_bust != null;
+    const cacheKeyParams = { ...sanitizedParams };
+    if (Object.prototype.hasOwnProperty.call(cacheKeyParams, 'cache_bust')) {
+      delete (cacheKeyParams as any).cache_bust;
+    }
+    const cacheKey = this.getCacheKey(cacheKeyParams);
+    const cached = shouldBypassCache ? null : await this.getFromCache(cacheKey);
     if (cached) return cached as T[];
 
     // Intentar red; si offline o falla por red, caer a caché si existe
     try {
-      const response = await api.get(this.endpoint, { params: sanitizedParams, cancelToken });
+      const response = await apiFetch({ url: this.endpoint, method: 'GET', params: requestParams, cancelToken });
       const data = extractListFromResponse(response, this.options.preferredListKeys);
       this.setCache(cacheKey, data);
       return data;
@@ -275,13 +282,19 @@ export class BaseService<T> {
   async getPaginated(params?: Record<string, any>): Promise<PaginatedResponse<T>> {
     const normalizedParams = BaseService.buildListParams(params || {});
     const { cancelToken, ...normalizedWithoutToken } = normalizedParams as any;
-    const cacheKey = this.getCacheKey(normalizedWithoutToken);
-    const cached = await this.getFromCache(cacheKey);
+    const requestParamsBase: Record<string, any> = { ...normalizedWithoutToken };
+    const shouldBypassCache = Object.prototype.hasOwnProperty.call(requestParamsBase, 'cache_bust') && requestParamsBase.cache_bust != null;
+    const cacheKeyParams = { ...normalizedWithoutToken };
+    if (Object.prototype.hasOwnProperty.call(cacheKeyParams, 'cache_bust')) {
+      delete (cacheKeyParams as any).cache_bust;
+    }
+    const cacheKey = this.getCacheKey(cacheKeyParams);
+    const cached = shouldBypassCache ? null : await this.getFromCache(cacheKey);
     if (cached) return cached as unknown as PaginatedResponse<T>;
  
     const searchValue = normalizedWithoutToken.q ?? normalizedWithoutToken.search;
     const requestParams: Record<string, any> = {
-      ...normalizedWithoutToken,
+      ...requestParamsBase,
       limit: normalizedWithoutToken.limit,
       sort_dir: normalizedWithoutToken.sort_dir ?? normalizedWithoutToken.sort_order,
       // Enviar ambos para máxima compatibilidad de backend
@@ -301,7 +314,7 @@ export class BaseService<T> {
     }
 
     try {
-      const response = await api.get(this.endpoint, { params: requestParams, cancelToken });
+      const response = await apiFetch({ url: this.endpoint, method: 'GET', params: requestParams, cancelToken });
 
       // Log la respuesta cuando se filtra por IDs
       if (filterKeys.length > 0) {
@@ -346,13 +359,19 @@ export class BaseService<T> {
     const { cancelToken, ...normalizedWithoutToken } = normalizedParams as any;
     const requestParams: Record<string, any> = {};
     if (normalizedWithoutToken.fields) requestParams.fields = normalizedWithoutToken.fields;
+    if (normalizedWithoutToken.cache_bust != null) requestParams.cache_bust = normalizedWithoutToken.cache_bust;
 
-    const cacheKey = this.getCacheKey({ id, ...requestParams });
-    const cached = await this.getFromCache(cacheKey);
+    const shouldBypassCache = requestParams.cache_bust != null;
+    const cacheKeyParams = { id, ...requestParams } as Record<string, any>;
+    if (Object.prototype.hasOwnProperty.call(cacheKeyParams, 'cache_bust')) {
+      delete cacheKeyParams.cache_bust;
+    }
+    const cacheKey = this.getCacheKey(cacheKeyParams);
+    const cached = shouldBypassCache ? null : await this.getFromCache(cacheKey);
     if (cached) return cached as T;
 
     try {
-      const response = await api.get(`${this.endpoint}/${id}`, { params: requestParams, cancelToken });
+      const response = await apiFetch({ url: `${this.endpoint}/${id}`, method: 'GET', params: requestParams, cancelToken });
       const data = response.data?.data || response.data;
       this.setCache(cacheKey, data);
       return data;
@@ -372,7 +391,7 @@ export class BaseService<T> {
       // Resultado optimista: devolver datos con flag de cola
       return ({ ...(data as any), __offlineQueued: true } as unknown) as T;
     }
-    const response = await api.post(this.endpoint, data);
+    const response = await apiFetch({ url: this.endpoint, method: 'POST', data });
     this.clearCache();
     return response.data?.data || response.data;
   }
@@ -382,7 +401,7 @@ export class BaseService<T> {
       BaseService.enqueue({ endpoint: this.endpoint, method: 'PUT', id, payload: data, timestamp: Date.now() });
       return ({ ...(data as any), id, __offlineQueued: true } as unknown) as T;
     }
-    const response = await api.put(`${this.endpoint}/${id}`, data);
+    const response = await apiFetch({ url: `${this.endpoint}/${id}`, method: 'PUT', data });
     this.clearCache();
     return response.data?.data || response.data;
   }
@@ -392,7 +411,7 @@ export class BaseService<T> {
       BaseService.enqueue({ endpoint: this.endpoint, method: 'PATCH', id, payload: data, timestamp: Date.now() });
       return ({ ...(data as any), id, __offlineQueued: true } as unknown) as T;
     }
-    const response = await api.patch(`${this.endpoint}/${id}`, data);
+    const response = await apiFetch({ url: `${this.endpoint}/${id}`, method: 'PATCH', data });
     this.clearCache();
     return response.data?.data || response.data;
   }
@@ -403,7 +422,7 @@ export class BaseService<T> {
       this.clearCache();
       return true;
     }
-    await api.delete(`${this.endpoint}/${id}`);
+    await apiFetch({ url: `${this.endpoint}/${id}`, method: 'DELETE' });
     this.clearCache();
     return true;
   }
@@ -413,7 +432,7 @@ export class BaseService<T> {
    * Useful for coverage tools against documented HEAD routes.
    */
   async headRoot(params?: Record<string, any>): Promise<Record<string, any>> {
-    const response = await api.head(this.endpoint, { params });
+    const response = await apiFetch({ url: this.endpoint, method: 'HEAD', params });
     return response.headers as Record<string, any>;
   }
 
@@ -421,7 +440,7 @@ export class BaseService<T> {
    * Performs a HEAD request on an individual resource endpoint.
    */
   async headById(id: number | string): Promise<Record<string, any>> {
-    const response = await api.head(`${this.endpoint}/${id}`);
+    const response = await apiFetch({ url: `${this.endpoint}/${id}`, method: 'HEAD' });
     return response.headers as Record<string, any>;
   }
 
@@ -434,7 +453,7 @@ export class BaseService<T> {
     if (cached) return cached as T[];
 
     try {
-      const response = await api.get(`${this.endpoint}/search`, { params: searchParams });
+      const response = await apiFetch({ url: `${this.endpoint}/search`, method: 'GET', params: searchParams });
       const data = extractListFromResponse(response, this.options.preferredListKeys);
       this.setCache(cacheKey, data);
       return data;
@@ -454,7 +473,7 @@ export class BaseService<T> {
       BaseService.enqueue({ endpoint: this.endpoint, method: method as WriteMethod, path, payload, timestamp: Date.now() });
       return ({ __offlineQueued: true } as unknown) as R;
     }
-    const response = await api.request({
+    const response = await apiFetch({
       url,
       method,
       data: payload,
@@ -525,7 +544,7 @@ export class BaseService<T> {
    */
   async getMetadata(): Promise<{ resource: string; total_count: number; last_modified: string; etag: string } | null> {
     try {
-      const response = await api.get(`${this.endpoint}/metadata`);
+      const response = await apiFetch({ url: `${this.endpoint}/metadata`, method: 'GET' });
       return response.data?.data || response.data;
     } catch (error: any) {
       if (__DEV__) {
@@ -544,9 +563,7 @@ export class BaseService<T> {
    */
   async getSince(since: string): Promise<T[]> {
     try {
-      const response = await api.get(this.endpoint, {
-        params: { since },
-      });
+      const response = await apiFetch({ url: this.endpoint, method: 'GET', params: { since } });
 
       const data = extractListFromResponse(response, this.options.preferredListKeys);
 
@@ -587,7 +604,9 @@ export class BaseService<T> {
     }
 
     try {
-      const response = await api.get(this.endpoint, {
+      const response = await apiFetch({
+        url: this.endpoint,
+        method: 'GET',
         params,
         headers,
         validateStatus: (status) => status === 200 || status === 304,

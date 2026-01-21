@@ -17,10 +17,14 @@ const FoodTypesEditPage: React.FC = () => {
     }
   }, [id, foodTypes]);
 
-  const handleSubmit = (data: FoodTypes) => {
+  const handleSubmit = async (data: FoodTypes) => {
     if (!id) return;
-    updateItem(Number(id), data);
-    navigate('/food-types');
+    try {
+      await updateItem(Number(id), data);
+      navigate('/food-types');
+    } catch (error) {
+      console.error('Error al actualizar tipo de comida:', error);
+    }
   };
 
   if (!id) return <div>ID inválido</div>;

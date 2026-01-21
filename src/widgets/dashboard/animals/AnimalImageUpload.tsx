@@ -240,11 +240,14 @@ export function AnimalImageUpload({
         throw new Error(response.message || 'Error al subir imágenes');
       }
     } catch (err: any) {
-      const data = err?.response?.data || err?.data;
+      const data = (err as any)?.original?.response?.data || err?.response?.data || err?.data;
       const backendMessage =
         data?.message || data?.detail || data?.error || err?.message || 'Error al subir imágenes';
 
       const detailErrors =
+        (err as any)?.validationErrors ||
+        (err as any)?.details?.validation_errors ||
+        (err as any)?.details?.errors ||
         data?.details?.errors ||
         data?.error?.details?.errors ||
         data?.errors ||

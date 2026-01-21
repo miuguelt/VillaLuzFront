@@ -5,7 +5,7 @@ type CacheEntry = { ts: number; data: ActivityPage };
 
 const DEFAULT_TTL_MS = 30_000;
 
-const buildCacheKey = (query: Required<ActivityQuery>) =>
+const buildCacheKey = (query: ActivityQuery) =>
   JSON.stringify({
     page: query.page,
     limit: query.limit,
@@ -15,7 +15,12 @@ const buildCacheKey = (query: Required<ActivityQuery>) =>
     from: query.from ?? null,
     to: query.to ?? null,
     animalId: query.animalId ?? null,
+    entityId: query.entityId ?? null,
     userId: query.userId ?? null,
+    fields: query.fields ?? null,
+    include: query.include ?? null,
+    scope: query.scope ?? null,
+    cursor: query.cursor ?? null,
   });
 
 export function useActivityFeed(
@@ -33,15 +38,37 @@ export function useActivityFeed(
     () => ({
       page: query.page ?? 1,
       limit: query.limit ?? 20,
+      per_page: query.per_page,
       entity: query.entity,
       action: query.action,
       severity: query.severity,
       from: query.from,
       to: query.to,
       animalId: query.animalId,
+      entityId: query.entityId,
       userId: query.userId,
+      fields: query.fields,
+      include: query.include,
+      scope: query.scope,
+      cursor: query.cursor,
     }),
-    [query.page, query.limit, query.entity, query.action, query.severity, query.from, query.to, query.animalId, query.userId]
+    [
+      query.page,
+      query.limit,
+      query.per_page,
+      query.entity,
+      query.action,
+      query.severity,
+      query.from,
+      query.to,
+      query.animalId,
+      query.entityId,
+      query.userId,
+      query.fields,
+      query.include,
+      query.scope,
+      query.cursor,
+    ]
   );
 
   const enableCache = opts.enableCache !== false;

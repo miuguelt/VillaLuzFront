@@ -2,13 +2,6 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/shared/ui/dialog';
 import { AnimalResponse } from '@/shared/api/generated/swaggerTypes';
 import { AnimalImageGallery } from './AnimalImageGallery';
 import { AnimalImageUpload } from './AnimalImageUpload';
@@ -23,6 +16,8 @@ interface AnimalModalProps {
   mode?: 'view' | 'edit' | 'create';
   children?: React.ReactNode;
 }
+
+import { GenericModal } from '@/shared/ui/common/GenericModal';
 
 /**
  * Modal mejorado para animales
@@ -53,7 +48,7 @@ export function AnimalModal({
         setShowUpload(true);
       }
     };
-    
+
     window.addEventListener('open-upload-tab', handleOpenUploadTab as EventListener);
     return () => {
       window.removeEventListener('open-upload-tab', handleOpenUploadTab as EventListener);
@@ -81,185 +76,174 @@ export function AnimalModal({
     setShowUpload(false);
   }, []);
 
+  const footer = (
+    <div className="flex items-center justify-end gap-3 p-4 bg-background/50 backdrop-blur-md border-t">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onClose}
+        className="min-w-[100px]"
+      >
+        Cerrar
+      </Button>
+    </div>
+  );
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0 gap-0">
-        {/* Header del modal */}
-        <DialogHeader className="sticky top-0 z-10 bg-gradient-to-br from-primary/10 to-background border-b px-6 py-4 space-y-1">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="text-2xl font-bold tracking-tight">
-                {animal.record || `Animal #${animal.id}`}
-              </DialogTitle>
-              <DialogDescription className="text-sm mt-1">
-                Información detallada del animal
-              </DialogDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className={`text-xs font-semibold shadow-sm ${
-                  status === 'Sano' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400' :
-                  status === 'Enfermo' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400' :
-                  'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400'
-                }`}
-              >
-                {status}
-              </Badge>
-              <Badge
-                variant="secondary"
-                className={`text-xs font-semibold shadow-sm ${
-                  gender === 'Macho' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' :
-                  gender === 'Hembra' ? 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300' :
-                  'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                }`}
-              >
-                {gender || '-'}
-              </Badge>
-            </div>
-          </div>
-        </DialogHeader>
+    <GenericModal
+      isOpen={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      title={animal.record || `Animal #${animal.id}`}
+      description="Información detallada del animal"
+      size="7xl"
+      footer={footer}
+    >
+      <div className="space-y-6">
+        {/* Chips de estado superior */}
+        <div className="flex items-center gap-2 mb-4">
+          <Badge
+            variant="outline"
+            className={`text-xs font-semibold shadow-sm ${status === 'Sano' ? 'bg-green-50/50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-400' :
+              status === 'Enfermo' ? 'bg-red-50/50 text-red-700 border-red-200 dark:bg-red-950/30 dark:text-red-400' :
+                'bg-blue-50/50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-400'
+              }`}
+          >
+            {status}
+          </Badge>
+          <Badge
+            variant="secondary"
+            className={`text-xs font-semibold shadow-sm ${gender === 'Macho' ? 'bg-blue-100/50 text-blue-800 dark:bg-blue-950/30 dark:text-blue-300' :
+              gender === 'Hembra' ? 'bg-pink-100/50 text-pink-800 dark:bg-pink-950/30 dark:text-pink-300' :
+                'bg-purple-100/50 text-purple-800 dark:bg-purple-950/30 dark:text-purple-300'
+              }`}
+          >
+            {gender || '-'}
+          </Badge>
+        </div>
 
-        {/* Contenido del modal */}
-        <div className="p-6 space-y-6">
-          {/* Layout: Columna de imágenes + Columnas de atributos */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Columna de imágenes (1/3 en desktop, full en mobile) */}
-            <div className="lg:col-span-1 space-y-4">
-              <div className="bg-gradient-to-br from-accent/50 to-accent/20 rounded-xl p-4 shadow-lg border border-border/50">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-3">
-                  Imágenes
-                </h3>
+        {/* Layout: Columna de imágenes + Columnas de atributos */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Columna de imágenes (1/3 en desktop, full en mobile) */}
+          <div className="lg:col-span-1 space-y-4">
+            <div className="bg-gradient-to-br from-accent/30 to-accent/10 rounded-xl p-4 shadow-lg border border-border/30 backdrop-blur-sm">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-3">
+                Imágenes
+              </h3>
 
-                {/* Galería de imágenes */}
-                <AnimalImageGallery
-                  animalId={animal.id}
-                  showControls={mode !== 'view'}
-                  refreshTrigger={refreshTrigger}
-                  onGalleryUpdate={() => setRefreshTrigger(prev => prev + 1)}
-                />
+              {/* Galería de imágenes */}
+              <AnimalImageGallery
+                animalId={animal.id}
+                showControls={mode !== 'view'}
+                refreshTrigger={refreshTrigger}
+                onGalleryUpdate={() => setRefreshTrigger(prev => prev + 1)}
+              />
 
-                {/* Botón para mostrar carga de imágenes */}
-                {mode !== 'view' && !showUpload && (
-                  <div className="mt-4">
+              {/* Botón para mostrar carga de imágenes */}
+              {mode !== 'view' && !showUpload && (
+                <div className="mt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowUpload(true)}
+                    className="w-full"
+                  >
+                    Cargar nuevas imágenes
+                  </Button>
+                </div>
+              )}
+
+              {/* Componente de carga de imágenes */}
+              {showUpload && mode !== 'view' && (
+                <div className="mt-4 bg-card/50 rounded-lg p-4 border border-border/30 shadow-sm backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-foreground/80">
+                      Cargar imágenes
+                    </h4>
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
-                      onClick={() => setShowUpload(true)}
-                      className="w-full"
+                      onClick={() => setShowUpload(false)}
                     >
-                      Cargar nuevas imágenes
+                      <X className="w-4 h-4" />
                     </Button>
                   </div>
-                )}
-
-                {/* Componente de carga de imágenes */}
-                {showUpload && mode !== 'view' && (
-                  <div className="mt-4 bg-card rounded-lg p-4 border shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-foreground/80">
-                        Cargar imágenes
-                      </h4>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowUpload(false)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    <AnimalImageUpload
-                      animalId={animal.id}
-                      onUploadSuccess={handleUploadSuccess}
-                      maxFiles={10}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Columnas de atributos (2/3 en desktop, full en mobile) */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Información básica */}
-              <div className="bg-gradient-to-br from-accent/50 to-accent/20 rounded-xl p-5 shadow-lg border border-border/50">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-4">
-                  Información Básica
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  <DetailField label="ID" value={animal.id} />
-                  <DetailField label="Registro" value={animal.record || '-'} />
-                  <DetailField label="Raza" value={breedLabel} />
-                  <DetailField label="Sexo" value={gender || '-'} />
-                  <DetailField label="Estado" value={status} />
-                  <DetailField label="Peso" value={`${weight} kg`} />
-                  <DetailField label="Fecha de nacimiento" value={birthDate} />
-                  <DetailField label="Edad (días)" value={ageDays} />
-                  <DetailField label="Edad (meses)" value={ageMonths} />
-                  <DetailField label="Adulto" value={isAdult} />
-                </div>
-              </div>
-
-              {/* Genealogía */}
-              <div className="bg-gradient-to-br from-accent/50 to-accent/20 rounded-xl p-5 shadow-lg border border-border/50">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-4">
-                  Genealogía
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  <DetailField label="Padre" value={fatherLabel} />
-                  <DetailField label="Madre" value={motherLabel} />
-                </div>
-              </div>
-
-              {/* Información del sistema */}
-              <div className="bg-gradient-to-br from-accent/50 to-accent/20 rounded-xl p-5 shadow-lg border border-border/50">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-4">
-                  Información del Sistema
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  <DetailField label="Creado" value={createdAt} />
-                  <DetailField label="Actualizado" value={updatedAt} />
-                </div>
-              </div>
-
-              {/* Notas (si existen) */}
-              {animal.notes && (
-                <div className="bg-gradient-to-br from-accent/50 to-accent/20 rounded-xl p-5 shadow-lg border border-border/50">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-3">
-                    Notas
-                  </h3>
-                  <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
-                    {animal.notes}
-                  </p>
+                  <AnimalImageUpload
+                    animalId={animal.id}
+                    onUploadSuccess={handleUploadSuccess}
+                    maxFiles={10}
+                  />
                 </div>
               )}
             </div>
           </div>
 
-          {/* Contenido personalizado (si se proporciona) */}
-          {children && (
-            <div className="border-t pt-6">
-              {children}
+          {/* Columnas de atributos (2/3 en desktop, full en mobile) */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Información básica */}
+            <div className="bg-white/40 dark:bg-slate-800/20 rounded-xl p-5 shadow-lg border border-border/30 backdrop-blur-md">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-4">
+                Información Básica
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
+                <DetailField label="ID" value={animal.id} />
+                <DetailField label="Registro" value={animal.record || '-'} />
+                <DetailField label="Raza" value={breedLabel} />
+                <DetailField label="Sexo" value={gender || '-'} />
+                <DetailField label="Estado" value={status} />
+                <DetailField label="Peso" value={`${weight} kg`} />
+                <DetailField label="Fecha de nacimiento" value={birthDate} />
+                <DetailField label="Edad (días)" value={ageDays} />
+                <DetailField label="Edad (meses)" value={ageMonths} />
+                <DetailField label="Adulto" value={isAdult} />
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Footer con botones */}
-        <div className="sticky bottom-0 bg-background border-t px-6 py-4">
-          <div className="flex items-center justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="min-w-[100px]"
-            >
-              Cerrar
-            </Button>
+            {/* Genealogía */}
+            <div className="bg-white/40 dark:bg-slate-800/20 rounded-xl p-5 shadow-lg border border-border/30 backdrop-blur-md">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-4">
+                Genealogía
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <DetailField label="Padre" value={fatherLabel} />
+                <DetailField label="Madre" value={motherLabel} />
+              </div>
+            </div>
+
+            {/* Información del sistema */}
+            <div className="bg-white/40 dark:bg-slate-800/20 rounded-xl p-5 shadow-lg border border-border/30 backdrop-blur-md">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-4">
+                Información del Sistema
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                <DetailField label="Creado" value={createdAt} />
+                <DetailField label="Actualizado" value={updatedAt} />
+              </div>
+            </div>
+
+            {/* Notas (si existen) */}
+            {animal.notes && (
+              <div className="bg-white/40 dark:bg-slate-800/20 rounded-xl p-5 shadow-lg border border-border/30 backdrop-blur-md">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-3">
+                  Notas
+                </h3>
+                <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                  {animal.notes}
+                </p>
+              </div>
+            )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+
+        {/* Contenido personalizado (si se proporciona) */}
+        {children && (
+          <div className="border-t border-border/30 pt-6">
+            {children}
+          </div>
+        )}
+      </div>
+    </GenericModal>
   );
 }
 

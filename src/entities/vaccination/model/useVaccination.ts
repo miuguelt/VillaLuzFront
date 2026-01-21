@@ -12,8 +12,8 @@ export const useVaccinations = () => {
   const fetchVaccinations = async () => {
     setLoading(true);
     try {
-      const data = await vaccinationsService.getAll();
-      const normalized: Vaccinations[] = (Array.isArray(data) ? data : []).map(mapVaccinationResponseToLocal);
+      const page = await vaccinationsService.getVaccinations({ page: 1, limit: 10 });
+      const normalized: Vaccinations[] = (Array.isArray((page as any)?.data) ? (page as any).data : []).map(mapVaccinationResponseToLocal);
       setVaccinations(normalized);
     } catch (err) {
       setError('Error al cargar las vacunaciones');

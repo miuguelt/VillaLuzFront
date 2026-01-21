@@ -1,7 +1,7 @@
 import { BaseService } from '@/shared/api/base-service';
-import api from '@/shared/api/client';
 import { UserResponse, UserInput, PaginatedResponse } from '@/shared/api/generated/swaggerTypes';
 import { UserStatistics, BulkResponse } from '@/shared/types/common.types';
+import { apiFetch } from '@/shared/api/apiFetch';
 
 class UsersService extends BaseService<UserResponse> {
   constructor() {
@@ -64,11 +64,11 @@ class UsersService extends BaseService<UserResponse> {
     } as const;
 
     const performRequest = async (url: string) => {
-      const response = await api.request({
+      const response = await apiFetch({
         url,
         ...requestConfig,
-      });
-      return response.data?.data || response.data;
+      } as any);
+      return (response as any).data?.data || (response as any).data;
     };
 
     try {
@@ -124,7 +124,7 @@ class UsersService extends BaseService<UserResponse> {
   // Chequeos ligeros con HEAD
   async checkAvailability(): Promise<{ ok: boolean; status?: number; headers?: Record<string, any> }> {
     try {
-      const res = await (await import('@/shared/api/client')).default.request({ url: this.endpoint, method: 'HEAD', validateStatus: () => true });
+      const res = await apiFetch({ url: this.endpoint, method: 'HEAD', validateStatus: () => true });
       return { ok: res.status >= 200 && res.status < 300, status: res.status, headers: res.headers };
     } catch (e: any) {
       return { ok: false, status: e?.response?.status, headers: e?.response?.headers };
@@ -133,7 +133,7 @@ class UsersService extends BaseService<UserResponse> {
 
   async checkItemAvailability(id: number | string): Promise<{ ok: boolean; status?: number; headers?: Record<string, any> }> {
     try {
-      const res = await (await import('@/shared/api/client')).default.request({ url: `${this.endpoint}/${id}`, method: 'HEAD', validateStatus: () => true });
+      const res = await apiFetch({ url: `${this.endpoint}/${id}`, method: 'HEAD', validateStatus: () => true });
       return { ok: res.status >= 200 && res.status < 300, status: res.status, headers: res.headers };
     } catch (e: any) {
       return { ok: false, status: e?.response?.status, headers: e?.response?.headers };

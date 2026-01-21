@@ -34,14 +34,14 @@ class DependencyCache {
   get(entityType: string, entityId: number): DependencyCheckResult | null {
     const key = this.getKey(entityType, entityId);
     const entry = this.cache.get(key);
-    
+
     if (!entry) return null;
-    
+
     if (Date.now() - entry.timestamp > this.TTL) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return entry.result;
   }
 
@@ -119,14 +119,14 @@ function validateAndFilterDependencies<T extends Record<string, any>>(
     // Buscar el valor en cualquiera de las variantes del campo
     const itemValue = filterKeys.map(k => item[k]).find(v => v != null);
     // Comparación loose para manejar string vs number
-    return itemValue == expectedValue;  
+    return itemValue == expectedValue;
   });
 
   const invalidCount = items.length - validItems.length;
   if (invalidCount > 0) {
     const invalidItems = items.filter(item => {
       const itemValue = filterKeys.map(k => item[k]).find(v => v != null);
-      return itemValue != expectedValue;  
+      return itemValue != expectedValue;
     });
 
     console.error(`[${context}] ⚠️ BACKEND BUG DETECTADO: Filtrado incorrecto`, {
@@ -157,7 +157,7 @@ function validateAndFilterDependencies<T extends Record<string, any>>(
 export async function checkSpeciesDependencies(speciesId: number): Promise<DependencyCheckResult> {
   try {
     // Verificar razas asociadas
-    const breedsResp = await breedsService.getPaginated({ species_id: speciesId, limit: 5, page: 1, fields: 'id,name' });
+    const breedsResp = await breedsService.getPaginated({ species_id: speciesId, limit: 5, page: 1, fields: 'id,name', cache_bust: Date.now() });
     const breeds = Array.isArray(breedsResp?.data) ? breedsResp.data : [];
     const breedsCount = breedsResp?.total || breeds.length;
 
@@ -201,7 +201,8 @@ export async function checkBreedDependencies(breedId: number): Promise<Dependenc
       breed_id: breedId,
       limit: 1000, // Aumentar límite para obtener todos los dependientes
       page: 1,
-      fields: 'id,record,breed_id,breeds_id'
+      fields: 'id,record,breed_id,breeds_id',
+      cache_bust: Date.now()
     });
 
     const allAnimals = Array.isArray(animalsResp?.data) ? animalsResp.data : [];
@@ -221,16 +222,16 @@ export async function checkBreedDependencies(breedId: number): Promise<Dependenc
     if (allAnimals.length > 0) {
       const allHaveWrongBreedId = allAnimals.every(a => {
         const animalBreedId = (a as any).breed_id ?? (a as any).breeds_id;
-        return animalBreedId != breedId;  
+        return animalBreedId != breedId;
       });
 
       if (allHaveWrongBreedId) {
         // No bloquear: continuar con filtrado client-side y permitir eliminación si no hay coincidencias reales
-  console.warn('[checkBreedDependencies] ⚠️ Verificación de integridad: el backend no filtró por breed_id. Se valida en frontend y se permite eliminar solo si no existen dependencias reales.', {
-    detalle: `El backend devolvió ${allAnimals.length} animales pero NINGUNO tiene breed_id=${breedId}`,
-    motivo: 'La función verifica integridad referencial para evitar eliminar registros usados en otras tablas',
-    accion: 'Corregir el filtro en /api/v1/animals para el parámetro breed_id en el backend'
-  });
+        console.warn('[checkBreedDependencies] ⚠️ Verificación de integridad: el backend no filtró por breed_id. Se valida en frontend y se permite eliminar solo si no existen dependencias reales.', {
+          detalle: `El backend devolvió ${allAnimals.length} animales pero NINGUNO tiene breed_id=${breedId}`,
+          motivo: 'La función verifica integridad referencial para evitar eliminar registros usados en otras tablas',
+          accion: 'Corregir el filtro en /api/v1/animals para el parámetro breed_id en el backend'
+        });
       }
     }
 
@@ -286,14 +287,15 @@ export async function checkBreedDependencies(breedId: number): Promise<Dependenc
  */
 export async function checkAnimalDependencies(animalId: number): Promise<DependencyCheckResult> {
   console.log(`[checkAnimalDependencies] Verificando dependencias para animal ID: ${animalId}`);
-  
-  // Verificar caché primero
-  const cached = dependencyCache.get('animal', animalId);
-  if (cached) {
-    console.log(`[checkAnimalDependencies] Usando caché para animal ID: ${animalId}`);
-    return cached;
-  }
-  
+
+  // NOTA: Caché de lectura DESHABILITADA para evitar falsos positivos
+  // cuando los registros relacionados han sido eliminados recientemente.
+  // Siempre consultamos datos frescos del servidor.
+  // Si se necesita optimizar en el futuro, revisar la lógica de invalidación.
+
+  // Limpiar cualquier caché existente para este animal antes de verificar
+  dependencyCache.clearEntity('animal', animalId);
+
   // Verificar si es un animal recién creado para evitar falsas advertencias
   try {
     const animal = await animalsService.getAnimalById(animalId);
@@ -301,7 +303,7 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
       const createdAt = new Date(animal.created_at);
       const now = new Date();
       const diffMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
-      
+
       // Considerar recién creado si tiene menos de 5 minutos
       if (diffMinutes < 5) {
         console.log(`[checkAnimalDependencies] Animal recién creado detectado (ID: ${animalId}), omitiendo verificación de dependencias`);
@@ -330,18 +332,43 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
       improvementsResp
     ] = await Promise.all([
       // Optimizado: límite reducido a 3 para early exit
-      animalsService.getAnimalsPaginated({ father_id: animalId, limit: 3, page: 1, fields: 'id,record' }),
-      animalsService.getAnimalsPaginated({ mother_id: animalId, limit: 3, page: 1, fields: 'id,record' }),
-      treatmentsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,treatment_date' }),
-      vaccinationsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,vaccination_date' }),
-      animalDiseasesService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,diagnosis_date' }),
-      animalFieldsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,assignment_date' }),
-      geneticImprovementsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,improvement_date' })
+      // IMPORTANTE: Usar cache_bust para evitar falsos positivos con datos cacheados
+      animalsService.getAnimalsPaginated({ father_id: animalId, limit: 3, page: 1, fields: 'id,record', cache_bust: Date.now() }),
+      animalsService.getAnimalsPaginated({ mother_id: animalId, limit: 3, page: 1, fields: 'id,record', cache_bust: Date.now() }),
+      treatmentsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,treatment_date', cache_bust: Date.now() }),
+      vaccinationsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,vaccination_date', cache_bust: Date.now() }),
+      animalDiseasesService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,diagnosis_date', cache_bust: Date.now() }),
+      animalFieldsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,assignment_date', cache_bust: Date.now() }),
+      geneticImprovementsService.getPaginated({ animal_id: animalId, limit: 3, page: 1, fields: 'id,improvement_date', cache_bust: Date.now() })
     ]);
 
+    // Helper local para filtrar soft-deletes y loggear inspección
+    const filterActiveItems = (items: any[], type: string) => {
+      if (!Array.isArray(items)) return [];
+
+      const activeItems = items.filter(item => {
+        // Filtrar si tiene deleted_at (Soft Delete estándar)
+        if (item.deleted_at) return false;
+        // Filtrar si status es 'deleted' o 'inactivo' (algunos modelos)
+        if (item.status === 'deleted' || item.status === 'inactive') return false;
+        return true;
+      });
+
+      if (items.length !== activeItems.length) {
+        console.log(`[checkAnimalDependencies] 🧹 Filtrados ${items.length - activeItems.length} items eliminados (soft-deleted) de tipo ${type}`);
+      }
+
+      if (activeItems.length > 0) {
+        console.log(`[checkAnimalDependencies] 🔍 Dependencias encontradas para ${type}:`, activeItems.map(i => ({ id: i.id, date: i.date || i.created_at || 'N/A' })));
+      }
+
+      return activeItems;
+    };
+
     // Procesar hijos (padre)
-    const children = Array.isArray(childrenResp?.data) ? childrenResp.data : [];
-    const childrenCount = childrenResp?.total || children.length;
+    const childrenRaw = Array.isArray(childrenResp?.data) ? childrenResp.data : [];
+    const children = filterActiveItems(childrenRaw, 'Hijos (Padre)');
+    const childrenCount = children.length; // Usar el count filtrado, no el total del backend
     if (childrenCount > 0) {
       const childRecords = children.slice(0, 3).map((a: any) => a.record || `ID ${a.id}`);
       const moreText = childrenCount > 3 ? ` y ${childrenCount - 3} más` : '';
@@ -351,8 +378,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
     }
 
     // Procesar hijos (madre)
-    const offspring = Array.isArray(offspringResp?.data) ? offspringResp.data : [];
-    const offspringCount = offspringResp?.total || offspring.length;
+    const offspringRaw = Array.isArray(offspringResp?.data) ? offspringResp.data : [];
+    const offspring = filterActiveItems(offspringRaw, 'Hijos (Madre)');
+    const offspringCount = offspring.length;
     if (offspringCount > 0) {
       const offspringRecords = offspring.slice(0, 3).map((a: any) => a.record || `ID ${a.id}`);
       const moreText = offspringCount > 3 ? ` y ${offspringCount - 3} más` : '';
@@ -362,8 +390,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
     }
 
     // Procesar tratamientos
-    const treatments = Array.isArray(treatmentsResp?.data) ? treatmentsResp.data : [];
-    const treatmentsCount = treatmentsResp?.total || treatments.length;
+    const treatmentsRaw = Array.isArray(treatmentsResp?.data) ? treatmentsResp.data : [];
+    const treatments = filterActiveItems(treatmentsRaw, 'Tratamientos');
+    const treatmentsCount = treatments.length;
     if (treatmentsCount > 0) {
       const treatmentDates = treatments.slice(0, 3).map((t: any) => {
         const date = t.treatment_date ? new Date(t.treatment_date).toLocaleDateString('es-ES') : 'Sin fecha';
@@ -376,8 +405,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
     }
 
     // Procesar vacunaciones
-    const vaccinations = Array.isArray(vaccinationsResp?.data) ? vaccinationsResp.data : [];
-    const vaccinationsCount = vaccinationsResp?.total || vaccinations.length;
+    const vaccinationsRaw = Array.isArray(vaccinationsResp?.data) ? vaccinationsResp.data : [];
+    const vaccinations = filterActiveItems(vaccinationsRaw, 'Vacunaciones');
+    const vaccinationsCount = vaccinations.length;
     if (vaccinationsCount > 0) {
       const vaccinationDates = vaccinations.slice(0, 3).map((v: any) => {
         const date = v.vaccination_date ? new Date(v.vaccination_date).toLocaleDateString('es-ES') : 'Sin fecha';
@@ -390,8 +420,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
     }
 
     // Procesar enfermedades
-    const diseases = Array.isArray(diseasesResp?.data) ? diseasesResp.data : [];
-    const diseasesCount = diseasesResp?.total || diseases.length;
+    const diseasesRaw = Array.isArray(diseasesResp?.data) ? diseasesResp.data : [];
+    const diseases = filterActiveItems(diseasesRaw, 'Enfermedades');
+    const diseasesCount = diseases.length;
     if (diseasesCount > 0) {
       const diseaseDates = diseases.slice(0, 3).map((d: any) => {
         const date = d.diagnosis_date ? new Date(d.diagnosis_date).toLocaleDateString('es-ES') : 'Sin fecha';
@@ -404,8 +435,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
     }
 
     // Procesar asignaciones a potreros
-    const fields = Array.isArray(fieldsResp?.data) ? fieldsResp.data : [];
-    const fieldsCount = fieldsResp?.total || fields.length;
+    const fieldsRaw = Array.isArray(fieldsResp?.data) ? fieldsResp.data : [];
+    const fields = filterActiveItems(fieldsRaw, 'Campos');
+    const fieldsCount = fields.length;
     if (fieldsCount > 0) {
       const fieldDates = fields.slice(0, 3).map((f: any) => {
         const date = f.assignment_date ? new Date(f.assignment_date).toLocaleDateString('es-ES') : 'Sin fecha';
@@ -418,8 +450,9 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
     }
 
     // Procesar mejoras genéticas
-    const improvements = Array.isArray(improvementsResp?.data) ? improvementsResp.data : [];
-    const improvementsCount = improvementsResp?.total || improvements.length;
+    const improvementsRaw = Array.isArray(improvementsResp?.data) ? improvementsResp.data : [];
+    const improvements = filterActiveItems(improvementsRaw, 'Mejoras G.');
+    const improvementsCount = improvements.length;
     if (improvementsCount > 0) {
       const improvementDates = improvements.slice(0, 3).map((i: any) => {
         const date = i.improvement_date ? new Date(i.improvement_date).toLocaleDateString('es-ES') : 'Sin fecha';
@@ -447,7 +480,7 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
 
     // Guardar en caché
     dependencyCache.set('animal', animalId, result);
-    
+
     console.log(`[checkAnimalDependencies] Verificación completada para animal ID: ${animalId}`, {
       hasDependencies: result.hasDependencies,
       totalDependencies: totalDeps,
@@ -469,7 +502,7 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
 export async function checkFieldDependencies(fieldId: number): Promise<DependencyCheckResult> {
   try {
     // Verificar asignaciones de animales
-    const assignmentsResp = await animalFieldsService.getPaginated({ field_id: fieldId, limit: 5, page: 1, fields: 'id,animal_id,assignment_date' });
+    const assignmentsResp = await animalFieldsService.getPaginated({ field_id: fieldId, limit: 5, page: 1, fields: 'id,animal_id,assignment_date', cache_bust: Date.now() });
     const assignments = Array.isArray(assignmentsResp?.data) ? assignmentsResp.data : [];
     const assignmentsCount = assignmentsResp?.total || assignments.length;
 
@@ -517,7 +550,7 @@ export async function checkFieldDependencies(fieldId: number): Promise<Dependenc
 export async function checkDiseaseDependencies(diseaseId: number): Promise<DependencyCheckResult> {
   try {
     // Verificar diagnósticos de animales
-    const diagnosesResp = await animalDiseasesService.getPaginated({ disease_id: diseaseId, limit: 5, page: 1, fields: 'id,animal_id,diagnosis_date' });
+    const diagnosesResp = await animalDiseasesService.getPaginated({ disease_id: diseaseId, limit: 5, page: 1, fields: 'id,animal_id,diagnosis_date', cache_bust: Date.now() });
     const diagnoses = Array.isArray(diagnosesResp?.data) ? diagnosesResp.data : [];
     const diagnosesCount = diagnosesResp?.total || diagnoses.length;
 
@@ -565,7 +598,7 @@ export async function checkDiseaseDependencies(diseaseId: number): Promise<Depen
 export async function checkMedicationDependencies(medicationId: number): Promise<DependencyCheckResult> {
   try {
     // Verificar asociaciones con tratamientos
-    const treatmentMedsResp = await treatmentMedicationService.getPaginated({ medication_id: medicationId, limit: 5, page: 1, fields: 'id,treatment_id' });
+    const treatmentMedsResp = await treatmentMedicationService.getPaginated({ medication_id: medicationId, limit: 5, page: 1, fields: 'id,treatment_id', cache_bust: Date.now() });
     const treatmentMeds = Array.isArray(treatmentMedsResp?.data) ? treatmentMedsResp.data : [];
     const treatmentMedsCount = treatmentMedsResp?.total || treatmentMeds.length;
 
@@ -607,7 +640,7 @@ export async function checkVaccineDependencies(vaccineId: number): Promise<Depen
     const detailParts: string[] = [];
 
     // 1. Verificar vacunaciones
-    const vaccinationsResp = await vaccinationsService.getPaginated({ vaccine_id: vaccineId, limit: 5, page: 1, fields: 'id,animal_id,vaccination_date' });
+    const vaccinationsResp = await vaccinationsService.getPaginated({ vaccine_id: vaccineId, limit: 5, page: 1, fields: 'id,animal_id,vaccination_date', cache_bust: Date.now() });
     const vaccinations = Array.isArray(vaccinationsResp?.data) ? vaccinationsResp.data : [];
     const vaccinationsCount = vaccinationsResp?.total || vaccinations.length;
 

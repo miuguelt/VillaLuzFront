@@ -23,8 +23,8 @@ export const modalStyles = {
 
   // Tarjetas
   card: {
-    base: 'bg-card border border-border rounded-xl p-3',
-    hover: 'bg-card border border-border rounded-xl p-3 hover:shadow-md transition-shadow',
+    base: 'bg-[color-mix(in_srgb,hsl(var(--card))_80%,transparent)] border border-[color-mix(in_srgb,hsl(var(--border))_60%,transparent)] rounded-xl p-3 shadow-sm shadow-black/10 backdrop-blur-sm',
+    hover: 'bg-[color-mix(in_srgb,hsl(var(--card))_84%,transparent)] border border-[color-mix(in_srgb,hsl(var(--border))_60%,transparent)] rounded-xl p-3 shadow-sm shadow-black/10 backdrop-blur-sm hover:shadow-md hover:shadow-black/15 transition-shadow',
   },
 
   // Títulos de sección

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Alert, AlertDescription } from '@/shared/ui/alert';
 import { Button } from '@/shared/ui/button';
 import { RefreshCw, CheckCircle, XCircle } from 'lucide-react';
-import api from '@/shared/api/client';
+import { apiFetch } from '@/shared/api/apiFetch';
 
 interface BackendStatus {
   isOnline: boolean;
@@ -23,7 +23,7 @@ export const BackendStatusIndicator: React.FC = () => {
     
     try {
       // Intentar hacer un HEAD request para verificar conectividad
-      await api.head('/');
+      await apiFetch({ url: '/', method: 'HEAD' });
       setStatus({
         isOnline: true,
         loading: false,

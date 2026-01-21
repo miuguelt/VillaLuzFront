@@ -1,5 +1,6 @@
 import { BaseService } from '@/shared/api/base-service';
 import api from '@/shared/api/client';
+import { apiFetch } from '@/shared/api/apiFetch';
 import { ANIMAL_IMAGES_ENDPOINTS } from '@/shared/config/apiEndpoints';
 import { getBackendBaseURL, getApiBaseURL, isDevelopment } from '@/shared/utils/envConfig';
 
@@ -291,7 +292,7 @@ class AnimalImageService extends BaseService<AnimalImage> {
     }
 
     try {
-      await api.delete(ANIMAL_IMAGES_ENDPOINTS.DELETE(imageId));
+      await apiFetch({ url: ANIMAL_IMAGES_ENDPOINTS.DELETE(imageId), method: 'DELETE' });
     } catch (error: any) {
       const status = error?.response?.status;
       const message =

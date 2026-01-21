@@ -12,7 +12,7 @@ import GeneticTreeModal from '@/widgets/dashboard/GeneticTreeModal';
 import { useAnimalTreeApi, graphToAncestorLevels, graphToDescendantLevels } from '@/entities/animal/model/useAnimalTreeApi';
 import DescendantsTreeModal from '@/widgets/dashboard/DescendantsTreeModal';
 import { useForeignKeySelect } from '@/shared/hooks/useForeignKeySelect';
-import { ANIMAL_GENDERS, ANIMAL_STATES } from '@/shared/constants/enums';
+import { ANIMAL_GENDERS } from '@/shared/constants/enums';
 import { useState } from 'react';
 import { useGlobalViewMode } from '@/shared/hooks/useGlobalViewMode';
 import { checkAnimalDependencies, clearAnimalDependencyCache } from '@/features/diagnostics/api/dependencyCheck.service';
@@ -26,18 +26,53 @@ import { AnimalModalContent } from '@/widgets/dashboard/animals/AnimalModalConte
 import { AnimalImagePreUpload } from '@/widgets/dashboard/animals/AnimalImagePreUpload';
 import { animalImageService } from '@/entities/animal/api/animalImage.service';
 
+const ANIMAL_STATUS_OPTIONS = [
+  { value: 'Vivo', label: 'Vivo' },
+  { value: 'Vendido', label: 'Vendido' },
+  { value: 'Muerto', label: 'Muerto' },
+] as const;
+
+const normalizeGender = (value: unknown): AnimalInput['gender'] | undefined => {
+  if (value === null || value === undefined) return undefined;
+  const normalized = String(value).trim().toLowerCase();
+  let mapped: AnimalInput['gender'] | undefined;
+  if (['m', 'macho', 'male'].includes(normalized)) mapped = 'Macho';
+  if (['f', 'hembra', 'female'].includes(normalized)) mapped = 'Hembra';
+  if (['c', 'castrado', 'castrated'].includes(normalized)) mapped = 'Castrado';
+  if (!mapped) return undefined;
+  return ANIMAL_GENDERS.some((opt) => opt.value === mapped) ? mapped : undefined;
+};
+
+const normalizeStatus = (value: unknown): string | undefined => {
+  if (value === null || value === undefined) return undefined;
+  const normalized = String(value).trim().toLowerCase();
+  let mapped: string | undefined;
+  if (['vivo', 'activo', 'sano'].includes(normalized)) mapped = 'Vivo';
+  if (['vendido', 'sold'].includes(normalized)) mapped = 'Vendido';
+  if (['muerto', 'fallecido', 'dead'].includes(normalized)) mapped = 'Muerto';
+  if (!mapped) return undefined;
+  return ANIMAL_STATUS_OPTIONS.some((opt) => opt.value === mapped) ? mapped : undefined;
+};
+
+const toNumber = (value: unknown): number | undefined => {
+  if (value === null || value === undefined || value === '') return undefined;
+  const num = Number(value);
+  return Number.isNaN(num) ? undefined : num;
+};
+
 // Mapear respuesta del backend al formulario
 const mapResponseToForm = (item: AnimalResponse & { [k: string]: any }): Partial<AnimalInput> => {
+  const status = normalizeStatus(item.status ?? item.estado) || 'Vivo';
   return {
-    record: item.record || '',
-    birth_date: item.birth_date,
-    weight: item.weight,
-    breed_id: item.breeds_id || item.breed_id,
-    gender: item.sex || item.gender,
-    status: item.status || 'Sano',
-    father_id: item.idFather || item.father_id,
-    mother_id: item.idMother || item.mother_id,
-    notes: item.notes || '',
+    record: item.record || item.code || item.registro || '',
+    birth_date: item.birth_date || item.birthDate || item.fecha_nacimiento,
+    weight: toNumber(item.weight ?? item.peso),
+    breed_id: toNumber(item.breeds_id ?? item.breed_id ?? item.breedId ?? item.raza_id),
+    gender: normalizeGender(item.sex ?? item.gender ?? item.sexo ?? item.genero),
+    status: status as any,
+    father_id: toNumber(item.idFather ?? item.father_id ?? item.padre_id ?? item.fatherId),
+    mother_id: toNumber(item.idMother ?? item.mother_id ?? item.madre_id ?? item.motherId),
+    notes: item.notes ?? item.observations ?? item.observaciones ?? '',
   };
 };
 
@@ -102,7 +137,7 @@ const initialFormData: Partial<AnimalInput> = {
   weight: undefined, // Requerido: será validado antes de enviar
   breed_id: undefined as any, // Forzar que el usuario seleccione
   gender: 'Macho',
-  status: 'Sano',
+  status: 'Vivo' as any,
   father_id: undefined,
   mother_id: undefined,
   notes: '',
@@ -240,7 +275,7 @@ function AdminAnimalsPage() {
           name: 'status',
           label: 'Estado',
           type: 'select',
-          options: ANIMAL_STATES as any
+          options: ANIMAL_STATUS_OPTIONS as any
         },
         {
           name: 'weight',
@@ -602,8 +637,14 @@ function AdminAnimalsPage() {
         validateForm={validateForm}
         customDetailContent={renderAnimalDetail}
         onFormDataChange={setFormData}
+        realtime={true}
+        pollIntervalMs={0}
+        refetchOnFocus={false}
+        refetchOnReconnect={true}
+        cache={true}
+        cacheTTL={300000}
         enhancedHover={true}
-        additionalFormContent={(formData, editingItem) => {
+        additionalFormContent={(_formData, editingItem) => {
           // Solo mostrar selector de imágenes durante la creación (no en edición)
           if (editingItem) return null;
 

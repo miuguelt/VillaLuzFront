@@ -20,7 +20,7 @@ export class AnimalDiseasesService extends BaseService<AnimalDiseaseResponse> {
    * @param {number} [options.limit=10] - The number of items per page.
    * @returns {Promise<PaginatedResponse<AnimalDiseaseResponse>>} A promise that resolves to the paginated list of animal diseases.
    */
-  public async getAnimalDiseases(options: { page?: number; limit?: number } = {}): Promise<PaginatedResponse<AnimalDiseaseResponse>> {
+  public async getAnimalDiseases(options: { page?: number; limit?: number; [key: string]: any } = {}): Promise<PaginatedResponse<AnimalDiseaseResponse>> {
     return this.getPaginated(options);
   }
 

@@ -212,7 +212,7 @@ const UserProfile = () => {
         if (logoutCountdown == null) return;
         if (logoutCountdown <= 0) {
             setLogoutCountdown(null);
-            Promise.resolve(logout()).catch(() => {});
+            Promise.resolve(logout()).catch(() => { });
             return;
         }
         const t = setTimeout(() => setLogoutCountdown((prev) => (prev == null ? null : prev - 1)), 1000);
@@ -260,7 +260,7 @@ const UserProfile = () => {
             });
             profileForm.reset(normalized);
             if (refreshUserData) {
-                await refreshUserData().catch(() => {});
+                await refreshUserData().catch(() => { });
             }
         } catch (error: any) {
             const payload = error?.response?.data ?? error?.data ?? error?.details ?? error;
@@ -350,18 +350,18 @@ const UserProfile = () => {
                 normalized.includes('validation error') ||
                 normalized.trim() === 'validation';
 
-                if (status === 422) {
-                    setPasswordStatus({
-                        type: 'warning',
-                        title: 'Revisa los campos',
-                        message: message || 'Errores de validacion. Ajusta los campos segun los requisitos.',
-                    });
-                    showToast(message || 'Errores de validacion. Revisa los campos.', 'warning', 8000);
-                    if (hasNewPasswordError || normalized.includes('contras') || normalized.includes('password') || normalized.includes('new_password')) {
-                        if (!hasNewPasswordError && !isGenericValidation && message) {
-                            passwordForm.setError('newPassword', { message });
-                        }
-                    } else if (!hasCurrentPasswordError && normalized.includes('actual') && !isGenericValidation && message) {
+            if (status === 422) {
+                setPasswordStatus({
+                    type: 'warning',
+                    title: 'Revisa los campos',
+                    message: message || 'Errores de validacion. Ajusta los campos segun los requisitos.',
+                });
+                showToast(message || 'Errores de validacion. Revisa los campos.', 'warning', 8000);
+                if (hasNewPasswordError || normalized.includes('contras') || normalized.includes('password') || normalized.includes('new_password')) {
+                    if (!hasNewPasswordError && !isGenericValidation && message) {
+                        passwordForm.setError('newPassword', { message });
+                    }
+                } else if (!hasCurrentPasswordError && normalized.includes('actual') && !isGenericValidation && message) {
                     passwordForm.setError('currentPassword', { message });
                 }
             } else if (status === 401) {
@@ -962,6 +962,9 @@ const UserProfile = () => {
             from: activityFrom || undefined,
             to: activityTo || undefined,
             animalId: activityAnimalId || undefined,
+            // Optimización: pedir solo campos necesarios
+            fields: ['id', 'entity', 'action', 'severity', 'title', 'summary', 'timestamp', 'links', 'animal_id', 'entity_id'],
+            include: ['actor'], // Omitir relations pesadas si no se usan
         }),
         [activityAction, activityAnimalId, activityEntity, activityFrom, activityLimit, activityPage, activitySeverity, activityTo]
     );
@@ -1371,8 +1374,8 @@ const UserProfile = () => {
                                                             severity === 'high'
                                                                 ? 'border-l-red-500'
                                                                 : severity === 'medium'
-                                                                  ? 'border-l-amber-500'
-                                                                  : 'border-l-green-500';
+                                                                    ? 'border-l-amber-500'
+                                                                    : 'border-l-green-500';
                                                         const timestamp = new Date(item.timestamp);
                                                         const timeLabel = Number.isFinite(timestamp.getTime())
                                                             ? timestamp.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
@@ -1671,10 +1674,10 @@ const UserProfile = () => {
                                     passwordStatus.type === 'success'
                                         ? 'bg-green-50 border-green-200'
                                         : passwordStatus.type === 'warning'
-                                          ? 'bg-yellow-50 border-yellow-200'
-                                          : passwordStatus.type === 'info'
-                                            ? 'bg-blue-50 border-blue-200'
-                                            : 'bg-red-50 border-red-200'
+                                            ? 'bg-yellow-50 border-yellow-200'
+                                            : passwordStatus.type === 'info'
+                                                ? 'bg-blue-50 border-blue-200'
+                                                : 'bg-red-50 border-red-200'
                                 }
                             >
                                 <AlertTitle className="font-semibold flex items-center gap-2">
@@ -1695,7 +1698,7 @@ const UserProfile = () => {
                                                 <p className="text-sm">
                                                     Cerrando sesion en <span className="font-semibold">{logoutCountdown}s</span>...
                                                 </p>
-                                                <Button type="button" variant="outline" size="sm" onClick={() => Promise.resolve(logout()).catch(() => {})}>
+                                                <Button type="button" variant="outline" size="sm" onClick={() => Promise.resolve(logout()).catch(() => { })}>
                                                     Cerrar sesion ahora
                                                 </Button>
                                             </div>
@@ -1721,18 +1724,18 @@ const UserProfile = () => {
                                 className="hidden"
                             />
 
-                                {(!!currentPasswordValue || !!newPasswordValue || !!confirmPasswordValue) && (
-                                    <Alert className="bg-yellow-50 border-yellow-200">
-                                        <AlertTitle className="font-semibold flex items-center gap-2">
-                                            <AlertTriangle className="h-4 w-4" aria-hidden />
-                                            Requisitos de contrasena
-                                        </AlertTitle>
-                                        <AlertDescription className="text-sm">
-                                            <p>Actual: 4+ caracteres. Nueva: minimo 8 caracteres e incluye al menos 1 mayuscula y 1 minuscula.</p>
-                                            <PasswordLiveRequirements newPassword={newPasswordValue || ''} confirmPassword={confirmPasswordValue || ''} />
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
+                            {(!!currentPasswordValue || !!newPasswordValue || !!confirmPasswordValue) && (
+                                <Alert className="bg-yellow-50 border-yellow-200">
+                                    <AlertTitle className="font-semibold flex items-center gap-2">
+                                        <AlertTriangle className="h-4 w-4" aria-hidden />
+                                        Requisitos de contrasena
+                                    </AlertTitle>
+                                    <AlertDescription className="text-sm">
+                                        <p>Actual: 4+ caracteres. Nueva: minimo 8 caracteres e incluye al menos 1 mayuscula y 1 minuscula.</p>
+                                        <PasswordLiveRequirements newPassword={newPasswordValue || ''} confirmPassword={confirmPasswordValue || ''} />
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                             <div className="space-y-2">
                                 <Label htmlFor="currentPassword">Contrasena actual</Label>
                                 <Input

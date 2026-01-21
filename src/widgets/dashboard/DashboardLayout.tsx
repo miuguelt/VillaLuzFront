@@ -29,7 +29,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   // Detectar si estamos en desktop
   useEffect(() => {
     const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024);
+      const isLarge = window.innerWidth >= 1024;
+      setIsDesktop(isLarge);
+      // Auto-collapse sidebar on resize to prevent overlay issues when switching modes
+      // or to ensure it starts closed on mobile resize.
+      if (!isLarge) {
+        setIsSidebarOpen(false);
+      }
     };
 
     checkIsDesktop();

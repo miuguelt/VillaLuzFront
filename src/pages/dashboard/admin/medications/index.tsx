@@ -36,7 +36,7 @@ const formSections: CRUDFormSection<MedicationInput>[] = [
     title: 'Información Básica',
     gridCols: 2,
     fields: [
-      { name: 'name', label: 'Nombre', type: 'text', required: true, placeholder: 'Ej: Florfenicol' },
+      { name: 'name', label: 'Nombre', type: 'text', required: true, placeholder: 'Ej: Florfenicol', helperText: 'Ingrese un nombre descriptivo (minimo 3 caracteres).', validation: { min: 3 } },
       { name: 'dosis', label: 'Dosis', type: 'text', placeholder: 'Ej: 20mg/kg' },
       { name: 'route_administration_id', label: 'ID Ruta de Administración', type: 'number', placeholder: 'Ej: 1, 2, 3' },
       { name: 'availability', label: 'Disponible', type: 'checkbox' },
@@ -267,9 +267,12 @@ function AdminMedicationsPage() {
       validateForm={validateForm}
       customDetailContent={renderDetail}
       realtime={true}
-      pollIntervalMs={8000}
-      refetchOnFocus={true}
+      pollIntervalMs={0}
+      refetchOnFocus={false}
       refetchOnReconnect={true}
+      cache={true}
+      cacheTTL={300000}
+      forceFreshOnMount={false}
       enhancedHover={true}
     />
   );

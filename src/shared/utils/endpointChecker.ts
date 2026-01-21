@@ -4,6 +4,7 @@
  */
 
 import api from '@/shared/api/client';
+import { apiFetch } from '@/shared/api/apiFetch';
 import { getBackendBaseURL } from '@/shared/utils/envConfig';
 
 // Resolved base URL for logging
@@ -91,12 +92,12 @@ export const checkAllEndpoints = async (skipAuth: boolean = false): Promise<Test
       if (test.method === 'GET') {
         if (test.endpoint === 'health') {
           // Usar base root desde variable de entorno
-          response = await api.get('/health', { baseURL: getRootBaseURL(api.defaults.baseURL) || getBackendBaseURL() });
+          response = await apiFetch({ url: '/health', method: 'GET', baseURL: getRootBaseURL(api.defaults.baseURL) || getBackendBaseURL() } as any);
         } else {
-          response = await api.get(test.endpoint);
+          response = await apiFetch({ url: test.endpoint, method: 'GET' } as any);
         }
       } else if (test.method === 'POST') {
-        response = await api.post(test.endpoint, test.testData || {});
+        response = await apiFetch({ url: test.endpoint, method: 'POST', data: test.testData || {} } as any);
       }
       
       const responseTime = Date.now() - startTime;
@@ -151,9 +152,9 @@ export const checkCriticalEndpoints = async (): Promise<TestResult[]> => {
       let response;
       
       if (test.method === 'GET') {
-        response = await api.get(test.endpoint);
+        response = await apiFetch({ url: test.endpoint, method: 'GET' } as any);
       } else if (test.method === 'POST') {
-        response = await api.post(test.endpoint, test.testData || {});
+        response = await apiFetch({ url: test.endpoint, method: 'POST', data: test.testData || {} } as any);
       }
       
       const responseTime = Date.now() - startTime;
@@ -241,7 +242,7 @@ export const runConnectivityTest = async (includeAuth: boolean = false) => {
 
 export async function pingEndpoint(path: string) {
   try {
-    const res = await api.get(path.startsWith('http') ? path : path);
+    const res = await apiFetch({ url: path.startsWith('http') ? path : path, method: 'GET' } as any);
     return { ok: true, status: res.status };
   } catch (e: any) {
     return { ok: false, status: e?.response?.status ?? 0 };

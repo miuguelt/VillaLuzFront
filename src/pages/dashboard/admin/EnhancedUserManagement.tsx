@@ -41,6 +41,7 @@ import type { UserInput, UserResponse } from "@/shared/api/generated/swaggerType
 import { UserPlus, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
 import { useToast } from "@/app/providers/ToastContext";
 import { UserActionsMenu } from "@/widgets/dashboard/UserActionsMenu";
+import { buildConflictMessage } from "@/shared/utils/validationMessages";
 
 interface UserFormData {
   identification: string;
@@ -202,7 +203,19 @@ const EnhancedUserManagement: React.FC = () => {
       setIsCreateDialogOpen(false);
       resetForm();
     } catch (e: any) {
-      const data = e?.response?.data || e?.data;
+      const data = (e as any)?.original?.response?.data || e?.response?.data || e?.data;
+      const status = (e as any)?.status ?? e?.response?.status;
+      const details =
+        (e as any)?.details ||
+        data?.error?.details ||
+        data?.details ||
+        undefined;
+      const validationErrors =
+        (e as any)?.validationErrors ||
+        details?.validation_errors ||
+        details?.errors ||
+        data?.details?.validation_errors ||
+        data?.errors;
       const backendMessage =
         data?.message ||
         data?.detail ||
@@ -211,13 +224,41 @@ const EnhancedUserManagement: React.FC = () => {
         "Error al crear el usuario";
 
       // Mapear validaciones 422
-      if (e?.response?.status === 422 || data?.details?.validation_errors) {
-        mapBackendValidationErrors(data?.details || data?.error?.details || data);
+      if (status === 422 || validationErrors) {
+        mapBackendValidationErrors(validationErrors || details || data);
         showToast(data?.message || "Errores de validación. Revisa los campos.", "warning");
       }
       // Conflicto 409
-      else if (e?.response?.status === 409 && data?.details?.error) {
-        showToast(data?.details?.error || backendMessage, "error");
+      else if (status === 409) {
+        const traceId =
+          (e as any)?.traceId ||
+          data?.error?.trace_id ||
+          data?.error?.traceId ||
+          data?.trace_id ||
+          data?.traceId;
+        const details =
+          (e as any)?.details ||
+          data?.error?.details ||
+          data?.details;
+        const conflict = buildConflictMessage(details, [
+          { title: 'Usuario', fields: [
+            { name: 'identification', label: 'Identificación', type: 'text' },
+            { name: 'fullname', label: 'Nombre Completo', type: 'text' },
+            { name: 'email', label: 'Email', type: 'text' },
+            { name: 'phone', label: 'Teléfono', type: 'text' },
+            { name: 'address', label: 'Dirección', type: 'text' },
+            { name: 'role', label: 'Rol', type: 'select' },
+            { name: 'password', label: 'Contraseña', type: 'text' },
+          ] }
+        ] as any);
+        const suffix = traceId ? ` (Trace ID: ${traceId})` : '';
+        showToast(`${conflict.message}${suffix}`, "error");
+        if (conflict.field) {
+          try {
+            const key = conflict.field as keyof UserFormData;
+            setFormErrors(prev => ({ ...(prev || {}), [key]: conflict.message }));
+          } catch { /* noop */ }
+        }
       }
       // Otros errores
       else {

@@ -74,12 +74,17 @@ import { ErrorState } from '@/widgets/feedback/ErrorState';
 import { useToast } from '@/app/providers/ToastContext';
 import { useT } from '@/shared/i18n';
 import { ConfirmDialog } from '@/shared/ui/common/ConfirmDialog';
+import { checkDependencies } from '@/features/diagnostics/api/dependencyCheck.service';
 import { SkeletonTable } from '@/widgets/feedback/SkeletonTable';
 import { LoadingOverlay } from '@/widgets/feedback/LoadingOverlay';
 import { Combobox } from '@/shared/ui/combobox';
 import { addTombstone, getTombstoneIds, clearExpired } from '@/shared/api/cache/tombstones';
 import { globalSearch, createSearchCache } from '@/shared/utils/globalSearch';
 import { getTodayColombia } from '@/shared/utils/dateUtils';
+import { validateFormSections, type FieldErrors } from '@/shared/utils/formValidation';
+import { formatValidationToastMessage, mapBackendFieldErrorsToLabels, buildConflictMessage } from '@/shared/utils/validationMessages';
+import { treatmentMedicationService } from '@/entities/treatment-medication/api/treatmentMedication.service';
+import { treatmentVaccinesService } from '@/entities/treatment-vaccine/api/treatmentVaccines.service';
 
 const isDevEnv = (() => {
   try {
@@ -149,15 +154,23 @@ export interface CRUDConfig<T, TInput> {
   customActions?: (item: T) => React.ReactNode;
   customFilters?: React.ReactNode;
   customToolbar?: React.ReactNode;
+  customHeader?: React.ReactNode;
   // Optimización: limitar campos devueltos por el backend
   defaultFields?: string;
+  // Filtros adicionales para inicializar useResource
+  additionalFilters?: Record<string, any>;
   // Nuevas opciones para controlar modales y confirmaciones
   showEditTimestamps?: boolean;          // Mostrar/ocultar created_at/updated_at en el modal de edición (default: true)
   showDetailTimestamps?: boolean;        // Mostrar/ocultar created_at/updated_at en el modal de detalle (default: true)
   confirmDeleteTitle?: string;           // Título personalizado del diálogo de confirmación de borrado
   confirmDeleteDescription?: string;     // Descripción personalizada del diálogo de confirmación de borrado
   showIdInDetailTitle?: boolean;         // Mostrar u ocultar el ID en el título del modal de detalle (default: true)
-  preDeleteCheck?: (id: number) => Promise<{ hasDependencies: boolean; message?: string }>; // Chequeo previo antes de eliminar
+  preDeleteCheck?: (id: number) => Promise<{
+    hasDependencies: boolean;
+    message?: string;
+    detailedMessage?: string;
+    dependencies?: Array<{ entity: string; count: number; samples?: string[] }>;
+  }>; // Chequeo previo antes de eliminar
   // Vista alternativa en tarjetas
   viewMode?: 'table' | 'cards';
   // Contenido interno opcional para cada tarjeta
@@ -172,7 +185,7 @@ export interface CRUDConfig<T, TInput> {
 interface AdminCRUDPageProps<T extends { id: number }, TInput extends Record<string, any>> {
   config: CRUDConfig<T, TInput>;
   service: any; // BaseService instance
-  initialFormData: TInput;
+  initialFormData: TInput | (() => TInput);
   mapResponseToForm?: (item: T) => TInput;
   validateForm?: (formData: TInput) => string | null;
   customDetailContent?: (item: T) => React.ReactNode;
@@ -182,6 +195,10 @@ interface AdminCRUDPageProps<T extends { id: number }, TInput extends Record<str
   pollIntervalMs?: number;
   refetchOnFocus?: boolean;
   refetchOnReconnect?: boolean;
+  cache?: boolean;
+  cacheTTL?: number;
+  cacheKeyPrefix?: string;
+  forceFreshOnMount?: boolean;
   // Opciones de estilo hover personalizado
   enhancedHover?: boolean; // Habilitar hover mejorado con borde azul y fondo azul suave
   // Contenido adicional personalizado en el formulario de creación/edición
@@ -200,9 +217,18 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   pollIntervalMs,
   refetchOnFocus,
   refetchOnReconnect,
+  cache,
+  cacheTTL,
+  cacheKeyPrefix,
+  forceFreshOnMount,
   enhancedHover = false,
   additionalFormContent,
 }: AdminCRUDPageProps<T, TInput>) {
+  const resolveInitialFormData = () => {
+    const baseData = typeof initialFormData === 'function' ? initialFormData() : initialFormData;
+    return JSON.parse(JSON.stringify(baseData));
+  };
+
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const { showToast } = useToast();
   const t = useT();
@@ -218,6 +244,12 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<T | null>(null);
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
+  const detailRequestSeqRef = useRef(0);
+  const suppressDetailAutoOpenRef = useRef(false);
+  const lastClosedDetailIdRef = useRef<number | null>(null);
+  const editRequestSeqRef = useRef(0);
+  const suppressEditAutoOpenRef = useRef(false);
+  const lastClosedEditIdRef = useRef<number | null>(null);
 
   // Loading overlay state
   const [isProcessing, setIsProcessing] = useState(false);
@@ -248,8 +280,16 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
     pollIntervalMs: typeof pollIntervalMs === 'number' ? pollIntervalMs : undefined,
     refetchOnFocus,
     refetchOnReconnect,
+    cache,
+    cacheTTL,
+    cacheKeyPrefix,
   });
 
+  useEffect(() => {
+    if (forceFreshOnMount) {
+      void refetch({ cache_bust: Date.now() } as any);
+    }
+  }, [forceFreshOnMount, refetch]);
   // Estado para controlar la primera carga y evitar parpadeo
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [displayItems, setDisplayItems] = useState<T[]>([]);
@@ -344,13 +384,66 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   const showSkeleton = loading && isFirstLoad && !refreshing;
 
   // Form state
-  const [formData, _setFormData] = useState<TInput>(initialFormData);
+  const [formData, _setFormData] = useState<TInput>(() => resolveInitialFormData());
+  const [formErrors, setFormErrors] = useState<FieldErrors>({});
+  const [formErrorMessages, setFormErrorMessages] = useState<string[]>([]);
   const setFormData = (data: TInput) => {
     _setFormData(data);
     if (onFormDataChange) {
       onFormDataChange(data);
     }
   };
+
+  const updateFieldValue = (field: CRUDFormField<TInput>, value: any) => {
+    const key = String(field.name);
+    const nextData = { ...(formData as any), [key]: value } as TInput;
+    const validation = validateFormSections(config.formSections || [], nextData as any);
+    setFormErrors(validation.errors);
+    setFormErrorMessages(validation.messages);
+    setFormData(nextData);
+  };
+
+  const formatAutoLabel = (key: string) =>
+    key.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const renderAutoValue = (value: any) => {
+    if (value == null || value === '') return '-';
+    if (Array.isArray(value)) {
+      return value.length ? value.join(', ') : '-';
+    }
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
+  };
+
+  const tableColumns = useMemo(() => {
+    const baseColumns = (config.columns || []) as CRUDColumn<T>[];
+    const knownKeys = new Set(baseColumns.map((col) => String(col.key)));
+    const autoKeys = new Set<string>();
+    const sourceItems = currentItems || [];
+
+    sourceItems.forEach((item) => {
+      Object.keys(item || {}).forEach((key) => {
+        if (!knownKeys.has(key)) autoKeys.add(key);
+      });
+    });
+
+    const autoColumns: CRUDColumn<T>[] = Array.from(autoKeys).map((key) => ({
+      key: key as keyof T,
+      label: formatAutoLabel(key),
+      sortable: true,
+      render: (value: any) => renderAutoValue(value),
+    }));
+
+    return [...baseColumns, ...autoColumns];
+  }, [config.columns, currentItems]);
+
+
   // leer query inicial desde ?search (sincronizado con useResource)
   const initialSearch = (searchParams.get('search') || '').toString();
   const [searchQuery, setSearchQuery] = useState<string>(initialSearch);
@@ -527,7 +620,12 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
       if (rowsThatFit && Math.abs(rowsThatFit - (meta?.limit || 10)) > 1 && setLimit) {
         setLimit(rowsThatFit);
       }
-      setWrapperMaxHeight(Math.max(0, available - 1));
+      const newMaxHeight = Math.max(0, available - 1);
+      setWrapperMaxHeight(newMaxHeight);
+      // Set CSS custom property directly on the element to avoid inline style attribute
+      if (wrapperEl) {
+        wrapperEl.style.setProperty('--dynamic-max-height', `${newMaxHeight}px`);
+      }
     };
 
     // Medición inicial
@@ -556,7 +654,9 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
     setEditingItem(null);
     // Crear una copia profunda de initialFormData para evitar referencias compartidas
     // Esto asegura que cada creación tenga un objeto completamente nuevo
-    setFormData(JSON.parse(JSON.stringify(initialFormData)));
+    setFormData(resolveInitialFormData());
+    setFormErrors({});
+    setFormErrorMessages([]);
     setIsModalOpen(true);
   };
 
@@ -564,6 +664,8 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
     setEditingItem(item);
     const formValues = mapResponseToForm ? mapResponseToForm(item) : (item as unknown as TInput);
     setFormData(formValues);
+    setFormErrors({});
+    setFormErrorMessages([]);
     setIsModalOpen(true);
   };
 
@@ -590,6 +692,20 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
     const prevIndex = (detailIndex - 1 + visibleItems.length) % visibleItems.length;
     setDetailIndex(prevIndex);
     setDetailItem(visibleItems[prevIndex]);
+  };
+
+  const closeDetailModal = () => {
+    detailRequestSeqRef.current += 1;
+    suppressDetailAutoOpenRef.current = true;
+    lastClosedDetailIdRef.current = detailItem?.id ?? null;
+    setIsDetailOpen(false);
+    setDetailIndex(null);
+    setDetailItem(null);
+    const sp = new URLSearchParams(searchParams);
+    if (sp.has('detail')) {
+      sp.delete('detail');
+      setSearchParams(sp, { replace: true });
+    }
   };
 
   const toggleSort = (key: keyof T) => {
@@ -686,12 +802,29 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   useEffect(() => {
     if (config.enableEditModal !== false) {
       const e = searchParams.get('edit');
+      if (!e) {
+        suppressEditAutoOpenRef.current = false;
+        lastClosedEditIdRef.current = null;
+        return;
+      }
+      if (suppressEditAutoOpenRef.current && e === String(lastClosedEditIdRef.current ?? '')) {
+        return;
+      }
       if (e) {
         const id = Number(e);
         if (!Number.isNaN(id) && (!isModalOpen || !editingItem || editingItem.id !== id)) {
+          const requestSeq = editRequestSeqRef.current + 1;
+          editRequestSeqRef.current = requestSeq;
           (async () => {
             try {
               const item = await service.getById(id);
+              if (editRequestSeqRef.current !== requestSeq) {
+                return;
+              }
+              const currentEdit = new URLSearchParams(window.location.search).get('edit');
+              if (currentEdit !== String(id)) {
+                return;
+              }
               openEdit(item);
             } catch (err) {
               showToast(t('common.errorLoading', 'No se pudo cargar el registro para edición'), 'error');
@@ -710,12 +843,29 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   useEffect(() => {
     if (config.enableDetailModal !== false) {
       const d = searchParams.get('detail');
+      if (!d) {
+        suppressDetailAutoOpenRef.current = false;
+        lastClosedDetailIdRef.current = null;
+        return;
+      }
+      if (suppressDetailAutoOpenRef.current && d === String(lastClosedDetailIdRef.current ?? '')) {
+        return;
+      }
       if (d) {
         const id = Number(d);
         if (!Number.isNaN(id) && (!isDetailOpen || !detailItem || detailItem.id !== id)) {
+          const requestSeq = detailRequestSeqRef.current + 1;
+          detailRequestSeqRef.current = requestSeq;
           (async () => {
             try {
               const item = await service.getById(id);
+              if (detailRequestSeqRef.current !== requestSeq) {
+                return;
+              }
+              const currentDetail = new URLSearchParams(window.location.search).get('detail');
+              if (currentDetail !== String(id)) {
+                return;
+              }
               openDetail(item);
             } catch (err) {
               showToast(t('common.errorLoading', 'No se pudo cargar el registro para detalle'), 'error');
@@ -758,12 +908,21 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   };
 
   const handleModalClose = () => {
+    if (editingItem?.id) {
+      editRequestSeqRef.current += 1;
+      suppressEditAutoOpenRef.current = true;
+      lastClosedEditIdRef.current = editingItem.id;
+    } else {
+      suppressEditAutoOpenRef.current = false;
+      lastClosedEditIdRef.current = null;
+    }
     setIsModalOpen(false);
 
     // CRÍTICO: Reiniciar formData a valores iniciales para evitar datos residuales
     // Esto previene que valores de ediciones/creaciones previas se mantengan en el formulario
     // Usar copia profunda para evitar referencias compartidas
-    setFormData(JSON.parse(JSON.stringify(initialFormData)));
+    setFormData(resolveInitialFormData());
+    setFormErrors({});
     setEditingItem(null);
 
     const sp = new URLSearchParams(searchParams);
@@ -779,6 +938,24 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const validation = validateFormSections(config.formSections || [], formData as any);
+    if (validation.messages.length > 0) {
+      setFormErrors(validation.errors);
+      setFormErrorMessages(validation.messages);
+      showToast(formatValidationToastMessage(validation.messages), 'error');
+      const firstKey = Object.keys(validation.errors)[0];
+      if (firstKey && typeof window !== 'undefined') {
+        setTimeout(() => {
+          const el = document.getElementById(firstKey);
+          if (el && 'focus' in el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (el as HTMLElement).focus();
+          }
+        }, 0);
+      }
+      return;
+    }
 
     // Validation
     if (validateForm) {
@@ -800,6 +977,17 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         const updatedItem = await updateItem(editingItem.id, formData as any);
         showToast(`✅ ${config.entityName} actualizado correctamente`, 'success');
         itemId = editingItem.id;
+
+        // Reflejar inmediatamente en la vista (sin esperar refetch)
+        if (updatedItem) {
+          setDisplayItems((prev) => {
+            const next = prev.map((row: any) =>
+              String(row?.id) === String(itemId) ? { ...row, ...(updatedItem as any) } : row
+            );
+            previousDisplayItemsRef.current = next as any;
+            return next as any;
+          });
+        }
 
         // Marcar item como actualizado para mostrar efecto visual amarillo
         setUpdatedItems(prev => new Set(prev).add(itemId!));
@@ -950,6 +1138,50 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         errorMessage = error.message;
       }
 
+      // Estandar: VALIDATION_ERROR -> renderizar errores por campo desde error.details.validation_errors
+      const validationErrors =
+        (error as any)?.validationErrors ||
+        (error as any)?.details?.validation_errors ||
+        (error as any)?.details?.errors ||
+        error?.response?.data?.errors;
+
+      if (validationErrors && typeof validationErrors === 'object') {
+        const mapped = mapBackendFieldErrorsToLabels(validationErrors, config.formSections || []);
+        if (Object.keys(mapped.errors).length > 0) {
+          setFormErrors(mapped.errors);
+          setFormErrorMessages(mapped.messages);
+          errorMessage = formatValidationToastMessage(mapped.messages);
+        }
+      } else if (
+        typeof errorMessage === 'string' &&
+        errorMessage.toLowerCase().includes('validaci') &&
+        formErrorMessages.length > 0
+      ) {
+        errorMessage = formatValidationToastMessage(formErrorMessages);
+      }
+      const status = (error as any)?.status ?? error?.response?.status;
+      if (status === 409) {
+        const traceId =
+          (error as any)?.traceId ||
+          error?.response?.data?.error?.trace_id ||
+          error?.response?.data?.error?.traceId ||
+          error?.response?.data?.trace_id ||
+          error?.response?.data?.traceId;
+        const details =
+          (error as any)?.details ??
+          error?.response?.data?.error?.details ??
+          error?.response?.data?.details;
+        const conflict = buildConflictMessage(details, config.formSections || []);
+        const suffix = traceId ? ` (Trace ID: ${traceId})` : '';
+        errorMessage = `${conflict.message}${suffix}`;
+        if (conflict.field) {
+          try {
+            setFormErrors(prev => ({ ...(prev || {}), [String(conflict.field)]: conflict.message }));
+            setFormErrorMessages(prev => [conflict.message, ...(Array.isArray(prev) ? prev : [])]);
+          } catch { /* noop */ }
+        }
+      }
+
       showToast(errorMessage, 'error');
       // NO cerrar el modal para permitir correcciones
       // Ocultar overlay en caso de error
@@ -1041,6 +1273,28 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   const [checkingDependencies, setCheckingDependencies] = useState(false);
   const isConfirmingDelete = useRef(false);
 
+  const runDependencyCheck = async (id: number) => {
+    try {
+      if (typeof config.preDeleteCheck === 'function') {
+        return await config.preDeleteCheck(id);
+      }
+
+      const entityType = (config.entityName || entityKey).toLowerCase();
+      return await checkDependencies(entityType, id);
+    } catch (error) {
+      console.warn('[runDependencyCheck] Error al verificar dependencias:', {
+        entity: config.entityName,
+        id,
+        error
+      });
+      showToast(
+        'No se pudo verificar la integridad referencial. Se permitira eliminar, pero revise dependencias.',
+        'warning'
+      );
+      return { hasDependencies: false };
+    }
+  };
+
   const openDeleteConfirm = async (id: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
 
@@ -1052,18 +1306,15 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
 
     console.log('[openDeleteConfirm] Verificando dependencias para ID:', id);
 
-    // Verificar dependencias de forma asíncrona
+    // Verificar dependencias de forma asincrona
     try {
-      let depResult: any = null;
-      if (typeof config.preDeleteCheck === 'function') {
-        depResult = await config.preDeleteCheck(id);
-        console.log('[openDeleteConfirm] Resultado de verificación de dependencias:', {
-          id,
-          hasDependencies: depResult?.hasDependencies,
-          message: depResult?.message,
-          dependencies: depResult?.dependencies
-        });
-      }
+      const depResult = await runDependencyCheck(id);
+      console.log('[openDeleteConfirm] Resultado de verificacion de dependencias:', {
+        id,
+        hasDependencies: depResult?.hasDependencies,
+        message: depResult?.message,
+        dependencies: depResult?.dependencies
+      });
       setDependencyCheckResult(depResult);
     } catch (error) {
       console.error('[openDeleteConfirm] Error al verificar dependencias:', {
@@ -1073,6 +1324,69 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
       setDependencyCheckResult(null);
     } finally {
       setCheckingDependencies(false);
+    }
+  };
+
+  const cascadeDeleteDependencies = async (id: number) => {
+    const entityLower = (config.entityName || entityKey).toLowerCase();
+    setProcessingMessage('Eliminando dependencias relacionadas...');
+    setIsProcessing(true);
+    try {
+      if (entityLower.includes('tratamient')) {
+        let page = 1;
+        const limit = 100;
+        while (true) {
+          const resp = await treatmentMedicationService.getPaginated({ treatment_id: id, limit, page, fields: 'id' });
+          const arr = Array.isArray(resp?.data) ? resp.data : [];
+          if (!arr.length) break;
+          for (const item of arr) {
+            await treatmentMedicationService.delete(String((item as any).id));
+          }
+          page += 1;
+        }
+        page = 1;
+        while (true) {
+          const resp = await treatmentVaccinesService.getPaginated({ treatment_id: id, limit, page, fields: 'id' });
+          const arr = Array.isArray(resp?.data) ? resp.data : [];
+          if (!arr.length) break;
+          for (const item of arr) {
+            await treatmentVaccinesService.delete(String((item as any).id));
+          }
+          page += 1;
+        }
+      } else if (entityLower.includes('medicament')) {
+        let page = 1;
+        const limit = 100;
+        while (true) {
+          const resp = await treatmentMedicationService.getPaginated({ medication_id: id, limit, page, fields: 'id' });
+          const arr = Array.isArray(resp?.data) ? resp.data : [];
+          if (!arr.length) break;
+          for (const item of arr) {
+            await treatmentMedicationService.delete(String((item as any).id));
+          }
+          page += 1;
+        }
+      } else if (entityLower.includes('vacun') || entityLower.includes('vaccine')) {
+        let page = 1;
+        const limit = 100;
+        while (true) {
+          const resp = await treatmentVaccinesService.getPaginated({ vaccine_id: id, limit, page, fields: 'id' });
+          const arr = Array.isArray(resp?.data) ? resp.data : [];
+          if (!arr.length) break;
+          for (const item of arr) {
+            await treatmentVaccinesService.delete(String((item as any).id));
+          }
+          page += 1;
+        }
+      }
+      setDependencyCheckResult(null);
+      setConfirmOpen(false);
+      setTargetId(id);
+      await handleConfirmDelete();
+    } catch (e: any) {
+      showToast('Error eliminando dependencias relacionadas. Intente de nuevo.', 'error');
+    } finally {
+      setTimeout(() => setIsProcessing(false), 200);
     }
   };
 
@@ -1138,6 +1452,13 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         // Esperar para que se vea claramente la animación de eliminación (borde rojo)
         await new Promise(resolve => setTimeout(resolve, 100));
 
+        // Remover del estado local inmediatamente para evitar vista obsoleta
+        setDisplayItems(prev => {
+          const next = prev.filter((item) => String(item.id) !== String(idToDelete));
+          previousDisplayItemsRef.current = next;
+          return next;
+        });
+
         // Registrar tombstone extendido para ocultar temporalmente si el backend aún lo devuelve
         // 120 segundos (2 minutos) para dar tiempo a que el backend propague la eliminación
         addTombstone(entityKey, String(idToDelete), 120000);
@@ -1171,6 +1492,11 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         try {
           const freshData = await refetch();
 
+          if (Array.isArray(freshData)) {
+            setDisplayItems(freshData as T[]);
+            previousDisplayItemsRef.current = freshData as T[];
+          }
+
           // Verificar si el elemento fue correctamente eliminado
           // IMPORTANTE: usar freshData (respuesta directa del refetch) en lugar de items (puede estar desactualizado)
           const itemStillExists = (freshData || []).some((i: any) => String(i?.id) === String(idToDelete));
@@ -1192,6 +1518,10 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
             // Segundo intento después de 500ms adicionales
             await new Promise(resolve => setTimeout(resolve, 500));
             const freshData2 = await refetch();
+            if (Array.isArray(freshData2)) {
+              setDisplayItems(freshData2 as T[]);
+              previousDisplayItemsRef.current = freshData2 as T[];
+            }
             const stillExists2 = (freshData2 || []).some((i: any) => String(i?.id) === String(idToDelete));
 
             if (stillExists2) {
@@ -1367,8 +1697,8 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
       >
         <div className="bg-card/95 backdrop-blur-sm border-2 border-border/50 rounded-xl shadow-2xl shadow-primary/10 overflow-hidden">
           <SkeletonTable
-            columnLabels={config.columns.map((c) => c.label)}
-            columnWidths={config.columns.map((c) => c.width)}
+            columnLabels={tableColumns.map((c) => c.label)}
+            columnWidths={tableColumns.map((c) => c.width)}
             rows={8}
           />
         </div>
@@ -1394,10 +1724,10 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   return (
     <AppLayout
       header={header}
-      className="px-2 sm:px-3 pt-0 sm:pt-0 pb-0 sm:pb-0 md:pb-0 lg:pb-0 max-w-full min-h-0 flex flex-col h-full"
+      className="h-full flex flex-col p-0 !max-w-none overflow-hidden"
       contentClassName="space-y-0 flex-1 flex flex-col min-h-0"
     >
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 px-4 py-2 border-b border-border/40 bg-background/50 backdrop-blur-sm z-10">
         <Toolbar />
       </div>
 
@@ -1417,11 +1747,9 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
               'overflow-x-auto overflow-y-auto flex-1 transition-colors',
               config.viewMode === 'cards'
                 ? 'bg-surface-secondary'
-                : 'bg-surface'
+                : 'bg-surface',
+              wrapperMaxHeight != null && 'dynamic-max-height'
             )}
-            style={{
-              maxHeight: wrapperMaxHeight != null ? `${wrapperMaxHeight}px` : undefined,
-            }}
           >
             {config.viewMode === 'cards' ? (
               <div className="p-3 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
@@ -1429,7 +1757,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                   const isDeleting = deletingItems.has(String(item.id!));
                   const isNew = newItems.has(item.id!);
                   const isUpdated = updatedItems.has(item.id!);
-                  const firstCol = config.columns[0];
+                  const firstCol = tableColumns[0];
                   const rawTitle = (item as any)[firstCol?.key];
                   const mappedTitle = fkLabelMap[String(firstCol?.key)]?.get(String(rawTitle));
                   const titleText = mappedTitle ?? String(rawTitle ?? `${config.entityName} #${item.id}`);
@@ -1466,7 +1794,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                           config.renderCard(item)
                         ) : (
                           <div className="grid grid-cols-2 gap-3 text-xs">
-                            {config.columns.map((col) => {
+                            {tableColumns.map((col) => {
                               const raw = (item as any)[col.key];
                               const mapped = fkLabelMap[String(col.key)]?.get(String(raw));
                               return (
@@ -1533,16 +1861,18 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
               >
                 <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur-sm supports-[backdrop-filter]:bg-muted/60 border-b border-border/50">
                   <tr className="h-10">
-                    {config.columns.map((col) => {
+                    {tableColumns.map((col) => {
+                      const colSortValue: 'ascending' | 'descending' | undefined =
+                        sortKey === col.key
+                          ? (sortDir === 'asc' ? 'ascending' : 'descending')
+                          : undefined;
                       return (
                         <th
                           key={String(col.key)}
                           className={`px-2 sm:px-3 py-2 text-left text-[10px] sm:text-[11px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider ${col.width ? `w-${col.width}` : ''} ${col.sortable === false ? '' : 'cursor-pointer select-none hover:text-foreground transition-colors'} truncate`}
                           onClick={col.sortable === false ? undefined : () => toggleSort(col.key)}
-                          aria-sort={
-                            sortKey === col.key ? (sortDir === 'asc' ? 'ascending' : sortDir === 'desc' ? 'descending' : 'none') : 'none'
-                          }
-                          role={col.sortable === false ? undefined : 'button'}
+                          {...(colSortValue ? { 'aria-sort': colSortValue } : {})}
+                          role="columnheader"
                           tabIndex={col.sortable === false ? undefined : 0}
                           onKeyDown={col.sortable === false ? undefined : (e) => {
                             if (e.key === 'Enter' || e.key === ' ') {
@@ -1651,7 +1981,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                           }
                         }}
                       >
-                        {config.columns.map((col) => (
+                        {tableColumns.map((col) => (
                           <td
                             key={String(col.key)}
                             className={`px-2 sm:px-3 py-2 whitespace-nowrap text-[11px] md:text-sm ${col.width ? `w-${col.width}` : ''} truncate max-w-[120px] sm:max-w-[180px] md:max-w-[240px]`}
@@ -1770,6 +2100,22 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
           className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out max-h-[90vh]"
         >
           <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 h-full flex flex-col text-[13px] sm:text-sm">
+            {Object.keys(formErrors).length > 0 && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                <div className="font-semibold">Faltan datos obligatorios</div>
+                <div>Revise los campos marcados en rojo y corrija lo siguiente:</div>
+                {formErrorMessages.length > 0 && (
+                  <ul className="mt-1 list-disc pl-4">
+                    {formErrorMessages.slice(0, 5).map((msg) => (
+                      <li key={msg}>{msg}</li>
+                    ))}
+                    {formErrorMessages.length > 5 && (
+                      <li>y {formErrorMessages.length - 5} mas...</li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            )}
             {config.formSections.map((section, _sectionIndex) => {
               const gridCols = section.gridCols ?? 3;
               // Helper: responsive grid classes for Tailwind
@@ -1826,13 +2172,14 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
 
                         {field.type === 'textarea' && (() => {
                           const currentValue = (formData as any)[field.name];
-                          const showWarning = field.required && (!currentValue || currentValue === '');
+                          const fieldError = formErrors[String(field.name)];
+                          const showWarning = Boolean(fieldError);
                           return (
                             <div className="space-y-1">
                               <Textarea
                                 id={String(field.name)}
                                 value={currentValue || ''}
-                                onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                                onChange={(e) => updateFieldValue(field, e.target.value)}
                                 placeholder={field.placeholder}
                                 rows={3}
                                 disabled={saving}
@@ -1850,7 +2197,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                                 )}
                               />
                               {showWarning && (
-                                <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                                <p className="text-xs text-red-500">{fieldError}</p>
                               )}
                             </div>
                           );
@@ -1860,9 +2207,8 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                           (() => {
                             const opts = field.options || [];
                             const isNumeric = opts.length > 0 && opts.every((o: any) => typeof o.value === 'number');
-                            const currentValue = (formData as any)[field.name];
-                            const isEmpty = !currentValue || currentValue === '' || (isNumeric && Number(currentValue) <= 0);
-                            const showWarning = field.required && isEmpty;
+                            const fieldError = formErrors[String(field.name)];
+                            const showWarning = Boolean(fieldError);
 
                             return (
                               <div className="space-y-1">
@@ -1871,13 +2217,10 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                                   value={String(((formData as any)[field.name] ?? ''))}
                                   onChange={(e) => {
                                     const val = e.target.value;
-                                    setFormData({
-                                      ...formData,
-                                      [field.name]: isNumeric ? (val === '' ? undefined : Number(val)) : val,
-                                    });
+                                    updateFieldValue(field, isNumeric ? (val === '' ? undefined : Number(val)) : val);
                                   }}
                                   disabled={saving}
-                                  aria-required={field.required}
+                                  required={field.required}
                                   className={cn(
                                     "w-full px-3 py-2.5 border rounded-lg min-h-[44px] text-sm",
                                     "bg-background/50 focus:bg-background/80",
@@ -1899,11 +2242,8 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                                     </option>
                                   ))}
                                 </select>
-                                {showWarning && (
-                                  <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                    <span className="font-semibold">⚠️</span>
-                                    <span>Debe seleccionar {field.label.toLowerCase()}</span>
-                                  </p>
+                                {showWarning && fieldError && (
+                                  <p className="text-xs text-red-500">{fieldError}</p>
                                 )}
                               </div>
                             );
@@ -1918,6 +2258,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                             // Tratar 0 como vacío para selects numéricos que usan 0 como placeholder
                             const rawVal = (formData as any)[field.name];
                             const currentVal = rawVal === 0 ? null : rawVal;
+                            const fieldError = formErrors[String(field.name)];
 
                             // Excluir el propio registro si se solicita (evitar seleccionarse a sí mismo)
                             if (field.excludeSelf && editingItem?.id != null) {
@@ -1946,10 +2287,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                                     options={opts.map((o) => ({ value: String(o.value), label: o.label }))}
                                     value={currentVal == null ? '' : String(currentVal)}
                                     onValueChange={(val) =>
-                                      setFormData({
-                                        ...formData,
-                                        [field.name]: isNumeric ? (val === '' ? undefined : Number(val)) : val,
-                                      })
+                                      updateFieldValue(field, isNumeric ? (val === '' ? undefined : Number(val)) : val)
                                     }
                                     placeholder={getPlaceholderText()}
                                     searchPlaceholder={t('common.search', 'Buscar...')}
@@ -1976,6 +2314,9 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                                     {emptyText}
                                   </div>
                                 )}
+                                {fieldError && (
+                                  <p className="text-xs text-red-500">{fieldError}</p>
+                                )}
                               </div>
                             );
                           })()
@@ -1987,26 +2328,29 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                               id={String(field.name)}
                               type="checkbox"
                               checked={Boolean((formData as any)[field.name])}
-                              onChange={(e) => setFormData({ ...formData, [field.name]: e.target.checked })}
+                              onChange={(e) => updateFieldValue(field, e.target.checked)}
                               disabled={saving}
                               className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded mt-0.5 flex-shrink-0"
                             />
                             <label htmlFor={String(field.name)} className="text-sm font-medium text-foreground leading-relaxed">
                               {field.label}
                             </label>
+                            {formErrors[String(field.name)] && (
+                              <p className="text-xs text-red-500">{formErrors[String(field.name)]}</p>
+                            )}
                           </div>
                         )}
 
                         {field.type === 'number' && (() => {
-                          const currentValue = (formData as any)[field.name];
-                          const showWarning = field.required && (currentValue == null || currentValue === '' || Number.isNaN(Number(currentValue)));
+                          const fieldError = formErrors[String(field.name)];
+                          const showWarning = Boolean(fieldError);
                           return (
                             <div className="space-y-1">
                               <Input
                                 id={String(field.name)}
                                 type="number"
                                 value={(formData as any)[field.name] || ''}
-                                onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value ? Number(e.target.value) : undefined })}
+                                onChange={(e) => updateFieldValue(field, e.target.value ? Number(e.target.value) : undefined)}
                                 placeholder={field.placeholder}
                                 min={field.validation?.min}
                                 max={field.validation?.max}
@@ -2024,7 +2368,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                                 )}
                               />
                               {showWarning && (
-                                <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                                <p className="text-xs text-red-500">{fieldError}</p>
                               )}
                             </div>
                           );
@@ -2032,7 +2376,8 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
 
                         {field.type === 'date' && (() => {
                           const currentValue = (formData as any)[field.name];
-                          const showWarning = field.required && (!currentValue || currentValue === '');
+                          const fieldError = formErrors[String(field.name)];
+                          const showWarning = Boolean(fieldError);
                           const today = getTodayColombia();
                           // Validación especial para birth_date para evitar fechas futuras
                           const isBirthDate = String(field.name) === 'birth_date';
@@ -2045,7 +2390,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                                 type="date"
                                 max={maxDate}
                                 value={(formData as any)[field.name] || ''}
-                                onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                                onChange={(e) => updateFieldValue(field, e.target.value)}
                                 disabled={saving}
                                 aria-invalid={showWarning}
                                 aria-required={field.required}
@@ -2060,7 +2405,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                                 )}
                               />
                               {showWarning && (
-                                <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                                <p className="text-xs text-red-500">{fieldError}</p>
                               )}
                               {isBirthDate && currentValue && currentValue > today && (
                                 <p className="text-xs text-red-500">La fecha de nacimiento no puede ser futura.</p>
@@ -2070,14 +2415,14 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                         })()}
 
                         {(field.type === 'text' || field.type === 'multiselect') && (() => {
-                          const currentValue = (formData as any)[field.name];
-                          const showWarning = field.required && (!currentValue || currentValue === '');
+                          const fieldError = formErrors[String(field.name)];
+                          const showWarning = Boolean(fieldError);
                           return (
                             <div className="space-y-1">
                               <Input
                                 id={String(field.name)}
                                 value={(formData as any)[field.name] || ''}
-                                onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                                onChange={(e) => updateFieldValue(field, e.target.value)}
                                 placeholder={field.placeholder}
                                 disabled={saving}
                                 aria-invalid={showWarning}
@@ -2093,7 +2438,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                                 )}
                               />
                               {showWarning && (
-                                <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+                                <p className="text-xs text-red-500">{fieldError}</p>
                               )}
                             </div>
                           );
@@ -2129,6 +2474,8 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                 {additionalFormContent(formData, editingItem)}
               </div>
             )}
+
+
 
             <div className={cn(
               "flex flex-col sm:flex-row gap-3 pt-4 mt-auto",
@@ -2187,16 +2534,11 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         <GenericModal
           isOpen={isDetailOpen}
           onOpenChange={(open) => {
-            setIsDetailOpen(open);
-            if (!open) {
-              setDetailIndex(null);
-              setDetailItem(null);
-              const sp = new URLSearchParams(searchParams);
-              if (sp.has('detail')) {
-                sp.delete('detail');
-                setSearchParams(sp, { replace: true });
-              }
+            if (open) {
+              setIsDetailOpen(true);
+              return;
             }
+            closeDetailModal();
           }}
           title={detailItem ? `Detalle del ${config.entityName}${config.showIdInDetailTitle === false ? '' : `: ${detailItem.id}`}` : `Detalle del ${config.entityName}`}
           size="full"
@@ -2244,7 +2586,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                     variant="outline"
                     size="sm"
                     type="button"
-                    onClick={() => { setIsDetailOpen(false); setDetailIndex(null); }}
+                    onClick={closeDetailModal}
                     className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
                   >
                     {t('modal.close', 'Cerrar')}
@@ -2253,7 +2595,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                     <Button
                       size="sm"
                       type="button"
-                      onClick={() => { openEdit(detailItem); setIsDetailOpen(false); setDetailIndex(null); }}
+                      onClick={() => { openEdit(detailItem); closeDetailModal(); }}
                       className="flex-1 sm:flex-initial transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
                     >
                       <Edit className="h-4 w-4 sm:mr-1" />
@@ -2277,7 +2619,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                     </CardHeader>
                     <CardContent>
                       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                        {config.columns.map((col, _colIndex) => (
+                        {tableColumns.map((col, _colIndex) => (
                           <div key={String(col.key)} className="space-y-1">
                             <dt className="text-xs text-muted-foreground font-medium">{col.label}</dt>
                             <dd className="text-sm font-medium text-foreground">
@@ -2354,12 +2696,22 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         confirmLabel={
           checkingDependencies
             ? t('common.checking', 'Verificando...')
-            : dependencyCheckResult?.hasDependencies
-              ? t('common.understood', 'Entendido')
-              : t('common.delete', 'Eliminar')
+            : (() => {
+              const el = (config.entityName || entityKey).toLowerCase();
+              const canCascade = (dependencyCheckResult?.hasDependencies) && (el.includes('tratamient') || el.includes('medicament') || el.includes('vacun') || el.includes('vaccine'));
+              if (dependencyCheckResult?.hasDependencies && canCascade) return 'Eliminar dependencias y borrar';
+              if (dependencyCheckResult?.hasDependencies) return t('common.understood', 'Entendido');
+              return t('common.delete', 'Eliminar');
+            })()
         }
         cancelLabel={t('common.cancel', 'Cancelar')}
-        confirmVariant={dependencyCheckResult?.hasDependencies ? 'outline' : 'destructive'}
+        confirmVariant={(() => {
+          const el = (config.entityName || entityKey).toLowerCase();
+          const canCascade = (dependencyCheckResult?.hasDependencies) && (el.includes('tratamient') || el.includes('medicament') || el.includes('vacun') || el.includes('vaccine'));
+          if (dependencyCheckResult?.hasDependencies && canCascade) return 'destructive';
+          if (dependencyCheckResult?.hasDependencies) return 'outline';
+          return 'destructive';
+        })()}
         disabled={checkingDependencies}
         onConfirm={() => {
           console.log('[ConfirmDialog.onConfirm] Botón clickeado, verificando dependencias:', {
@@ -2367,13 +2719,19 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
             targetId
           });
 
-          // Si hay dependencias, solo cerrar el modal (no ejecutar eliminación)
           if (dependencyCheckResult?.hasDependencies) {
-            console.log('[ConfirmDialog.onConfirm] Hay dependencias, SOLO cerrando modal (no eliminando)');
-            // Resetear manualmente ya que no se ejecutará handleConfirmDelete
-            setTargetId(null);
-            setDependencyCheckResult(null);
-            return;
+            const el = (config.entityName || entityKey).toLowerCase();
+            const canCascade = el.includes('tratamient') || el.includes('medicament') || el.includes('vacun') || el.includes('vaccine');
+            if (canCascade && targetId != null) {
+              isConfirmingDelete.current = true;
+              void cascadeDeleteDependencies(targetId);
+              isConfirmingDelete.current = false;
+              return;
+            } else {
+              setTargetId(null);
+              setDependencyCheckResult(null);
+              return;
+            }
           }
 
           // Si no hay dependencias, proceder con la eliminación

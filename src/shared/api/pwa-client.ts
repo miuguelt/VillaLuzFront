@@ -6,8 +6,8 @@
  * - Respeto de headers X-Cache-Strategy
  */
 
-import api from './client';
 import { BaseService } from './base-service';
+import { apiFetch } from '@/shared/api/apiFetch';
 import {
   getETag,
   setETag,
@@ -87,7 +87,7 @@ export class PWAApiClient<T = any> extends BaseService<T> {
    */
   async getMetadata(): Promise<ResourceMetadata | null> {
     try {
-      const response = await api.get(`${this.endpoint}/metadata`);
+      const response = await apiFetch({ url: `${this.endpoint}/metadata`, method: 'GET' });
       const metadata = response.data?.data || response.data;
 
       // Guardar ETag de metadata para futuros checks
@@ -136,7 +136,9 @@ export class PWAApiClient<T = any> extends BaseService<T> {
     }
 
     try {
-      const response = await api.get(this.endpoint, {
+      const response = await apiFetch({
+        url: this.endpoint,
+        method: 'GET',
         params,
         headers,
         validateStatus: (status) => status === 200 || status === 304,
@@ -201,9 +203,7 @@ export class PWAApiClient<T = any> extends BaseService<T> {
     }
 
     try {
-      const response = await api.get(this.endpoint, {
-        params: { since: sinceTimestamp },
-      });
+      const response = await apiFetch({ url: this.endpoint, method: 'GET', params: { since: sinceTimestamp } });
 
       const data = response.data?.data || response.data?.items || [];
       const hasMore = response.data?.meta?.pagination?.has_next_page ?? false;

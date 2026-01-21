@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { unwrapApi } from '@/shared/api/client';
-import api from '@/shared/api/client';
+import { apiFetch } from '@/shared/api/apiFetch';
 
 interface StatsState<T=any> {
   data: T | null;
@@ -120,7 +120,7 @@ export function useModelStats<T=any>(model: string, options?: UseModelStatsOptio
           break;
       }
 
-      const res = await api.get(endpoint, { params: stableParams, cancelToken: cancelTokenSourceRef.current.token });
+      const res = await apiFetch({ url: endpoint, method: 'GET', params: stableParams, cancelToken: cancelTokenSourceRef.current.token });
       const raw = unwrapApi(res);
       const normalized = normalizeModelStats(slug as any, raw);
       if (process.env.NODE_ENV !== 'production') {

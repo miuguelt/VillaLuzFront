@@ -72,7 +72,7 @@ export function Toolbar({
   return (
     <div
       className={[
-        "w-full flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
+        "w-full flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between",
         className,
       ]
         .filter(Boolean)
@@ -94,14 +94,14 @@ export function Toolbar({
       ) : null}
 
       {/* Filtros y controles adicionales */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 order-2 sm:order-none">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 order-2 sm:order-none">
         {children ? (
-          <div className="flex flex-wrap items-center gap-2">{children}</div>
+          <div className="flex flex-wrap items-center gap-2 min-w-0">{children}</div>
         ) : (
           <span className="sr-only">Sin filtros adicionales</span>
         )}
 
-        <div className="flex items-center gap-2">{right}</div>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">{right}</div>
       </div>
     </div>
   );

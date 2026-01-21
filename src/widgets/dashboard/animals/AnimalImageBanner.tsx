@@ -77,8 +77,15 @@ export function AnimalImageBanner({
   const [brokenNotice, setBrokenNotice] = useState<string | null>(null);
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
-  const carouselRef = useRef<HTMLDivElement>(null);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
   const isContainMode = objectFit === 'contain';
+
+  // Callback ref to set CSS custom property for banner height
+  const setBannerHeight = useCallback((element: HTMLDivElement | null) => {
+    if (element && !fullscreen) {
+      element.style.setProperty('--banner-height', height);
+    }
+  }, [height, fullscreen]);
 
   // Cargar imágenes con manejo completo de errores
   const fetchImages = useCallback(async () => {
@@ -200,10 +207,10 @@ export function AnimalImageBanner({
       prev.map((img) =>
         img.id === image.id
           ? {
-              ...img,
-              url: BROKEN_IMAGE_PLACEHOLDER,
-              isPlaceholder: true,
-            }
+            ...img,
+            url: BROKEN_IMAGE_PLACEHOLDER,
+            isPlaceholder: true,
+          }
           : img
       )
     );
@@ -268,12 +275,11 @@ export function AnimalImageBanner({
   if (loading) {
     return (
       <div
-        className={`overflow-hidden bg-accent/10 flex items-center justify-center ${
-          fullscreen
-            ? 'fixed inset-0 z-50 w-screen h-screen'
-            : 'relative w-full h-full rounded-xl'
-        }`}
-        style={fullscreen ? undefined : { height }}
+        ref={setBannerHeight}
+        className={`overflow-hidden bg-accent/10 flex items-center justify-center ${fullscreen
+          ? 'fixed inset-0 z-50 w-screen h-screen'
+          : 'relative w-full h-full rounded-xl banner-container-dynamic'
+          }`}
       >
         <div className="text-center">
           <ImageIcon className="w-12 h-12 mx-auto text-muted-foreground animate-pulse mb-2" />
@@ -290,12 +296,11 @@ export function AnimalImageBanner({
     }
     return (
       <div
-        className={`overflow-hidden bg-gradient-to-br from-destructive/5 to-destructive/10 flex items-center justify-center border-2 border-dashed border-destructive/30 ${
-          fullscreen
-            ? 'fixed inset-0 z-50 w-screen h-screen'
-            : 'relative w-full h-full rounded-xl'
-        }`}
-        style={fullscreen ? undefined : { height }}
+        ref={setBannerHeight}
+        className={`overflow-hidden bg-gradient-to-br from-destructive/5 to-destructive/10 flex items-center justify-center border-2 border-dashed border-destructive/30 ${fullscreen
+          ? 'fixed inset-0 z-50 w-screen h-screen'
+          : 'relative w-full h-full rounded-xl banner-container-dynamic'
+          }`}
       >
         <div className="text-center px-4">
           <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-destructive/10 flex items-center justify-center">
@@ -323,12 +328,11 @@ export function AnimalImageBanner({
     }
     return (
       <div
-        className={`overflow-hidden bg-gradient-to-br from-accent/5 to-accent/10 flex items-center justify-center border-2 border-dashed border-border ${
-          fullscreen
-            ? 'fixed inset-0 z-50 w-screen h-screen'
-            : 'relative w-full h-full rounded-xl'
-        }`}
-        style={fullscreen ? undefined : { height }}
+        ref={setBannerHeight}
+        className={`overflow-hidden bg-gradient-to-br from-accent/5 to-accent/10 flex items-center justify-center border-2 border-dashed border-border ${fullscreen
+          ? 'fixed inset-0 z-50 w-screen h-screen'
+          : 'relative w-full h-full rounded-xl banner-container-dynamic'
+          }`}
       >
         <div className="text-center">
           <ImageIcon className="w-16 h-16 mx-auto text-muted-foreground mb-3" />
@@ -352,13 +356,11 @@ export function AnimalImageBanner({
     <>
       {/* Banner principal - Carrusel elegante y responsivo */}
       <div
-        ref={carouselRef}
-        className={`overflow-hidden group ${
-          fullscreen
-            ? 'fixed inset-0 z-50 bg-black w-screen h-screen'
-            : `relative w-full h-full rounded-xl ${isContainMode ? 'bg-slate-900/80 dark:bg-black' : ''}`
-        }`}
-        style={fullscreen ? undefined : { height }}
+        ref={(el) => { carouselRef.current = el; setBannerHeight(el); }}
+        className={`overflow-hidden group ${fullscreen
+          ? 'fixed inset-0 z-50 bg-black w-screen h-screen'
+          : `relative w-full h-full rounded-xl banner-container-dynamic ${isContainMode ? 'bg-slate-900/80 dark:bg-black' : ''}`
+          }`}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
         onTouchStart={handleTouchStart}
@@ -370,28 +372,19 @@ export function AnimalImageBanner({
           {images.map((image, index) => (
             <div
               key={image.id}
-              className={`absolute inset-0 w-full h-full transition-all duration-500 ease-in-out ${
-                index === currentIndex
-                  ? 'opacity-100 scale-100 z-10'
-                  : 'opacity-0 scale-95 z-0'
-              }`}
+              className={`absolute inset-0 w-full h-full transition-all duration-500 ease-in-out ${index === currentIndex
+                ? 'opacity-100 scale-100 z-10'
+                : 'opacity-0 scale-95 z-0'
+                }`}
             >
               <>
                 <img
                   src={image.url}
                   alt={image.filename}
-                  className={`block w-full h-full ${
-                    objectFit === 'cover' ? 'object-cover' : 'object-contain'
-                  } transition-transform duration-700 ease-out ${
-                    image.isPlaceholder ? 'opacity-80' : ''
-                  }`}
+                  className={`block w-full h-full carousel-image ${objectFit === 'cover' ? 'object-cover' : 'object-contain'
+                    } transition-transform duration-700 ease-out ${image.isPlaceholder ? 'opacity-80' : ''
+                    }`}
                   loading={index === 0 ? 'eager' : 'lazy'}
-                  style={{
-                    objectPosition: 'center',
-                    imageRendering: 'auto',
-                    maxWidth: '100%',
-                    maxHeight: '100%',
-                  }}
                   onError={() => handleBrokenImage(image)}
                 />
                 {imageErrors.has(image.id) && (
@@ -493,10 +486,9 @@ export function AnimalImageBanner({
                   }}
                   disabled={isTransitioning}
                   className={`rounded-full transition-all duration-300 disabled:cursor-not-allowed
-                    ${
-                      index === currentIndex
-                        ? 'bg-white shadow-lg w-6 sm:w-7 md:w-8 h-2 sm:h-2.5'
-                        : 'bg-white/50 hover:bg-white/70 active:bg-white/90 shadow-md w-2 sm:w-2.5 h-2 sm:h-2.5'
+                    ${index === currentIndex
+                      ? 'bg-white shadow-lg w-6 sm:w-7 md:w-8 h-2 sm:h-2.5'
+                      : 'bg-white/50 hover:bg-white/70 active:bg-white/90 shadow-md w-2 sm:w-2.5 h-2 sm:h-2.5'
                     }`}
                   aria-label={`Ir a imagen ${index + 1}`}
                   aria-current={index === currentIndex ? 'true' : 'false'}
@@ -567,14 +559,10 @@ export function AnimalImageBanner({
                 {images.map((image, index) => (
                   <div
                     key={image.id}
-                    className={`absolute inset-0 w-screen h-screen flex items-center justify-center transition-all duration-700 ease-out ${
-                      index === currentIndex
-                        ? 'opacity-100 scale-100 z-10'
-                        : 'opacity-0 scale-95 z-0 blur-sm'
-                    }`}
-                    style={{
-                      pointerEvents: index === currentIndex ? 'auto' : 'none',
-                    }}
+                    className={`absolute inset-0 w-screen h-screen flex items-center justify-center transition-all duration-700 ease-out ${index === currentIndex
+                      ? 'opacity-100 scale-100 z-10 carousel-slide-active'
+                      : 'opacity-0 scale-95 z-0 blur-sm carousel-slide-inactive'
+                      }`}
                   >
                     {imageErrors.has(image.id) ? (
                       <div className="w-full h-full flex items-center justify-center">
@@ -587,16 +575,8 @@ export function AnimalImageBanner({
                       <img
                         src={image.url}
                         alt={image.filename}
-                        className="max-w-full max-h-full w-auto h-auto object-contain animate-in fade-in zoom-in duration-700"
-                        style={{
-                          objectPosition: 'center',
-                          imageRendering: 'auto',
-                          WebkitFontSmoothing: 'antialiased',
-                          MozOsxFontSmoothing: 'grayscale',
-                          imageOrientation: 'from-image',
-                        }}
+                        className="max-w-full max-h-full w-auto h-auto object-contain animate-in fade-in zoom-in duration-700 carousel-image-modal"
                         decoding="async"
-                        fetchPriority="high"
                         loading="eager"
                         onError={() => {
                           setImageErrors(prev => new Set(prev).add(image.id));
@@ -664,10 +644,9 @@ export function AnimalImageBanner({
                           }}
                           disabled={isTransitioning}
                           className={`rounded-full transition-all duration-500 disabled:cursor-not-allowed
-                            ${
-                              index === currentIndex
-                                ? 'bg-gradient-to-r from-white via-white/90 to-white shadow-[0_0_20px_rgba(255,255,255,0.8)] w-10 sm:w-12 h-3 sm:h-3.5 scale-110'
-                                : 'bg-white/40 hover:bg-white/60 active:bg-white/80 shadow-md w-3 sm:w-3.5 h-3 sm:h-3.5 hover:scale-110'
+                            ${index === currentIndex
+                              ? 'bg-gradient-to-r from-white via-white/90 to-white shadow-[0_0_20px_rgba(255,255,255,0.8)] w-10 sm:w-12 h-3 sm:h-3.5 scale-110'
+                              : 'bg-white/40 hover:bg-white/60 active:bg-white/80 shadow-md w-3 sm:w-3.5 h-3 sm:h-3.5 hover:scale-110'
                             }`}
                           aria-label={`Ir a imagen ${index + 1}`}
                           aria-current={index === currentIndex ? 'true' : 'false'}

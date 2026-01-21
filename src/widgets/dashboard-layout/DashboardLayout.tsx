@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/features/auth/model/useAuth';
 import RoleBasedSideBar from '@/widgets/dashboard/RoleBasedSideBar';
 import Header from './Header';
@@ -7,99 +7,93 @@ import LoadingScreen from '@/shared/ui/common/LoadingScreen';
 
 const DashboardLayout: React.FC = () => {
   const { loading, isAuthenticated } = useAuth();
-  const { pathname: path } = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
-  // Detectar si estamos en desktop para aplicar apertura por defecto del sidebar
+  // Detectar escritorio para abrir sidebar por defecto
   useEffect(() => {
-    const applyLayoutByViewport = () => {
+    const checkDesktop = () => {
       const desktop = window.innerWidth >= 1024;
       setIsDesktop(desktop);
-      setIsSidebarOpen(desktop);
+      // Solo auto-abrir si pasamos de mobile a desktop y no estaba ya abierto
+      if (desktop && !isDesktop) {
+        setIsSidebarOpen(true);
+      }
+      // Auto-cerrar si pasamos de desktop a mobile
+      if (!desktop && isDesktop) {
+        setIsSidebarOpen(false);
+      }
     };
-    applyLayoutByViewport();
-    window.addEventListener('resize', applyLayoutByViewport);
-    return () => window.removeEventListener('resize', applyLayoutByViewport);
+
+    // Check inicial
+    const initialDesktop = window.innerWidth >= 1024;
+    setIsDesktop(initialDesktop);
+    // En el montaje inicial, si es desktop, abrimos sidebar.
+    if (initialDesktop) setIsSidebarOpen(true);
+
+    window.addEventListener('resize', checkDesktop);
+    return () => window.removeEventListener('resize', checkDesktop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Cuando cambie el estado de apertura en móvil, bloquear/desbloquear el scroll del body
-  useEffect(() => {
-    const desktop = window.innerWidth >= 1024;
-    if (!desktop) {
-      if (isSidebarOpen) {
-        document.documentElement.classList.add('overflow-hidden');
-        document.body.classList.add('overflow-hidden');
-      } else {
-        document.documentElement.classList.remove('overflow-hidden');
-        document.body.classList.remove('overflow-hidden');
-      }
-    }
-    return () => {
-      document.documentElement.classList.remove('overflow-hidden');
-      document.body.classList.remove('overflow-hidden');
-    }
-  }, [isSidebarOpen]);
-
-  if (loading) {
-    return <LoadingScreen />;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
-  // Estándar de pantallas CRUD full-bleed: usar prefijos canónicos por rol y módulo
-  const roles = ['/admin', '/apprentice', '/instructor'] as const;
-  const modules = [
-    'animals',
-    'fields',
-    'species',
-    'breeds',
-    'diseases',
-    'medications',
-    'vaccines',
-    'vaccinations',
-    'treatments',
-    'controls',
-    'animal-fields',
-    'disease-animals',
-    'genetic-improvements',
-    'species-breeds',
-    'food-types',
-    'users',
-    'treatment_medications',
-    'treatment_vaccines',
-    'route_administration',
-    'base_model',
-  ] as const;
-  const crudPrefixes = roles.flatMap((r) => modules.map((m) => `${r}/${m}`));
-  const isCRUDFullBleed = crudPrefixes.some((p) => path.startsWith(p));
+  if (loading) return <LoadingScreen />;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
 
   return (
-    <div className="flex h-[100dvh] w-full overflow-hidden bg-background text-foreground transition-colors duration-300">
-      <RoleBasedSideBar isSidebarOpen={isSidebarOpen} setIsSidebarOpen={setIsSidebarOpen} />
+    // CONTENEDOR PRINCIPAL: Flex Row, ocupa toda la pantalla, sin scroll global
+    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+
+      {/* 1. SIDEBAR: Lógica de visualización */}
+      {/* 
+          En desktop: Es un elemento flex normal (relative por defecto). 
+          Su ancho empuja al contenido.
+          
+          En móvil: Es fixed (flotante) y z-indexed sobre el contenido.
+      */}
       <div
-        className="flex-1 min-h-0 flex flex-col overflow-hidden relative transition-[margin-left] duration-300 ease-in-out"
-        style={{ marginLeft: isDesktop && isSidebarOpen ? 'var(--sidebar-width)' : 0 }}
+        className={`
+          flex-shrink-0 transition-all duration-300 ease-in-out h-full border-r border-border/40
+          ${isDesktop
+            ? (isSidebarOpen ? 'w-[280px] translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden border-none')
+            : `fixed inset-y-0 left-0 z-50 w-[280px] shadow-2xl ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
+          }
+        `}
       >
-        <Header isSidebarOpen={isSidebarOpen} onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)} />
-        <main
-          className={`flex-1 min-h-0 overflow-x-auto ${isCRUDFullBleed ? 'overflow-y-hidden' : 'overflow-y-auto'}
-                     bg-background transition-all duration-300 ease-in-out
-                     px-2 sm:px-3 md:px-4 lg:px-6 pt-1 md:pt-2
-                     ${isCRUDFullBleed ? 'pb-0' : 'pb-3 md:pb-4'}
-                     relative`}
-        >
+        <RoleBasedSideBar
+          isSidebarOpen={true} // Siempre renderiza contenido interno
+          setIsSidebarOpen={setIsSidebarOpen}
+        />
+      </div>
+
+      {/* Overlay para móvil */}
+      {!isDesktop && isSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* 2. AREA DE CONTENIDO: Ocupa el espacio restante */}
+      <div className="flex flex-col flex-1 min-w-0 h-full relative">
+
+        {/* Header siempre visible arriba */}
+        <Header
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        />
+
+        {/* 
+            MAIN CANVAS: El lienzo donde se pintan las páginas.
+            - flex-1: Ocupa todo el alto vertical restante.
+            - min-h-0: Obligatorio para permitir scroll interno si el hijo lo pide.
+            - overflow-hidden: Por defecto CORTA contenido. 
+              Las páginas hijas (Outlet) son responsables de decir 
+              si quieren scrollear ("overflow-auto") o ser fijas ("h-full").
+         */}
+        <main className="flex-1 min-h-0 relative overflow-hidden bg-background/50">
           <Outlet />
         </main>
-        {!isDesktop && isSidebarOpen && (
-          <div
-            className="fixed inset-0 z-30 bg-black/40 backdrop-blur-[1px] lg:hidden"
-            onClick={() => setIsSidebarOpen(false)}
-            aria-hidden="true"
-          />
-        )}
+
       </div>
     </div>
   );

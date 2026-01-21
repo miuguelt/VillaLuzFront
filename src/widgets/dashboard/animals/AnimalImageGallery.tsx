@@ -328,12 +328,9 @@ export function AnimalImageGallery({
                 <img
                   src={image.url}
                   alt={image.filename}
-                  className="w-full h-full object-cover cursor-pointer transition-transform duration-300 hover:scale-110"
+                  className="w-full h-full object-cover cursor-pointer transition-transform duration-300 hover:scale-110 gallery-image-thumb"
                   onClick={() => setSelectedImage(image)}
                   loading="lazy"
-                  style={{
-                    imageRendering: 'auto',
-                  }}
                   onError={() => {
                     if (numericId !== null) {
                       setImageErrors((prev) => {
@@ -375,7 +372,7 @@ export function AnimalImageGallery({
               {/* Menú desplegable de acciones (esquina superior derecha) */}
               {showControls && (
                 <div className="absolute top-2 right-2 z-10">
-                  <DropdownMenu>
+                  <DropdownMenu modal={false}>
                     <DropdownMenuTrigger asChild>
                       <Button
                         type="button"
@@ -470,7 +467,11 @@ export function AnimalImageGallery({
         open={selectedImage !== null}
         onOpenChange={(open) => !open && setSelectedImage(null)}
       >
-        <DialogContent className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-0 bg-black border-none overflow-hidden rounded-none m-0 fixed inset-0">
+        <DialogContent
+          className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-0 bg-black border-none overflow-hidden rounded-none m-0 fixed inset-0"
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="sr-only">
             <DialogTitle className="flex items-center gap-2">
               {selectedImage?.is_primary && (
@@ -480,8 +481,7 @@ export function AnimalImageGallery({
             </DialogTitle>
             <DialogDescription>
               {selectedImage &&
-                `${(selectedImage.file_size / 1024).toFixed(2)} KB - ${
-                  selectedImage.mime_type
+                `${(selectedImage.file_size / 1024).toFixed(2)} KB - ${selectedImage.mime_type
                 } - Subida el ${new Date(
                   selectedImage.created_at
                 ).toLocaleDateString('es-ES')}`}
@@ -502,23 +502,8 @@ export function AnimalImageGallery({
                 <img
                   src={selectedImage.url}
                   alt={selectedImage.filename}
-                  className="w-full h-full"
-                  style={{
-                    objectFit: 'contain',
-                    objectPosition: 'center',
-                    imageRendering: '-webkit-optimize-contrast',
-                    WebkitFontSmoothing: 'antialiased',
-                    MozOsxFontSmoothing: 'grayscale',
-                    backfaceVisibility: 'hidden',
-                    transform: 'translateZ(0)',
-                    willChange: 'transform',
-                    maxWidth: '100%',
-                    maxHeight: '100%',
-                    width: 'auto',
-                    height: 'auto',
-                  }}
+                  className="w-full h-full gallery-image-fullscreen"
                   decoding="async"
-                  fetchPriority="high"
                   onError={() => {
                     if (selectedImageId !== null) {
                       setImageErrors((prev) => {

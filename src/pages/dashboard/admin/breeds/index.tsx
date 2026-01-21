@@ -241,11 +241,11 @@ function AdminBreedsPage() {
       validateForm={validateForm}
       // Activar actualización en tiempo real en la vista de razas
       realtime={true}
-      // Aumentar el intervalo de polling para reducir carga innecesaria
-      pollIntervalMs={8000}
-      refetchOnFocus={true}
+      pollIntervalMs={0}
+      refetchOnFocus={false}
       refetchOnReconnect={true}
-      // Activar hover mejorado con borde azul y fondo azul suave
+      cache={true}
+      cacheTTL={300000}
       enhancedHover={true}
     />
   );

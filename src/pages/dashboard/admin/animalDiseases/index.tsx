@@ -94,6 +94,7 @@ function AdminAnimalDiseasesPage() {
 
   // Columnas de la tabla con renderizado optimizado y Foreign Key Links
   const columns: CRUDColumn<AnimalDiseaseResponse & { [k: string]: any }>[] = useMemo(() => [
+    { key: 'id', label: 'ID', render: (v) => v ?? '-' },
 
     {
       key: 'animal_id',
@@ -125,9 +126,11 @@ function AdminAnimalDiseasesPage() {
         return <UserLink id={id} label={label} role="Instructor" />;
       }
     },
-    { key: 'diagnosis_date', label: 'Diagnóstico', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
+    { key: 'diagnosis_date', label: 'Diagn¢stico', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
     { key: 'status', label: 'Estado', render: (v) => v || '-' },
+    { key: 'notes' as any, label: 'Notas', render: (v) => v || '-' },
     { key: 'created_at' as any, label: 'Creado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
+    { key: 'updated_at' as any, label: 'Actualizado', render: (v) => (v ? new Date(v as string).toLocaleDateString('es-ES') : '-') },
   ], [animalMap, diseaseMap, instructorMap]);
 
   const formSections: CRUDFormSection<AnimalDiseaseInput & { [k: string]: any }>[] = [
@@ -184,10 +187,24 @@ function AdminAnimalDiseasesPage() {
       initialFormData={dynamicInitialFormData}
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
+      additionalFormContent={(_formData, editingItem) => {
+        if (!editingItem) return null;
+        return (
+          <div className="mt-4 rounded-lg border border-border/50 bg-muted/20 p-3 text-xs sm:text-sm">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div><span className="font-semibold">ID:</span> {editingItem.id}</div>
+              <div><span className="font-semibold">Creado:</span> {editingItem.created_at ? new Date(editingItem.created_at as any).toLocaleString("es-ES") : "-"}</div>
+              <div><span className="font-semibold">Actualizado:</span> {editingItem.updated_at ? new Date(editingItem.updated_at as any).toLocaleString("es-ES") : "-"}</div>
+            </div>
+          </div>
+        );
+      }}
       realtime={true}
-      pollIntervalMs={8000}
-      refetchOnFocus={true}
+      pollIntervalMs={0}
+      refetchOnFocus={false}
       refetchOnReconnect={true}
+      cache={true}
+      cacheTTL={300000}
       enhancedHover={true}
     />
   );
@@ -235,6 +252,6 @@ const initialFormData: AnimalDiseaseInput & { [k: string]: any } = {
   disease_id: undefined as any, // Forzar que el usuario seleccione
   instructor_id: undefined as any, // Forzar que el usuario seleccione
   diagnosis_date: getTodayColombia(),
-  status: undefined,
+  status: ANIMAL_DISEASE_STATUSES[0]?.value ?? 'Activo',
   notes: '',
 };

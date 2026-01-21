@@ -1,7 +1,9 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { getCookie } from '@/shared/utils/cookieUtils'
-import { getApiBaseURL } from '@/shared/utils/envConfig';
+import { getApiBaseURL, getBackendBaseURL } from '@/shared/utils/envConfig';
 import { getIndexedDBCache, setIndexedDBCache, startIndexedDBCacheCleanup } from '@/shared/api/cache/indexedDBCache';
+import { shouldRefreshToken, isValidTokenFormat } from '@/shared/utils/jwtUtils';
+import { extractJWT } from '@/shared/utils/tokenUtils';
 
 // ENV y configuración
 const env: Record<string, any> = ((globalThis as any)?.['import']?.['meta']?.['env'])
@@ -19,6 +21,10 @@ const HTTP_CACHE_TTL = Number(env.VITE_HTTP_CACHE_TTL ?? 20000); // TTL por defe
 const LOGIN_REDIRECT_PATH = env.VITE_LOGIN_PATH || '/login';
 const SESSION_STORAGE_KEYS = [AUTH_STORAGE_KEY, 'access_token'];
 const SESSION_COOKIE_CANDIDATES = ['access_token_cookie', 'access_token', 'csrf_access_token', 'csrf_refresh_token'];
+const REALTIME_TRANSPORT = String(env.VITE_REALTIME_TRANSPORT ?? '').toLowerCase();
+const TIMEOUT_RETRY_ATTEMPTS = Number(env.VITE_TIMEOUT_RETRY_ATTEMPTS ?? 2);
+const TIMEOUT_RETRY_BASE_MS = Number(env.VITE_TIMEOUT_RETRY_BASE_MS ?? 400);
+const TIMEOUT_RETRY_MAX_MS = Number(env.VITE_TIMEOUT_RETRY_MAX_MS ?? 3000);
 
 
 const AUTH_SESSION_ACTIVE_KEY = 'auth:session_active';
@@ -120,6 +126,12 @@ const setAuthHeader = (headers: MutableHeaders, shouldAttach: boolean, token?: s
   if (!shouldAttach && headers['Authorization']) {
     delete headers['Authorization'];
   }
+};
+
+const persistStoredToken = (token: string): void => {
+  if (!USE_BEARER_AUTH) return;
+  try { if (typeof localStorage !== 'undefined') localStorage.setItem(AUTH_STORAGE_KEY, token); } catch { /* noop */ }
+  try { if (typeof sessionStorage !== 'undefined') sessionStorage.setItem(AUTH_STORAGE_KEY, token); } catch { /* noop */ }
 };
 
 // Bases de URL: usar helper que decide según entorno y variables
@@ -265,6 +277,14 @@ api.interceptors.request.use(
       }
 
       const path = normalizePath(config.url as any);
+      const isAuthLogin = path.startsWith('auth/login');
+      const isAuthRefresh = path.startsWith('auth/refresh');
+      const isAuthMe = path.startsWith('auth/me');
+
+      if (refreshPromise && !isAuthRefresh) {
+        await refreshPromise;
+      }
+
       const skipAuthHeader =
         isPublicEndpoint(path) ||
         (config as any).skipAuth === true ||
@@ -280,23 +300,31 @@ api.interceptors.request.use(
       if (headers) {
         ensureJsonHeaders(headers, config.data);
 
-        const isAuthLogin = path.startsWith('auth/login');
-        const isAuthRefresh = path.startsWith('auth/refresh');
         const shouldAttachAuth = !skipAuthHeader && !isAuthLogin && !isAuthRefresh;
         // Añadir Authorization Bearer si existe token y no es login/refresh ni endpoint público/forzado
         const token = readStoredToken();
         setAuthHeader(headers, shouldAttachAuth, token);
-        // Añadir CSRF desde cookies legibles según el endpoint
-        const isAuthMe = path.startsWith('auth/me');
+
+        const hasAccessCsrf = !!getCookie('csrf_access_token');
+        const hasRefreshCsrf = !!getCookie('csrf_refresh_token');
         const isProtected = (!isPublicEndpoint(path) || isAuthMe) && !skipAuthHeader;
+        if (!isAuthLogin && !isAuthRefresh && !isAuthMe && isProtected) {
+          if (USE_BEARER_AUTH && token && shouldRefreshToken(token)) {
+            await performRefresh({ retryOnCsrfError: true });
+          } else if (!hasAccessCsrf && hasRefreshCsrf) {
+            await performRefresh({ retryOnCsrfError: true });
+          }
+        }
+
+        // Añadir CSRF desde cookies legibles según el endpoint
         if (isAuthRefresh) {
-          const csrfRefresh = getCookie('csrf_refresh_token');
+          const csrfRefresh = getCookie('csrf_refresh_token') ?? undefined;
           setCsrfHeaders(headers, csrfRefresh);
           if (DEBUG_LOG) {
             console.debug('[api][req] /auth/refresh CSRF refresh presente:', !!csrfRefresh, 'auth header:', !!headers['Authorization']);
           }
         } else if (isProtected) {
-          const csrfAccess = getCookie('csrf_access_token');
+          const csrfAccess = getCookie('csrf_access_token') ?? undefined;
           setCsrfHeaders(headers, csrfAccess);
           if (DEBUG_LOG) {
             console.debug('[api][req]', path, 'CSRF access presente:', !!csrfAccess, 'auth header:', !!headers['Authorization']);
@@ -335,10 +363,10 @@ refreshClient.interceptors.request.use(
           delete headers['Authorization'];
         }
         if (path.startsWith('auth/refresh')) {
-          const csrfRefresh = getCookie('csrf_refresh_token');
+          const csrfRefresh = getCookie('csrf_refresh_token') ?? undefined;
           setCsrfHeaders(headers, csrfRefresh);
         } else if (path.startsWith('auth/me')) {
-          const csrfAccess = getCookie('csrf_access_token');
+          const csrfAccess = getCookie('csrf_access_token') ?? undefined;
           setCsrfHeaders(headers, csrfAccess);
         }
       }
@@ -363,26 +391,68 @@ function isTokenExpired(err: any): boolean {
 
 function extractAuthErrorDetails(err: any) {
   const payload = err?.response?.data;
-  const errorBlock = payload?.error || payload || {};
-  const details = errorBlock?.details || errorBlock?.detail || {};
-  const code = (errorBlock?.code || errorBlock?.error || payload?.code || '').toString().toUpperCase();
+  const details = payload?.error?.details ?? payload?.error?.detail ?? payload?.details ?? payload?.detail ?? {};
+  const code = (payload?.error?.code || payload?.code || payload?.error || '').toString().toUpperCase();
   const exceptionClass = (details?.exception_class || details?.exceptionClass || '').toString();
   const clientAction = (details?.client_action || details?.clientAction || '').toString();
   const logoutUrl = details?.logout_url || details?.logoutUrl;
   const loginUrl = details?.login_url || details?.loginUrl;
-  return { code, exceptionClass, clientAction, logoutUrl, loginUrl, rawDetails: details };
+  const traceId = payload?.error?.trace_id || payload?.error?.traceId;
+  return { code, exceptionClass, clientAction, logoutUrl, loginUrl, rawDetails: details, traceId };
 }
 
-function shouldForceLogout(err: any) {
-  const { code, exceptionClass, clientAction, logoutUrl, loginUrl, rawDetails } = extractAuthErrorDetails(err);
-  const exceptionIsExpired = exceptionClass.toLowerCase().includes('expired');
-  const needsClear = clientAction === 'CLEAR_AUTH_AND_RELOGIN';
-  const codeIndicatesExpiry = code === 'TOKEN_EXPIRED' || code === 'TOKEN_EXPIRED_ERROR';
+function shouldForceLogout(err: any): {
+  shouldForce: boolean;
+  logoutUrl?: string;
+  loginUrl?: string;
+  details?: any;
+  traceId?: string;
+  shouldRefresh?: boolean;
+} {
+  const { code, exceptionClass, clientAction, logoutUrl, loginUrl, rawDetails, traceId } = extractAuthErrorDetails(err);
+
+  // Logic based on Guide:
+  // 1. Explicit instruction to clear auth
+  const needsClear = clientAction === 'CLEAR_AUTH_AND_RELOGIN' ||
+    rawDetails?.should_clear_auth === true ||
+    rawDetails?.shouldClearAuth === true;
+
+  // 2. Explicit instruction to refresh
+  const needsRefresh = clientAction === 'ATTEMPT_REFRESH';
+
+  // 3. Fallbacks based on error codes (heuristics)
+  const codeIndicatesExpiry =
+    code === 'TOKEN_EXPIRED' ||
+    code === 'TOKEN_EXPIRED_ERROR' ||
+    code === 'JWT_ERROR' ||
+    code === 'MISSING_TOKEN' ||
+    code === 'UNAUTHORIZED';
+
+  // Decision priority:
+  // 1. Explicit clear -> Force Logout
+  if (needsClear) {
+    return { shouldForce: true, logoutUrl, loginUrl, details: rawDetails, traceId, shouldRefresh: false };
+  }
+
+  // 2. Explicit refresh -> Do NOT force logout, signal refresh
+  if (needsRefresh) {
+    return { shouldForce: false, logoutUrl, loginUrl, details: rawDetails, traceId, shouldRefresh: true };
+  }
+
+  // 3. Code indicates expiry -> Default to refresh attempt (unless already retried, logic handled in interceptor)
+  // If it's just a generic 401 without specific instruction, we try to be helpful and refresh.
+  if (codeIndicatesExpiry) {
+    return { shouldForce: false, logoutUrl, loginUrl, details: rawDetails, traceId, shouldRefresh: true };
+  }
+
+  // 4. Other 401s (e.g. invalid permissions/scope but valid token?) -> Propagate error, don't force logout immediately.
   return {
-    shouldForce: codeIndicatesExpiry || exceptionIsExpired || needsClear,
+    shouldForce: false,
     logoutUrl,
     loginUrl,
     details: rawDetails,
+    traceId,
+    shouldRefresh: false
   };
 }
 
@@ -390,8 +460,8 @@ async function callBackendLogout(logoutUrl?: string) {
   const target = logoutUrl && /^https?:\/\//i.test(logoutUrl)
     ? logoutUrl
     : `${baseURL?.replace(/\/$/, '') || ''}${logoutUrl
-        ? logoutUrl.startsWith('/') ? logoutUrl : `/${logoutUrl}`
-        : '/auth/logout'}`;
+      ? logoutUrl.startsWith('/') ? logoutUrl : `/${logoutUrl}`
+      : '/auth/logout'}`;
   try {
     await fetch(target, {
       method: 'POST',
@@ -470,6 +540,25 @@ async function forceClientLogout(reason = 'expired', options?: { logoutUrl?: str
   return forceLogoutPromise;
 }
 
+// Export: permitir que apiFetch() aplique la politica estandar basada en data.error.code/details
+export async function forceLogoutFromApiError(
+  code?: string,
+  details?: any
+): Promise<void> {
+  const clientAction = (details?.client_action || details?.clientAction || '').toString();
+  const shouldClear =
+    clientAction === 'CLEAR_AUTH_AND_RELOGIN' ||
+    details?.should_clear_auth === true ||
+    details?.shouldClearAuth === true;
+
+  if (!shouldClear) return;
+
+  const reason = String(code || 'expired').toLowerCase().includes('missing') ? 'missing' : 'expired';
+  const logoutUrl = details?.logout_url || details?.logoutUrl;
+  const loginUrl = details?.login_url || details?.loginUrl;
+  await forceClientLogout(reason, { logoutUrl, loginUrl });
+}
+
 function isCsrfError(err: any): boolean {
   const status = err?.response?.status ?? err?.status;
   const data = err?.response?.data ?? err?.data;
@@ -482,18 +571,26 @@ function isCsrfError(err: any): boolean {
 async function performRefresh(options?: { retryOnCsrfError?: boolean }): Promise<void> {
   if (refreshPromise) return refreshPromise;
   const doRefresh = async () => {
-    const csrfRefresh = getCookie('csrf_refresh_token');
+    const csrfRefresh = getCookie('csrf_refresh_token') ?? undefined;
     const headers: Record<string, string> = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
     setCsrfHeaders(headers, csrfRefresh);
     try {
-      await refreshClient.post('/auth/refresh', null, { headers });
+      const resp = await refreshClient.post('/auth/refresh', null, { headers });
+      const candidate = extractJWT(resp?.data);
+      if (candidate && isValidTokenFormat(candidate)) {
+        persistStoredToken(candidate);
+      }
     } catch (err: any) {
       if (options?.retryOnCsrfError && isCsrfError(err)) {
         // Releer cookie y reintentar una sola vez
-        const retryCsrf = getCookie('csrf_refresh_token');
+        const retryCsrf = getCookie('csrf_refresh_token') ?? undefined;
         const retryHeaders: Record<string, string> = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
         setCsrfHeaders(retryHeaders, retryCsrf);
-        await refreshClient.post('/auth/refresh', null, { headers: retryHeaders });
+        const retryResp = await refreshClient.post('/auth/refresh', null, { headers: retryHeaders });
+        const retryCandidate = extractJWT(retryResp?.data);
+        if (retryCandidate && isValidTokenFormat(retryCandidate)) {
+          persistStoredToken(retryCandidate);
+        }
       } else {
         throw err;
       }
@@ -533,7 +630,6 @@ api.interceptors.response.use(
     const status = error?.response?.status;
     const path = normalizePath(originalRequest?.url as any);
 
-    // Aviso global: límite de solicitudes excedido (HTTP 429)
     if (status === 429) {
       try {
         const detail = {
@@ -543,10 +639,23 @@ api.interceptors.response.use(
           message: error?.response?.data?.message || error?.message || 'Demasiadas solicitudes',
           timestamp: new Date().toISOString(),
         };
+        const data = error?.response?.data ?? {};
+        const d0 = (data?.error && data?.error?.details) ? data.error.details : undefined;
+        const d1 = (!d0 && data?.details) ? data.details : d0 ?? data?.details;
+        const bodyRetryAfterSeconds = d1?.retry_after_seconds;
+        const bodyRetryAfter = d1?.retry_after;
         if (typeof window !== 'undefined' && 'dispatchEvent' in window) {
-          window.dispatchEvent(new CustomEvent('rate-limit-exceeded', { detail }));
+          const waitCandidate = bodyRetryAfterSeconds ?? bodyRetryAfter;
+          let waitSeconds: number | undefined;
+          if (typeof waitCandidate === 'number' && Number.isFinite(waitCandidate) && waitCandidate > 0) {
+            waitSeconds = waitCandidate;
+          } else if (typeof waitCandidate === 'string') {
+            const n = parseInt(waitCandidate, 10);
+            waitSeconds = Number.isNaN(n) ? undefined : n;
+          }
+          const evtDetail = { ...detail, waitSeconds };
+          window.dispatchEvent(new CustomEvent('rate-limit-exceeded', { detail: evtDetail }));
         }
-        // Registrar ventana de backoff si el servidor sugiere Retry-After / RateLimit-Reset
         try {
           const headers = error?.response?.headers ?? {} as Record<string, any>;
           const retryAfter = headers['retry-after'] ?? headers['Retry-After'];
@@ -558,9 +667,21 @@ api.interceptors.response.use(
             const n = parseInt(String(s), 10);
             return Number.isNaN(n) ? undefined : n;
           };
-          const retrySecs = toInt(retryAfter);
-          if (retrySecs != null) {
-            delayMs = Math.max(retrySecs * 1000, 5000);
+          const bodySecs =
+            typeof bodyRetryAfterSeconds === 'number'
+              ? bodyRetryAfterSeconds
+              : typeof bodyRetryAfterSeconds === 'string'
+                ? toInt(bodyRetryAfterSeconds)
+                : typeof bodyRetryAfter === 'number'
+                  ? bodyRetryAfter
+                  : typeof bodyRetryAfter === 'string'
+                    ? toInt(bodyRetryAfter)
+                    : undefined;
+          const headerSecs = toInt(retryAfter);
+          if (bodySecs != null) {
+            delayMs = Math.max(bodySecs * 1000, 5000);
+          } else if (headerSecs != null) {
+            delayMs = Math.max(headerSecs * 1000, 5000);
           } else {
             const resetSecs = toInt(rlReset);
             if (resetSecs != null) {
@@ -568,7 +689,6 @@ api.interceptors.response.use(
               delayMs = Math.max((resetSecs - nowSecs) * 1000, 5000);
             }
           }
-          // rateLimitBackoff se declara más abajo; el closure lo resolverá a runtime
           try {
             rateLimitBackoff.set(path, Date.now() + delayMs);
           } catch (backoffError) {
@@ -597,30 +717,72 @@ api.interceptors.response.use(
       const tokenStatus = shouldForceLogout(error);
       const hasStoredAuth = hasClientSession();
       const isAuthMeRequest = path.startsWith('auth/me');
-      // Si no hay indicios de sesión en cookies/storage, no intentes refresh en bucle: fuerza logout limpio
-      if (!hasStoredAuth && !isAuthMeRequest) {
-        await forceClientLogout('missing', { logoutUrl: tokenStatus.logoutUrl, loginUrl: tokenStatus.loginUrl });
-        return Promise.reject(error);
-      }
-      if (tokenStatus.shouldForce && hasStoredAuth && !isAuthMeRequest) {
+
+      // 1. Si el backend explícitamente pide logout
+      if (tokenStatus.shouldForce) {
+        if (DEBUG_LOG) console.warn('[api] 401 Forzando logout por error explícito:', tokenStatus.details);
         await forceClientLogout('expired', { logoutUrl: tokenStatus.logoutUrl, loginUrl: tokenStatus.loginUrl });
         return Promise.reject(error);
       }
-      try {
-        if (DEBUG_LOG) {
-          const hasAccess = !!getCookie('csrf_access_token');
-          const hasRefresh = !!getCookie('csrf_refresh_token');
-          console.warn('[api][resp] 401 en', path, 'cookies -> access:', hasAccess, 'refresh:', hasRefresh, 'retryFlag:', !!originalRequest._retry);
+
+      // 2. Si no hay sesión local (cookies/storage) y da 401, no tiene sentido refrescar.
+      if (!hasStoredAuth && !isAuthMeRequest) {
+        if (DEBUG_LOG) console.warn('[api] 401 sin sesión local. Forzando logout.');
+        await forceClientLogout('missing', { logoutUrl: tokenStatus.logoutUrl, loginUrl: tokenStatus.loginUrl });
+        return Promise.reject(error);
+      }
+
+      // 3. Intentar refresh si se sugiere o si parece expirado
+      if (tokenStatus.shouldRefresh) {
+        try {
+          if (DEBUG_LOG) {
+            const hasAccess = !!getCookie('csrf_access_token');
+            const hasRefresh = !!getCookie('csrf_refresh_token');
+            console.log('[api][resp] 401 detectado. Intentando refresh. Cookies:', { access: hasAccess, refresh: hasRefresh }, 'Retry:', !!originalRequest._retry);
+          }
+
+          // Evitar bucles infinitos: solo un reintento
+          if (!originalRequest._retry) {
+            originalRequest._retry = true;
+            await performRefresh({ retryOnCsrfError: true });
+            if (DEBUG_LOG) console.log('[api] Refresh exitoso. Reintentando request original:', path);
+            return api(originalRequest);
+          } else {
+            // Si ya reintentamos y sigue 401 -> Logout
+            if (DEBUG_LOG) console.warn('[api] 401 tras reintento (refresh fallido o token inválido). Forzando logout.');
+            await forceClientLogout('expired');
+            return Promise.reject(error);
+          }
+        } catch (refreshErr) {
+          if (DEBUG_LOG) console.error('[api] Falló el refresh automático tras 401:', refreshErr);
+          // Si falla el refresh (ej. refresh token expirado también), logout.
+          await forceClientLogout('expired');
+          return Promise.reject(refreshErr);
         }
-        if (!originalRequest._retry || isTokenExpired(error) || isCsrfError(error)) {
-          originalRequest._retry = true;
-          await performRefresh({ retryOnCsrfError: true });
-          if (DEBUG_LOG) console.log('[api] Refresh OK. Reintentando:', path);
-          return api(originalRequest);
-        }
-      } catch (refreshErr) {
-        if (DEBUG_LOG) console.error('[api] Falló el refresh:', refreshErr);
-        return Promise.reject(refreshErr);
+      }
+
+      // 4. Si es 401 pero no hay instrucción de refresh ni logout, devolver el error tal cual
+      // (Puede ser falta de permisos, scope, etc. que no se arregla con refresh)
+      if (DEBUG_LOG) console.warn('[api] 401 recibido sin instrucción de refresh ni logout. Propagando error.');
+      return Promise.reject(error);
+    }
+
+    const method = String(originalRequest?.method || 'get').toLowerCase();
+    const codeStr = String(error?.code || '').toUpperCase();
+    const msgStr = String(error?.message || '').toLowerCase();
+    const isTimeoutLike = status === 408 || codeStr === 'ECONNABORTED' || codeStr === 'ETIMEDOUT' || msgStr.includes('timeout');
+    const isNetworkLike = codeStr === 'ERR_NETWORK' || (!status && msgStr.includes('network'));
+    const skipRetry = (originalRequest as any)?.skipTimeoutRetry === true;
+    const aborted = !!(originalRequest as any)?.signal && (originalRequest as any).signal.aborted === true;
+    if (!skipRetry && !aborted && (method === 'get' || method === 'head') && (isTimeoutLike || isNetworkLike)) {
+      const attempt = Number((originalRequest as any)._timeoutAttempt ?? 0) + 1;
+      if (attempt <= TIMEOUT_RETRY_ATTEMPTS) {
+        (originalRequest as any)._timeoutAttempt = attempt;
+        let delay = Math.floor(TIMEOUT_RETRY_BASE_MS * Math.pow(1.7, attempt - 1));
+        if (delay > TIMEOUT_RETRY_MAX_MS) delay = TIMEOUT_RETRY_MAX_MS;
+        delay += Math.floor(Math.random() * 100);
+        await new Promise((r) => setTimeout(r, delay));
+        return api(originalRequest);
       }
     }
 
@@ -632,6 +794,8 @@ api.interceptors.response.use(
 // Evita enviar múltiples GET idénticos (método+URL+params) simultáneamente y comparte la misma promesa
 const inflightGet = new Map<string, Promise<any>>();
 const rateLimitBackoff = new Map<string, number>();
+const lastRequestAt = new Map<string, number>();
+const REQUEST_MIN_INTERVAL_MS = Number(env.VITE_REQUEST_MIN_INTERVAL_MS ?? 500);
 const stableStringify = (obj: any) => {
   if (!obj || typeof obj !== 'object') return '';
   const keys = Object.keys(obj).sort();
@@ -652,7 +816,7 @@ if (typeof window !== 'undefined') {
 }
 
 // Cache dual: memoria (rápido) + IndexedDB (persistente)
-const memoryCache = new Map<string, { data: any; expiry: number }>();
+const memoryCache = new Map<string, { data: any; expiry: number; etag?: string; lastModified?: string }>();
 
 /**
  * Lee del cache (memoria primero, luego IndexedDB)
@@ -690,12 +854,12 @@ async function readCache(key: string): Promise<any | null> {
 /**
  * Escribe en cache (memoria + IndexedDB)
  */
-function writeCache(key: string, data: any, ttlMs: number = HTTP_CACHE_TTL): void {
+function writeCache(key: string, data: any, ttlMs: number = HTTP_CACHE_TTL, meta?: { etag?: string; lastModified?: string }): void {
   const cacheKey = `http-cache:${key}`;
   const expiry = Date.now() + Math.max(1000, ttlMs);
 
   // 1. Escribir en memoria (sincrónico, rápido)
-  memoryCache.set(cacheKey, { data, expiry });
+  memoryCache.set(cacheKey, { data, expiry, etag: meta?.etag, lastModified: meta?.lastModified });
 
   // 2. Escribir en IndexedDB (asíncrono, persistente) en background
   void setIndexedDBCache(cacheKey, data, ttlMs).catch(err => {
@@ -705,16 +869,29 @@ function writeCache(key: string, data: any, ttlMs: number = HTTP_CACHE_TTL): voi
 
 const originalGet = api.get.bind(api);
 (api as any).get = async (url: string, config?: any) => {
-  // Si se proporcionó cancelToken o signal, no coalescar para respetar cancelaciones de componente
+  // Si se proporcionó cancelToken o signal, evitar coalescing pero mantener cache/backoff
   const hasCancel = !!(config && (config.cancelToken || config.signal));
-  if (hasCancel) {
-    return originalGet(url, config);
-  }
   const key = buildGetKey(url, config);
+  const path = normalizePath(url as any);
+
+  // Condicional GET: incluir If-None-Match / If-Modified-Since si tenemos metadatos en memoria
+  try {
+    const mem = memoryCache.get(`http-cache:${key}`);
+    if (mem) {
+      const headers = { ...(config?.headers || {}) };
+      if (mem.etag) {
+        headers['If-None-Match'] = mem.etag;
+      } else if (mem.lastModified) {
+        headers['If-Modified-Since'] = mem.lastModified;
+      }
+      config = { ...(config || {}), headers };
+    }
+  } catch {
+    // noop
+  }
 
   // Si existe backoff activo por rate limit, servir caché si está disponible
   try {
-    const path = normalizePath(url as any);
     const until = rateLimitBackoff.get(path) || 0;
     if (until && Date.now() < until) {
       const cachedBackoff = await readCache(key);
@@ -727,6 +904,20 @@ const originalGet = api.get.bind(api);
     logDebugError('[api] No se pudo evaluar backoff activo', backoffError);
   }
 
+  // Throttle simple por endpoint para evitar ráfagas que disparan rate limit
+  try {
+    if (REQUEST_MIN_INTERVAL_MS > 0 && path) {
+      const last = lastRequestAt.get(path) || 0;
+      const elapsed = Date.now() - last;
+      if (elapsed < REQUEST_MIN_INTERVAL_MS) {
+        await new Promise((r) => setTimeout(r, REQUEST_MIN_INTERVAL_MS - elapsed));
+      }
+      lastRequestAt.set(path, Date.now());
+    }
+  } catch (throttleError) {
+    logDebugError('[api] No se pudo aplicar throttle', throttleError);
+  }
+
   // Cache fresco primero (ahora asíncrono por IndexedDB)
   const cached = await readCache(key);
   if (cached) {
@@ -735,7 +926,7 @@ const originalGet = api.get.bind(api);
   }
 
   const existing = inflightGet.get(key);
-  if (existing) {
+  if (existing && !hasCancel) {
     if (DEBUG_LOG) console.log('[api] Coalesced GET:', key);
     return existing;
   }
@@ -743,9 +934,19 @@ const originalGet = api.get.bind(api);
   const p = originalGet(url, config).then((resp: AxiosResponse) => {
     // Guardar en caché la respuesta (ahora en IndexedDB + memoria)
     try {
-      writeCache(key, resp.data, HTTP_CACHE_TTL);
+      const etag = resp.headers?.['etag'] || resp.headers?.['ETag'];
+      const lastModified = resp.headers?.['last-modified'] || resp.headers?.['Last-Modified'];
+      writeCache(key, resp.data, HTTP_CACHE_TTL, { etag, lastModified });
     } catch (cacheError) {
       logDebugError('[api] No se pudo almacenar respuesta en caché', cacheError);
+    }
+    if (resp.status === 304) {
+      try {
+        const mem = memoryCache.get(`http-cache:${key}`);
+        if (mem && Date.now() <= mem.expiry) {
+          return { data: mem.data, status: 200, statusText: 'Not Modified', headers: resp.headers, config } as AxiosResponse;
+        }
+      } catch { /* noop */ }
     }
     return resp;
   });
@@ -757,6 +958,128 @@ const originalGet = api.get.bind(api);
 
 export default api;
 export { unwrapApi } from '@/shared/utils/apiUnwrap';
+
+let __sseStarted = false;
+let __sse: EventSource | null = null;
+let __sseUrl: string | null = null;
+let __sseLastErrorAt = 0;
+let __sseReconnectTimer: any = null;
+let __sseReconnecting = false;
+let __sseRetryAttempt = 0;
+
+function buildSseUrls(): string[] {
+  const baseApi = (api.defaults.baseURL || getApiBaseURL() || '').replace(/\/$/, '');
+  const list = [
+    baseApi ? `${baseApi}/events` : '',
+  ].filter((u, i, a) => !!u && a.indexOf(u) === i);
+  return list;
+}
+
+function parseSseData(raw: any): { endpoint?: string; action?: string; id?: string | number } {
+  try {
+    const txt = typeof raw === 'string' ? raw : String(raw ?? '');
+    const obj = JSON.parse(txt);
+    const endpoint =
+      obj.endpoint || obj.path || obj.resource || obj.collection || obj.model || obj.entity || obj.table;
+    const action = obj.action || obj.event || obj.type;
+    const id = obj.id ?? obj.pk ?? obj.item_id ?? obj.itemId;
+    return { endpoint: endpoint ? String(endpoint) : undefined, action: action ? String(action) : undefined, id };
+  } catch {
+    const txt = typeof raw === 'string' ? raw : '';
+    if (txt.includes(':')) {
+      const [topic, maybeId] = txt.split(':');
+      return { endpoint: topic, id: maybeId };
+    }
+    return {};
+  }
+}
+
+function dispatchGlobalChange(detail: any) {
+  try {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('server-global-change', { detail }));
+    }
+  } catch { void 0; }
+}
+
+function dispatchResourceChange(detail: { endpoint?: string; action?: string; id?: string | number }) {
+  try {
+    if (typeof window !== 'undefined') {
+      const d = {
+        endpoint: detail.endpoint ? String(detail.endpoint).split('/').filter(Boolean).pop() : undefined,
+        action: detail.action,
+        id: detail.id,
+      };
+      window.dispatchEvent(new CustomEvent('server-resource-changed', { detail: d }));
+    }
+  } catch { void 0; }
+}
+
+export function startServerEvents(candidateIndex?: number): void {
+  // Disabled to prevent duplicate connections (429) & enable clean lints
+  // console.warn('startServerEvents is deprecated. Use lib/events.ts');
+}
+
+let __wsStarted = false;
+let __ws: WebSocket | null = null;
+let __wsUrl: string | null = null;
+let __wsReconnectTimer: any = null;
+let __wsLastErrorAt = 0;
+
+function buildWsUrls(): string[] {
+  const baseApi = (api.defaults.baseURL || getApiBaseURL() || '').replace(/\/$/, '');
+  const backend = (getBackendBaseURL() || '').replace(/\/$/, '');
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const candidates: string[] = [];
+  if (/^https?:\/\//i.test(baseApi)) {
+    candidates.push(`${baseApi.replace(/^http/i, 'ws')}/ws`);
+  } else {
+    const wsOrigin = origin ? origin.replace(/^http/i, 'ws') : 'ws://localhost';
+    candidates.push(`${wsOrigin}${baseApi}/ws`);
+  }
+  if (backend) candidates.push(`${backend.replace(/^http/i, 'ws')}/ws`);
+  if (origin) candidates.push(`${origin.replace(/^http/i, 'ws')}/ws`);
+  candidates.push('ws://localhost/ws');
+  return candidates.filter((u, i, a) => !!u && a.indexOf(u) === i);
+}
+
+function parseWsData(raw: any): { endpoint?: string; action?: string; id?: string | number } {
+  try {
+    const txt = typeof raw === 'string' ? raw : String(raw ?? '');
+    const obj = JSON.parse(txt);
+    const endpoint =
+      obj.endpoint || obj.path || obj.resource || obj.collection || obj.model || obj.entity || obj.table;
+    const action = obj.action || obj.event || obj.type;
+    const id = obj.id ?? obj.pk ?? obj.item_id ?? obj.itemId;
+    return { endpoint: endpoint ? String(endpoint) : undefined, action: action ? String(action) : undefined, id };
+  } catch {
+    const txt = typeof raw === 'string' ? raw : '';
+    if (txt.includes(':')) {
+      const [topic, maybeId] = txt.split(':');
+      return { endpoint: topic, id: maybeId };
+    }
+    return {};
+  }
+}
+
+function ensureRealtimeStats(transport: 'ws' | 'sse') {
+  try {
+    const anyWin = window as any;
+    if (!anyWin.__realtimeStats) {
+      anyWin.__realtimeStats = { transport, connectedAt: 0, lastMessageAt: 0, messages: 0, reconnects: 0, errors: 0 };
+    } else {
+      anyWin.__realtimeStats.transport = transport;
+    }
+  } catch { void 0; }
+}
+
+export function startWebSocket(candidateIndex?: number): void {
+  // Disabled: Use lib/events.ts instead
+}
+
+export function startRealtime(): void {
+  // Disabled: Use lib/events.ts instead
+}
 
 
 

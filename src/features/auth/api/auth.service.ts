@@ -1,4 +1,5 @@
-import api, { refreshClient } from '@/shared/api/client';
+import '@/shared/api/client';
+import { apiFetch } from '@/shared/api/apiFetch';
 import { getCookie } from '@/shared/utils/cookieUtils';
 import { 
   decodeToken,
@@ -296,7 +297,7 @@ class AuthService {
       // En producción con JWT_COOKIE_CSRF_PROTECT, incluir explícitamente el header CSRF
       const csrfRefresh = getCookie('csrf_refresh_token') ?? undefined;
       const headers = buildJsonHeaders(csrfRefresh);
-      const response = await refreshClient.post(`/auth/refresh`, null, { headers });
+      const response = await apiFetch({ url: `/auth/refresh`, method: 'POST', data: null, headers });
       const _r = response?.data ?? response;
       const rawTokenCandidate = _r ? findTokenCandidate(_r) : undefined;
       const normalizedToken = extractJWT(rawTokenCandidate);
@@ -315,7 +316,7 @@ class AuthService {
   async login(identification: string | number, password: string): Promise<LoginResponse> {
     try {
       const payload: LoginRequest = { identification: String(identification), password };
-      const response = await api.post(`/auth/login`, payload);
+      const response = await apiFetch({ url: `/auth/login`, method: 'POST', data: payload });
       const _r = response?.data ?? response;
   
       const rawTokenCandidate = _r ? findTokenCandidate(_r) : undefined;
@@ -379,7 +380,7 @@ class AuthService {
         // Si el backend responde 401 porque el access token expiró,
         // los interceptores de api.ts intentarán automáticamente el refresh y reintentarán la solicitud.
         // Aquí no hacemos refresh manual para evitar duplicidad de lógica.
-        const response: any = await api.get(`/${AUTH_URL}/me`, axiosConfig);
+          const response: any = await apiFetch({ url: `/${AUTH_URL}/me`, method: 'GET', ...axiosConfig });
         const _r = response?.data ?? response;
         const normalizedMessage = (_r && (_r.message || _r.data?.message || _r.data?.data?.message)) || undefined;
         let normalizedUser = _r ? findUserCandidate(_r) : undefined;
@@ -486,17 +487,16 @@ class AuthService {
       const csrfToken = getCookie('csrf_access_token') ?? getCookie('csrf_refresh_token') ?? undefined;
       const headers = buildJsonHeaders(csrfToken);
 
-      const response = await api.post(
-        `/auth/recover`,
-        payload,
-        {
-          withCredentials: true,
-          skipAuth: true,
-          __skipAuthHeader: true,
-          disableAuth: true,
-          headers,
-        }
-      );
+      const response = await apiFetch({
+        url: `/auth/recover`,
+        method: 'POST',
+        data: payload,
+        withCredentials: true,
+        skipAuth: true,
+        __skipAuthHeader: true,
+        disableAuth: true,
+        headers,
+      });
       const data = response.data ?? response;
       const inner = (data?.data ?? data) as any;
       const message = (data as any)?.message ?? inner?.message;
@@ -523,17 +523,16 @@ class AuthService {
     try {
       const csrfToken = getCookie('csrf_access_token') ?? getCookie('csrf_refresh_token') ?? undefined;
       const headers = buildJsonHeaders(csrfToken);
-      const response = await api.post(
-        `/auth/reset-password`,
-        { reset_token: resetToken, new_password: password },
-        {
-          withCredentials: true,
-          skipAuth: true,
-          __skipAuthHeader: true,
-          disableAuth: true,
-          headers,
-        }
-      );
+      const response = await apiFetch({
+        url: `/auth/reset-password`,
+        method: 'POST',
+        data: { reset_token: resetToken, new_password: password },
+        withCredentials: true,
+        skipAuth: true,
+        __skipAuthHeader: true,
+        disableAuth: true,
+        headers,
+      });
       const data = response.data ?? response;
       const inner = (data?.data ?? data) as any;
       const message = (data as any)?.message ?? inner?.message;
@@ -553,11 +552,13 @@ class AuthService {
     try {
       const csrf = getCookie('csrf_access_token') ?? undefined;
       const headers = buildJsonHeaders(csrf);
-      const response = await api.post(
-        `/auth/change-password`,
-        { current_password: currentPassword, new_password: newPassword },
-        { headers, withCredentials: true }
-      );
+      const response = await apiFetch({
+        url: `/auth/change-password`,
+        method: 'POST',
+        data: { current_password: currentPassword, new_password: newPassword },
+        headers,
+        withCredentials: true
+      });
       const data = response.data ?? response;
       const inner = (data?.data ?? data) as any;
       const message = (data as any)?.message ?? inner?.message;
@@ -576,7 +577,7 @@ class AuthService {
    */
   async logout(): Promise<void> {
     try {
-      await api.post(`/auth/logout`)
+      await apiFetch({ url: `/auth/logout`, method: 'POST', data: null })
       clearCachedLoginPath()
       this.clearAuthData();
     } catch (error) {
@@ -679,7 +680,7 @@ export const refreshToken = async (): Promise<void> => {
     // Enviar explícitamente CSRF para el flujo de refresh
     const csrfRefresh = getCookie('csrf_refresh_token') ?? undefined;
     const headers = buildJsonHeaders(csrfRefresh);
-    await refreshClient.post('/auth/refresh', null, { headers });
+    await apiFetch({ url: '/auth/refresh', method: 'POST', data: null, headers });
     if (IS_DEV && ENV.VITE_DEBUG_MODE === 'true') {
       console.log('⚙️ refreshToken util: refresh completed (cookies managed by server)');
     }

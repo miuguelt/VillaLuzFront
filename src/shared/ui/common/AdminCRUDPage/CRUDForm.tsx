@@ -5,7 +5,7 @@
  * Implementa validación eficiente y mejor experiencia de usuario.
  */
 
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useMemo, useEffect } from 'react';
 import { GenericModal } from '@/shared/ui/common/GenericModal';
 import { Button } from '@/shared/ui/button';
 import { Input } from '@/shared/ui/input';
@@ -15,6 +15,7 @@ import { cn } from '@/shared/ui/cn.ts';
 import { Loader2 } from 'lucide-react';
 import { useT } from '@/shared/i18n';
 import { getTodayColombia } from '@/shared/utils/dateUtils';
+import type { FieldErrors } from '@/shared/utils/formValidation';
 
 // Interfaces
 import { CRUDFormField, CRUDFormSection } from '../AdminCRUDPage';
@@ -26,6 +27,9 @@ interface CRUDFormProps<T extends { id?: number }> {
   formData: Record<string, any>;
   setFormData: React.Dispatch<React.SetStateAction<Record<string, any>>>;
   formSections: CRUDFormSection<any>[];
+  fieldErrors?: FieldErrors;
+  errorMessages?: string[];
+  onFieldValueChange?: (field: CRUDFormField<any>, value: any) => void;
   onSubmit: (e: React.FormEvent) => void;
   saving: boolean;
   editingItem?: T | null;
@@ -37,9 +41,10 @@ const FormField = memo<{
   field: CRUDFormField<any>;
   value: any;
   onChange: (value: any) => void;
+  error?: string;
   saving: boolean;
   editingItem?: any;
-}>(({ field, value, onChange, saving, editingItem }) => {
+}>(({ field, value, onChange, error, saving, editingItem }) => {
   const t = useT();
 
   // Variables derivadas frecuentes usadas en diferentes ramas
@@ -49,7 +54,7 @@ const FormField = memo<{
   // Determinar si el campo es obligatorio y está vacío
   const isRequired = field.required === true;
   const isEmpty = value == null || value === '';
-  const showWarning = isRequired && isEmpty;
+  const showWarning = Boolean(error) || (isRequired && isEmpty);
 
   // Manejar cambio de valor
   const handleChange = useCallback((newValue: any) => {
@@ -299,7 +304,10 @@ const FormField = memo<{
         {renderField()}
 
         {showWarning && field.type !== 'checkbox' && (
-          <p className="text-xs text-[#f59e0b]">Este campo es obligatorio.</p>
+          <p className="text-xs text-red-500">{error || 'Este campo es obligatorio.'}</p>
+        )}
+        {field.type === 'checkbox' && error && (
+          <p className="text-xs text-red-500">{error}</p>
         )}
 
         {field.type === 'date' && isBirthDateField && value && value > today && (
@@ -322,20 +330,40 @@ export function CRUDForm<T extends { id?: number }>({
   formData,
   setFormData,
   formSections,
+  fieldErrors,
+  errorMessages,
+  onFieldValueChange,
   onSubmit,
   saving,
   editingItem,
   showEditTimestamps = true,
 }: CRUDFormProps<T>) {
   const t = useT();
+  useEffect(() => {
+    if (!isOpen || !fieldErrors) return;
+    const firstKey = Object.keys(fieldErrors)[0];
+    if (!firstKey || typeof window === 'undefined') return;
+    const el = document.getElementById(firstKey);
+    if (el && 'focus' in el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (el as HTMLElement).focus();
+    }
+  }, [fieldErrors, isOpen]);
 
   // Manejar cambio de un campo específico
   const handleFieldChange = useCallback((fieldName: string, value: any) => {
+    if (onFieldValueChange) {
+      const field = formSections.flatMap((section) => section.fields).find((item) => String(item.name) === fieldName);
+      if (field) {
+        onFieldValueChange(field, value);
+        return;
+      }
+    }
     setFormData((prev) => ({
       ...prev,
       [fieldName]: value,
     }));
-  }, [setFormData]);
+  }, [setFormData, onFieldValueChange, formSections]);
 
   // Renderizar secciones del formulario
   const renderFormSections = useMemo(() => {
@@ -371,6 +399,7 @@ export function CRUDForm<T extends { id?: number }>({
                 field={field}
                 value={formData[field.name as string]}
                 onChange={(value) => handleFieldChange(String(field.name), value)}
+                error={fieldErrors?.[String(field.name)]}
                 saving={saving}
                 editingItem={editingItem}
               />
@@ -379,7 +408,7 @@ export function CRUDForm<T extends { id?: number }>({
         </div>
       );
     });
-  }, [formSections, formData, saving, editingItem, handleFieldChange]);
+  }, [formSections, formData, saving, editingItem, handleFieldChange, fieldErrors]);
 
   return (
     <GenericModal
@@ -393,6 +422,22 @@ export function CRUDForm<T extends { id?: number }>({
       className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out max-h-[90vh]"
     >
       <form onSubmit={onSubmit} className="space-y-3 sm:space-y-4 h-full flex flex-col text-[13px] sm:text-sm">
+        {fieldErrors && Object.keys(fieldErrors).length > 0 && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            <div className="font-semibold">Faltan datos obligatorios</div>
+            <div>Revise los campos marcados en rojo y corrija lo siguiente:</div>
+            {errorMessages && errorMessages.length > 0 && (
+              <ul className="mt-1 list-disc pl-4">
+                {errorMessages.slice(0, 5).map((msg) => (
+                  <li key={msg}>{msg}</li>
+                ))}
+                {errorMessages.length > 5 && (
+                  <li>y {errorMessages.length - 5} mas...</li>
+                )}
+              </ul>
+            )}
+          </div>
+        )}
         {renderFormSections}
 
         {editingItem && showEditTimestamps && (

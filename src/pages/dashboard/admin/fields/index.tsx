@@ -98,6 +98,7 @@ function AdminFieldsPage() {
 
   // Columnas - Ahora animal_count viene directamente del backend
   const columns: CRUDColumn<FieldResponse & { [k: string]: any }>[] = useMemo(() => [
+    { key: 'id', label: 'ID', render: (v) => <span className="font-mono text-[10px] bg-secondary/30 px-1.5 py-0.5 rounded">{v}</span> },
     { key: 'name', label: 'Nombre' },
     { key: 'location', label: 'Ubicación', render: (_v, item) => item.location || item.ubication || '-' },
     { key: 'area', label: 'Área' },
@@ -262,6 +263,18 @@ function AdminFieldsPage() {
     return (
       <div className="flex flex-col h-full px-3 sm:px-4 py-3 sm:py-4">
         <div className="grid grid-cols-2 gap-3 text-xs flex-1">
+          {/* Cabecera con Nombre e ID */}
+          <div className="col-span-2 flex flex-col mb-1 border-b border-border/50 pb-2">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-[15px] text-foreground truncate uppercase tracking-tight" title={item.name}>
+                {item.name || 'Sin nombre'}
+              </h3>
+              <span className="text-[10px] bg-secondary/50 px-2 py-0.5 rounded-full font-mono text-muted-foreground border border-border/50 shadow-sm">
+                ID: {item.id}
+              </span>
+            </div>
+          </div>
+
           <div className="col-span-2 flex items-center justify-between mb-1 gap-2">
             <Badge variant="outline" className="text-xs px-2 py-0.5 flex-shrink-0">{item.state || '-'}</Badge>
             {animalCount > 0 && (
@@ -372,6 +385,10 @@ function AdminFieldsPage() {
                 <dd className="text-sm font-medium text-foreground">{item.name || '-'}</dd>
               </div>
               <div className="space-y-1">
+                <dt className="text-xs text-muted-foreground font-medium">ID del Potrero</dt>
+                <dd className="text-sm font-mono text-muted-foreground font-medium">{item.id || '-'}</dd>
+              </div>
+              <div className="space-y-1">
                 <dt className="text-xs text-muted-foreground font-medium">Ubicación</dt>
                 <dd className="text-sm font-medium text-foreground">{location}</dd>
               </div>
@@ -450,9 +467,11 @@ function AdminFieldsPage() {
         mapResponseToForm={mapResponseToForm}
         validateForm={validateForm}
         realtime={true}
-        pollIntervalMs={8000}
-        refetchOnFocus={true}
+        pollIntervalMs={0}
+        refetchOnFocus={false}
         refetchOnReconnect={true}
+        cache={true}
+        cacheTTL={300000}
         enhancedHover={true}
       />
 

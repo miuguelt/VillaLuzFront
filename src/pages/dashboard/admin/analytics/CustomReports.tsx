@@ -6,7 +6,8 @@ import {
   Cog6ToothIcon,
   CheckCircleIcon,
 } from '@heroicons/react/24/outline';
-import api, { unwrapApi } from '@/shared/api/client';
+import { unwrapApi } from '@/shared/api/client';
+import { apiFetch } from '@/shared/api/apiFetch';
 
 /**
  * Página para generar reportes personalizados
@@ -22,7 +23,7 @@ const CustomReports: React.FC = () => {
 
   const generateReport = useMutation({
     mutationFn: async (cfg: any) => {
-      const res = await api.post('/analytics/reports/custom', cfg);
+      const res = await apiFetch({ url: '/analytics/reports/custom', method: 'POST', data: cfg } as any);
       return unwrapApi(res);
     },
   });

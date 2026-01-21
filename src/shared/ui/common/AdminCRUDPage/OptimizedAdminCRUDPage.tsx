@@ -20,7 +20,7 @@
  * ```
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useResource } from '@/shared/hooks/useResource';
 import { useToast } from '@/app/providers/ToastContext';
@@ -39,12 +39,15 @@ import { PageHeader } from '@/widgets/layout/PageHeader';
 import { EmptyState } from '@/widgets/feedback/EmptyState';
 import { ErrorState } from '@/widgets/feedback/ErrorState';
 import { SkeletonTable } from '@/widgets/feedback/SkeletonTable';
+import { Plus } from 'lucide-react';
 
 // Utilidades
 import { addTombstone, getTombstoneIds, clearExpired } from '@/shared/api/cache/tombstones';
+import { validateFormSections, type FieldErrors } from '@/shared/utils/formValidation';
+import { formatValidationToastMessage, mapBackendFieldErrorsToLabels, buildConflictMessage } from '@/shared/utils/validationMessages';
 
 // Interfaces
-import { CRUDConfig } from '../AdminCRUDPage';
+import { CRUDConfig, type CRUDFormField } from '../AdminCRUDPage';
 
 interface OptimizedAdminCRUDPageProps<T extends { id: number }, TInput extends Record<string, any>> {
   config: CRUDConfig<T, TInput>;
@@ -82,12 +85,26 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
   const [editingItem, setEditingItem] = useState<T | null>(null);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<TInput>(initialFormData);
+  const [formErrors, setFormErrors] = useState<FieldErrors>({});
+  const [formErrorMessages, setFormErrorMessages] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+    const updateFieldValue = useCallback((field: CRUDFormField<TInput>, value: any) => {
+    const key = String(field.name);
+    const nextData = { ...(formData as any), [key]: value } as TInput;
+    const validation = validateFormSections(config.formSections || [], nextData as any);
+    setFormErrors(validation.errors);
+    setFormErrorMessages(validation.messages);
+    setFormData(nextData);
+  }, [formData, config.formSections]);
   
   // Estados para modales
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<T | null>(null);
   const [detailIndex, setDetailIndex] = useState<number | null>(null);
+  const editRequestSeqRef = useRef(0);
+  const suppressEditAutoOpenRef = useRef(false);
+  const lastClosedEditIdRef = useRef<number | null>(null);
   
   // Estados para confirmación
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -156,6 +173,8 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
   const openCreate = useCallback(() => {
     setEditingItem(null);
     setFormData(JSON.parse(JSON.stringify(initialFormData)));
+    setFormErrors({});
+    setFormErrorMessages([]);
     setIsModalOpen(true);
   }, [initialFormData]);
   
@@ -163,6 +182,8 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
     setEditingItem(item);
     const formValues = mapResponseToForm ? mapResponseToForm(item) : (item as unknown as TInput);
     setFormData(formValues);
+    setFormErrors({});
+    setFormErrorMessages([]);
     setIsModalOpen(true);
   }, [mapResponseToForm]);
   
@@ -180,8 +201,18 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
   }, []);
   
   const handleModalClose = useCallback(() => {
+    if (editingItem?.id) {
+      editRequestSeqRef.current += 1;
+      suppressEditAutoOpenRef.current = true;
+      lastClosedEditIdRef.current = editingItem.id;
+    } else {
+      suppressEditAutoOpenRef.current = false;
+      lastClosedEditIdRef.current = null;
+    }
     setIsModalOpen(false);
     setFormData(JSON.parse(JSON.stringify(initialFormData)));
+    setFormErrors({});
+    setFormErrorMessages([]);
     setEditingItem(null);
     
     const sp = new URLSearchParams(searchParams);
@@ -193,10 +224,28 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
     } else if (location.pathname.includes('form')) {
       navigate(-1);
     }
-  }, [initialFormData, searchParams, setSearchParams, navigate, location.pathname]);
+  }, [initialFormData, searchParams, setSearchParams, navigate, location.pathname, editingItem]);
   
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const validation = validateFormSections(config.formSections || [], formData as any);
+    if (validation.messages.length > 0) {
+      setFormErrors(validation.errors);
+      setFormErrorMessages(validation.messages);
+      showToast(formatValidationToastMessage(validation.messages), 'error');
+      const firstKey = Object.keys(validation.errors)[0];
+      if (firstKey && typeof window !== 'undefined') {
+        setTimeout(() => {
+          const el = document.getElementById(firstKey);
+          if (el && 'focus' in el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            (el as HTMLElement).focus();
+          }
+        }, 0);
+      }
+      return;
+    }
     
     if (validateForm) {
       const validationError = validateForm(formData);
@@ -243,11 +292,73 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
         errorMessage = error.message;
       }
       
+      const validationErrors =
+        (error as any)?.validationErrors ||
+        (error as any)?.details?.validation_errors ||
+        (error as any)?.details?.errors ||
+        error?.response?.data?.errors;
+
+      if (validationErrors && typeof validationErrors === 'object') {
+        try {
+          const mapped: Record<string, string> = {};
+          const msgs: string[] = [];
+          Object.entries(validationErrors).forEach(([field, msgsRaw]) => {
+            const msg = Array.isArray(msgsRaw) ? msgsRaw.join(', ') : String(msgsRaw);
+            mapped[String(field)] = msg;
+            msgs.push(`${String(field)}: ${msg}`);
+          });
+          if (Object.keys(mapped).length > 0) {
+            setFormErrors(mapped);
+            setFormErrorMessages(msgs);
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (validationErrors && typeof validationErrors === 'object') {
+        const mapped = mapBackendFieldErrorsToLabels(validationErrors, config.formSections || []);
+        if (Object.keys(mapped.errors).length > 0) {
+          setFormErrors(mapped.errors);
+          setFormErrorMessages(mapped.messages);
+          errorMessage = formatValidationToastMessage(mapped.messages);
+        }
+      } else if (
+        typeof errorMessage === 'string' &&
+        errorMessage.toLowerCase().includes('validaci') &&
+        formErrorMessages.length > 0
+      ) {
+        errorMessage = formatValidationToastMessage(formErrorMessages);
+      }
+
+      const status = (error as any)?.status ?? error?.response?.status;
+      if (status === 409) {
+        const traceId =
+          (error as any)?.traceId ||
+          error?.response?.data?.error?.trace_id ||
+          error?.response?.data?.error?.traceId ||
+          error?.response?.data?.trace_id ||
+          error?.response?.data?.traceId;
+        const details =
+          (error as any)?.details ??
+          error?.response?.data?.error?.details ??
+          error?.response?.data?.details;
+        const conflict = buildConflictMessage(details, config.formSections || []);
+        const suffix = traceId ? ` (Trace ID: ${traceId})` : '';
+        errorMessage = `${conflict.message}${suffix}`;
+        if (conflict.field) {
+          try {
+            setFormErrors(prev => ({ ...(prev || {}), [String(conflict.field)]: conflict.message }));
+            setFormErrorMessages(prev => [conflict.message, ...(Array.isArray(prev) ? prev : [])]);
+          } catch { /* noop */ }
+        }
+      }
+
       showToast(errorMessage, 'error');
     } finally {
       setSaving(false);
     }
-  }, [formData, validateForm, editingItem, updateItem, createItem, setPage, meta, handleModalClose, refetch, config.entityName, t, showToast]);
+  }, [formData, validateForm, editingItem, updateItem, createItem, setPage, meta, handleModalClose, refetch, config.entityName, config.formSections, t, showToast, setFormErrors, setFormErrorMessages, formErrorMessages]);
   
   const handleConfirmDelete = useCallback(async () => {
     if (targetId == null) return;
@@ -343,12 +454,29 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
   useEffect(() => {
     if (config.enableEditModal !== false) {
       const e = searchParams.get('edit');
+      if (!e) {
+        suppressEditAutoOpenRef.current = false;
+        lastClosedEditIdRef.current = null;
+        return;
+      }
+      if (suppressEditAutoOpenRef.current && e === String(lastClosedEditIdRef.current ?? '')) {
+        return;
+      }
       if (e) {
         const id = Number(e);
         if (!Number.isNaN(id) && (!isModalOpen || !editingItem || editingItem.id !== id)) {
+          const requestSeq = editRequestSeqRef.current + 1;
+          editRequestSeqRef.current = requestSeq;
           (async () => {
             try {
               const item = await service.getById(id);
+              if (editRequestSeqRef.current !== requestSeq) {
+                return;
+              }
+              const currentEdit = new URLSearchParams(window.location.search).get('edit');
+              if (currentEdit !== String(id)) {
+                return;
+              }
               openEdit(item);
             } catch (err) {
               showToast(t('common.errorLoading', 'No se pudo cargar el registro para edición'), 'error');
@@ -459,7 +587,7 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={totalItems}
-            onPageChange={setPage}
+            onPageChange={setPage || ((_page: number) => {})}
             loading={loading}
           />
         </div>
@@ -472,8 +600,11 @@ export function OptimizedAdminCRUDPage<T extends { id: number }, TInput extends 
           onOpenChange={handleModalClose}
           title={editingItem ? `${t('common.edit', 'Editar')} ${config.entityName}: ${editingItem.id}` : `${t('common.create', 'Crear')} ${config.entityName}`}
           formData={formData}
-          setFormData={setFormData}
+          setFormData={setFormData as unknown as React.Dispatch<React.SetStateAction<Record<string, any>>>}
           formSections={config.formSections}
+          fieldErrors={formErrors}
+          errorMessages={formErrorMessages}
+          onFieldValueChange={updateFieldValue}
           onSubmit={handleSubmit}
           saving={saving}
           editingItem={editingItem}

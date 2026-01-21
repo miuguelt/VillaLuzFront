@@ -161,6 +161,12 @@ const AdminTreatmentVaccinesPage: React.FC = () => {
       initialFormData={initialFormData}
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
+      realtime={true}
+      pollIntervalMs={0}
+      refetchOnFocus={false}
+      refetchOnReconnect={true}
+      cache={true}
+      cacheTTL={300000}
       enhancedHover={true}
     />
   );
