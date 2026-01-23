@@ -685,17 +685,6 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
         return sortedMedications.slice(start, start + medPageSize);
     }, [sortedMedications, medPage, medPageSize]);
 
-    const formatDate = (dateStr: string) => {
-        if (!dateStr) return '-';
-        try {
-            const date = new Date(dateStr);
-            if (isNaN(date.getTime())) return dateStr;
-            return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        } catch (e) {
-            return dateStr;
-        }
-    };
-
     return (
         <>
             <GenericModal
@@ -704,7 +693,7 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
                 title={
                     <div className="flex items-center justify-between w-full pr-8">
                         <div className="flex items-center gap-2">
-                            <span>Detalle del Tratamiento {treatment?.id ? `#${treatment.id}` : ''}</span>
+                            <span>Insumos del tratamiento {treatment?.id ?? ''}</span>
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -720,64 +709,38 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
                         </div>
                     </div>
                 }
-                size="4xl"
+                size="2xl"
                 enableBackdropBlur
-                description="Información detallada e insumos asociados"
+                description="Vacunas y medicamentos asociados al tratamiento seleccionado"
                 className={`bg-card text-card-foreground border border-border/80 shadow-2xl ${className}`}
                 zIndex={zIndex || 1000}
             >
-                <div className="space-y-6">
-                    {/* Treatment Details Section */}
-                    {treatment && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <DetailSection
-                                title="Plan de Tratamiento"
-                                accent="purple"
-                                icon={<FileText className="w-4 h-4" />}
-                                fullWidth
-                            >
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                                    <div className="space-y-3">
-                                        <InfoField label="Descripción/Diagnóstico" value={treatment.description || treatment.diagnosis || '-'} fullWidth />
-                                        <InfoField label="Fecha Inicio" value={formatDate(treatment.treatment_date)} />
-                                    </div>
-                                    <div className="space-y-3">
-                                        <InfoField label="Dosis Global" value={treatment.dosis || '-'} />
-                                        <InfoField label="Frecuencia" value={treatment.frequency || '-'} />
-                                    </div>
-                                </div>
-                                {treatment.observations && <InfoField label="Observaciones" value={treatment.observations} fullWidth />}
-                            </DetailSection>
-                        </div>
-                    )}
-
-                    <div className="border-t border-border/40 my-4" />
-
-                    {/* Actions Header for Supplies */}
+                <div className="space-y-4">
+                    {/* Actions Header */}
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                        <div className="text-sm font-medium text-foreground flex items-center gap-2">
-                            <Pill className="h-4 w-4 text-primary" />
-                            <span>Insumos del Tratamiento</span>
+                        <div className="text-sm text-muted-foreground">
+                            {treatment && (
+                                <span>
+                                    Tratamiento seleccionado: <span className="font-medium">#{treatment.id}</span>{' '}
+                                    {treatment.diagnosis ? `· ${treatment.diagnosis}` : ''}
+                                </span>
+                            )}
                         </div>
                         <div className="flex items-center gap-2">
                             <Button
-                                variant="outline"
+                                variant="primary"
                                 size="sm"
-                                className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800"
                                 onClick={() => { setShowAddVaccine((s) => !s); setShowAddMedication(false); }}
                                 disabled={!treatment}
                             >
-                                <Plus className="h-4 w-4 mr-1.5" />
                                 Añadir vacuna
                             </Button>
                             <Button
-                                variant="outline"
+                                variant="primary"
                                 size="sm"
-                                className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:text-blue-800 dark:bg-blue-950/30 dark:text-blue-400 dark:border-blue-800"
                                 onClick={() => { setShowAddMedication((s) => !s); setShowAddVaccine(false); }}
                                 disabled={!treatment}
                             >
-                                <Plus className="h-4 w-4 mr-1.5" />
                                 Añadir medicamento
                             </Button>
                         </div>
@@ -785,7 +748,7 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
 
                     {/* Forms */}
                     {showAddVaccine && treatment && (
-                        <form onSubmit={handleCreateVaccine} className="rounded-lg border bg-background/80 p-3 space-y-3 shadow-md animate-in fade-in slide-in-from-top-2">
+                        <form onSubmit={handleCreateVaccine} className="rounded-lg border bg-background/80 p-3 space-y-3">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-xs text-muted-foreground mb-1">Vacuna</label>
@@ -821,7 +784,7 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
                     )}
 
                     {showAddMedication && treatment && (
-                        <form onSubmit={handleCreateMedication} className="rounded-lg border bg-background/80 p-3 space-y-3 shadow-md animate-in fade-in slide-in-from-top-2">
+                        <form onSubmit={handleCreateMedication} className="rounded-lg border bg-background/80 p-3 space-y-3">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div>
                                     <label className="block text-xs text-muted-foreground mb-1">Medicamento</label>
@@ -856,186 +819,56 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
                         </form>
                     )}
 
-                    {/* Supplies Lists */}
                     <TreatmentSuppliesCards
-                        items={paginatedVaccines}
-                        title="Vacunas"
-                        icon={<Syringe className="h-4 w-4" />}
-                        accent="cyan"
-                        loading={loadingAssoc}
-                        emptyMessage="No hay vacunas asociadas"
-                        onDelete={openDeleteVaccine}
-                        confirmDeleteId={confirmingDeleteId}
-                        deleteLoadingId={deleteLoadingId?.type === 'vaccine' ? deleteLoadingId.id : null}
-                        onView={(item) => handleViewItem('vaccine', Number(item.vaccine_id))}
-                        currentPage={vaccPage}
-                        onPageChange={setVaccPage}
-                        totalItems={sortedVaccines.length}
-                        pageSize={vaccPageSize}
-                        onSelect={(id, checked) => {
-                            setSelectedVaccIds(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
-                        }}
-                        selectedIds={selectedVaccIds}
-                        showSelection={vaccShowOnlySelected}
-                        bulkActions={
-                            selectedVaccIds.length > 0 && (
-                                <div className="flex items-center gap-2">
-                                    <Button size="sm" variant="outline" onClick={() => setBulkVaccForm({})} >
-                                        <Edit2 className="h-3 w-3 mr-1" /> Editar ({selectedVaccIds.length})
-                                    </Button>
-                                </div>
-                            )
-                        }
+                        vaccines={vaccines as any}
+                        medications={medications as any}
+                        vaccineFullMap={vaccineFullMap}
+                        medicationFullMap={medicationFullMap}
+                        vaccineRouteMap={vaccineRouteMap}
+                        onViewVaccine={(id) => handleViewItem('vaccine', id)}
+                        onViewMedication={(id) => handleViewItem('medication', id)}
+                        onDeleteVaccine={openDeleteVaccine}
+                        onDeleteMedication={openDeleteMedication}
+                        confirmingDeleteId={confirmingDeleteId}
+                        deleteLoadingId={deleteLoadingId}
+                        loading={loadingAssoc} // Pasamos loadingAssoc directo para que Cards maneje el overlay si hay datos
                     />
 
-                    <TreatmentSuppliesCards
-                        items={paginatedMedications}
-                        title="Medicamentos"
-                        icon={<Pill className="h-4 w-4" />}
-                        accent="purple"
-                        loading={loadingAssoc}
-                        emptyMessage="No hay medicamentos asociados"
-                        onDelete={openDeleteMedication}
-                        confirmDeleteId={confirmingDeleteId}
-                        deleteLoadingId={deleteLoadingId?.type === 'medication' ? deleteLoadingId.id : null}
-                        onView={(item) => handleViewItem('medication', Number(item.medication_id))}
-                        currentPage={medPage}
-                        onPageChange={setMedPage}
-                        totalItems={sortedMedications.length}
-                        pageSize={medPageSize}
-                        onSelect={(id, checked) => {
-                            setSelectedMedIds(prev => checked ? [...prev, id] : prev.filter(x => x !== id));
-                        }}
-                        selectedIds={selectedMedIds}
-                        showSelection={medShowOnlySelected}
-                        bulkActions={
-                            selectedMedIds.length > 0 && (
-                                <div className="flex items-center gap-2">
-                                    <Button size="sm" variant="outline" onClick={() => setBulkMedForm({})} >
-                                        <Edit2 className="h-3 w-3 mr-1" /> Editar ({selectedMedIds.length})
-                                    </Button>
-                                </div>
-                            )
-                        }
-                    />
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-6 mt-4 border-t border-border/40">
-                    <Button variant="outline" onClick={onClose} className="rounded-xl px-6">
-                        Cerrar
-                    </Button>
+                    <div className="flex justify-end pt-4 border-t">
+                        <Button variant="outline" onClick={(e) => { e.stopPropagation(); onClose(); }}>Cerrar</Button>
+                    </div>
                 </div>
             </GenericModal>
 
-            {/* View Detail Modal for Vaccine/Medication */}
-            {viewDetailItem && (
+
+            {/* Item Detail Modal - Rendered with VERY high z-index for proper stacking */}
+            {viewDetailItem && viewDetailType && (
                 <ItemDetailModal
-                    type={viewDetailType || 'vaccine'}
+                    type={viewDetailType}
                     item={viewDetailItem}
-                    options={{
-                        vaccines: vaccineOptions.reduce((acc, curr) => ({ ...acc, [curr.value]: curr.label }), {}),
-                        medications: medicationOptions.reduce((acc, curr) => ({ ...acc, [curr.value]: curr.label }), {}),
-                        routes: vaccineRouteMap
+                    options={{}} // Los datos ya vienen enriquecidos en viewDetailItem
+                    onClose={() => {
+                        setViewDetailItem(null);
+                        setViewDetailType(null);
                     }}
-                    onClose={() => setViewDetailItem(null)}
-                    zIndex={(zIndex || 1000) + 10}
+                    onEdit={() => {
+                        // Navigate to the appropriate admin page for editing
+                        const itemId = viewDetailItem?.id;
+                        if (!itemId) return;
+
+                        // Determine the admin route based on type
+                        const route = viewDetailType === 'vaccine'
+                            ? `/admin/vaccines?edit=${itemId}`
+                            : `/admin/medications?edit=${itemId}`;
+
+                        // Close modal and navigate
+                        setViewDetailItem(null);
+                        setViewDetailType(null);
+                        window.location.href = route;
+                    }}
+                    zIndex={(zIndex || 2000) + 500}
                 />
             )}
         </>
     );
 };
-
-// Helper Components
-function DetailSection({
-    title,
-    children,
-    accent = 'blue',
-    fullWidth = false,
-    icon
-}: {
-    title: string;
-    children: React.ReactNode;
-    accent?: string;
-    fullWidth?: boolean;
-    icon?: React.ReactNode;
-}) {
-    const accentClasses: Record<string, string> = {
-        blue: "text-blue-700 dark:text-blue-300 before:bg-blue-500 shadow-blue-500/10",
-        cyan: "text-cyan-700 dark:text-cyan-300 before:bg-cyan-500 shadow-cyan-500/10",
-        teal: "text-teal-700 dark:text-teal-300 before:bg-teal-500 shadow-teal-500/10",
-        emerald: "text-emerald-700 dark:text-emerald-300 before:bg-emerald-500 shadow-emerald-500/10",
-        purple: "text-purple-700 dark:text-purple-300 before:bg-purple-500 shadow-purple-500/10",
-        indigo: "text-indigo-700 dark:text-indigo-300 before:bg-indigo-500 shadow-indigo-500/10",
-        red: "text-red-700 dark:text-red-300 before:bg-red-500 shadow-red-500/10",
-        amber: "text-amber-700 dark:text-amber-300 before:bg-amber-500 shadow-amber-500/10",
-        slate: "text-slate-700 dark:text-slate-300 before:bg-slate-500 shadow-slate-500/10",
-    };
-
-    const classes = accentClasses[accent] || accentClasses.slate;
-    const [textClasses, barClasses] = [
-        classes.split(' before:')[0],
-        classes.split(' before:')[1]
-    ];
-
-    return (
-        <div className={cn(
-            "rounded-xl p-4 shadow-sm border transition-all hover:shadow-md h-full flex flex-col bg-card border-border/60",
-            fullWidth && "col-span-full"
-        )}>
-            <h4 className={cn(
-                "text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-2",
-                textClasses
-            )}>
-                {icon}
-                <span className={cn("flex items-center gap-2 before:content-[''] before:w-1 before:h-3 before:rounded-full", barClasses)}>
-                    {title}
-                </span>
-            </h4>
-            <div className="space-y-3 flex-grow">
-                {children}
-            </div>
-        </div>
-    );
-}
-
-function InfoField({
-    label,
-    value,
-    fullWidth = false,
-    badge = false,
-    badgeVariant = 'default'
-}: {
-    label: string;
-    value: any;
-    fullWidth?: boolean;
-    badge?: boolean;
-    badgeVariant?: 'default' | 'secondary' | 'destructive' | 'success' | 'outline';
-}) {
-    const displayValue = value !== null && value !== undefined ? String(value) : '-';
-
-    return (
-        <div className={cn("space-y-1", fullWidth && "col-span-full")}>
-            <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                {label}
-            </div>
-            {badge ? (
-                <Badge
-                    variant={badgeVariant as any}
-                    className={cn(
-                        "text-[10px] px-2 py-0 h-5",
-                        badgeVariant === 'success' && "bg-green-600 text-white"
-                    )}
-                >
-                    {displayValue}
-                </Badge>
-            ) : (
-                <div className={cn(
-                    "text-xs sm:text-sm font-medium text-foreground/90",
-                    fullWidth && "whitespace-pre-wrap leading-relaxed"
-                )}>
-                    {displayValue}
-                </div>
-            )}
-        </div>
-    );
-}

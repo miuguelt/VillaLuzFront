@@ -29,6 +29,8 @@ interface AnimalImageBannerProps {
   objectFit?: 'contain' | 'cover';
   /** Usar pantalla completa (ignora height) */
   fullscreen?: boolean;
+  /** Imágenes iniciales para evitar fetch redundante */
+  initialImages?: any[];
 }
 
 type BannerImage = AnimalImage & { isPlaceholder?: boolean };
@@ -64,9 +66,10 @@ export function AnimalImageBanner({
   refreshTrigger = 0,
   objectFit = 'cover',
   fullscreen = false,
+  initialImages,
 }: AnimalImageBannerProps) {
-  const [images, setImages] = useState<BannerImage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [images, setImages] = useState<BannerImage[]>(initialImages || []);
+  const [loading, setLoading] = useState(!initialImages);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedImage, setSelectedImage] = useState<BannerImage | null>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -150,8 +153,14 @@ export function AnimalImageBanner({
   }, [animalId]);
 
   useEffect(() => {
+    // Si se proporcionan imágenes iniciales y no hay una orden de refresco manual,
+    // evitamos el primer fetch para optimizar rendimiento.
+    if (initialImages && refreshTrigger === 0) {
+      setLoading(false);
+      return;
+    }
     fetchImages();
-  }, [fetchImages, refreshTrigger]);
+  }, [fetchImages, refreshTrigger, initialImages]);
 
   // Refrescar al recibir evento global
   useEffect(() => {

@@ -50,6 +50,8 @@ interface ImageManagerProps {
   allowMultipleSelection?: boolean;
   /** Callback cuando se seleccionan imágenes */
   onSelectionChange?: (selectedImages: AnimalImage[]) => void;
+  /** Imágenes iniciales para evitar fetch redundante */
+  initialImages?: AnimalImage[];
 }
 
 interface FilePreview {
@@ -68,10 +70,11 @@ export function ImageManager({
   compact = false,
   allowMultipleSelection = false,
   onSelectionChange,
+  initialImages,
 }: ImageManagerProps) {
   const { showToast } = useToast();
-  const [images, setImages] = useState<AnimalImage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [images, setImages] = useState<AnimalImage[]>(initialImages || []);
+  const [loading, setLoading] = useState(!initialImages);
   const [error, setError] = useState<string | null>(null);
   const [selectedImage, setSelectedImage] = useState<AnimalImage | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -146,8 +149,13 @@ export function ImageManager({
 
   // Cargar imágenes al montar y cuando cambie el trigger
   useEffect(() => {
+    // Si ya tenemos imágenes iniciales, evitamos el primer fetch
+    if (initialImages && refreshTrigger === 0) {
+      setLoading(false);
+      return;
+    }
     fetchImages();
-  }, [fetchImages, refreshTrigger]);
+  }, [fetchImages, refreshTrigger, initialImages]);
 
   // Escuchar evento global de actualización de imágenes
   useEffect(() => {
@@ -459,7 +467,7 @@ export function ImageManager({
     } catch (err: any) {
       const errorMessage = err.message || 'Error al subir imágenes';
       setUploadError(errorMessage);
-      
+
       // Mostrar toast de error
       showToast(`❌ ${errorMessage}`, 'error');
     } finally {
@@ -558,11 +566,10 @@ export function ImageManager({
 
           {/* Zona de drop */}
           <div
-            className={`relative border-2 border-dashed rounded-xl p-8 transition-all ${
-              dragActive
-                ? 'border-primary bg-primary/5 scale-[1.02]'
-                : 'border-border hover:border-primary/50 hover:bg-accent/5'
-            } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+            className={`relative border-2 border-dashed rounded-xl p-8 transition-all ${dragActive
+              ? 'border-primary bg-primary/5 scale-[1.02]'
+              : 'border-border hover:border-primary/50 hover:bg-accent/5'
+              } ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -578,9 +585,8 @@ export function ImageManager({
 
             <div className="flex flex-col items-center justify-center gap-4 text-center">
               <div
-                className={`p-4 rounded-full transition-colors ${
-                  dragActive ? 'bg-primary text-primary-foreground' : 'bg-accent'
-                }`}
+                className={`p-4 rounded-full transition-colors ${dragActive ? 'bg-primary text-primary-foreground' : 'bg-accent'
+                  }`}
               >
                 <Upload className="w-8 h-8" />
               </div>
@@ -754,171 +760,170 @@ export function ImageManager({
             const isSettingPrimary = numericId !== null && settingPrimaryId === numericId;
 
             return (
-            <div
-              key={key}
-              className={`relative group aspect-square rounded-lg overflow-hidden border bg-accent/5 hover:shadow-lg transition-all ${
-                isSelected ? 'ring-2 ring-primary' : ''
-              }`}
-            >
-              {/* Checkbox para selección múltiple */}
-              {allowMultipleSelection && (
-                <div className="absolute top-2 left-2 z-10">
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={(e) => handleImageSelect(image, e.target.checked)}
-                    className="w-4 h-4 rounded border-2 border-primary/50"
-                    disabled={numericId === null}
-                  />
-                </div>
-              )}
-
-              {/* Imagen */}
-              {hasError ? (
-                <div className="w-full h-full flex items-center justify-center bg-muted/20 cursor-pointer" onClick={() => setSelectedImage(image)}>
-                  <div className="text-center">
-                    <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-1" />
-                    <p className="text-xs text-muted-foreground">Error</p>
-                  </div>
-                </div>
-              ) : (
-                <img
-                  src={image.url}
-                  alt={image.filename}
-                  className="w-full h-full object-cover cursor-pointer transition-transform duration-300 hover:scale-110"
-                  onClick={() => setSelectedImage(image)}
-                  loading="lazy"
-                  style={{
-                    imageRendering: 'auto',
-                  }}
-                  onError={() => {
-                    if (numericId !== null) {
-                      setImageErrors((prev) => {
-                        const next = new Set(prev);
-                        next.add(numericId);
-                        return next;
-                      });
-                    }
-                  }}
-                />
-              )}
-
-              {/* Badge de imagen principal */}
-              {image.is_primary && (
-                <div className="absolute top-2 right-2">
-                  <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">
-                    <Star className="w-3 h-3 mr-1 fill-current" />
-                    Principal
-                  </Badge>
-                </div>
-              )}
-
-              {/* Botón de ver imagen */}
               <div
-                className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center cursor-pointer"
-                onClick={() => setSelectedImage(image)}
+                key={key}
+                className={`relative group aspect-square rounded-lg overflow-hidden border bg-accent/5 hover:shadow-lg transition-all ${isSelected ? 'ring-2 ring-primary' : ''
+                  }`}
               >
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Ver en grande"
+                {/* Checkbox para selección múltiple */}
+                {allowMultipleSelection && (
+                  <div className="absolute top-2 left-2 z-10">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => handleImageSelect(image, e.target.checked)}
+                      className="w-4 h-4 rounded border-2 border-primary/50"
+                      disabled={numericId === null}
+                    />
+                  </div>
+                )}
+
+                {/* Imagen */}
+                {hasError ? (
+                  <div className="w-full h-full flex items-center justify-center bg-muted/20 cursor-pointer" onClick={() => setSelectedImage(image)}>
+                    <div className="text-center">
+                      <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground mb-1" />
+                      <p className="text-xs text-muted-foreground">Error</p>
+                    </div>
+                  </div>
+                ) : (
+                  <img
+                    src={image.url}
+                    alt={image.filename}
+                    className="w-full h-full object-cover cursor-pointer transition-transform duration-300 hover:scale-110"
+                    onClick={() => setSelectedImage(image)}
+                    loading="lazy"
+                    style={{
+                      imageRendering: 'auto',
+                    }}
+                    onError={() => {
+                      if (numericId !== null) {
+                        setImageErrors((prev) => {
+                          const next = new Set(prev);
+                          next.add(numericId);
+                          return next;
+                        });
+                      }
+                    }}
+                  />
+                )}
+
+                {/* Badge de imagen principal */}
+                {image.is_primary && (
+                  <div className="absolute top-2 right-2">
+                    <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white">
+                      <Star className="w-3 h-3 mr-1 fill-current" />
+                      Principal
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Botón de ver imagen */}
+                <div
+                  className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center cursor-pointer"
+                  onClick={() => setSelectedImage(image)}
                 >
-                  <ZoomIn className="w-5 h-5" />
-                </Button>
-              </div>
-
-              {/* Menú desplegable de acciones */}
-              {showControls && (
-                <div className="absolute top-2 right-2 z-10">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedImage(image);
-                        }}
-                      >
-                        <ZoomIn className="w-4 h-4 mr-2" />
-                        Ver en grande
-                      </DropdownMenuItem>
-
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDownload(image);
-                        }}
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Descargar
-                      </DropdownMenuItem>
-
-                      {!image.is_primary && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (numericId !== null) {
-                                handleSetPrimary(numericId);
-                              }
-                            }}
-                            disabled={isSettingPrimary}
-                          >
-                            {isSettingPrimary ? (
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            ) : (
-                              <Star className="w-4 h-4 mr-2" />
-                            )}
-                            Establecer como principal
-                          </DropdownMenuItem>
-                        </>
-                      )}
-
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(image);
-                        }}
-                        disabled={isDeleting}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        {isDeleting ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <Trash2 className="w-4 h-4 mr-2" />
-                        )}
-                        Eliminar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Ver en grande"
+                  >
+                    <ZoomIn className="w-5 h-5" />
+                  </Button>
                 </div>
-              )}
 
-              {/* Info del archivo */}
-              <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                <p className="text-xs text-white truncate" title={image.filename}>
-                  {image.filename}
-                </p>
-                <p className="text-xs text-white/70">
-                  {(image.file_size / 1024).toFixed(0)} KB
-                </p>
+                {/* Menú desplegable de acciones */}
+                {showControls && (
+                  <div className="absolute top-2 right-2 z-10">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedImage(image);
+                          }}
+                        >
+                          <ZoomIn className="w-4 h-4 mr-2" />
+                          Ver en grande
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownload(image);
+                          }}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Descargar
+                        </DropdownMenuItem>
+
+                        {!image.is_primary && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (numericId !== null) {
+                                  handleSetPrimary(numericId);
+                                }
+                              }}
+                              disabled={isSettingPrimary}
+                            >
+                              {isSettingPrimary ? (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              ) : (
+                                <Star className="w-4 h-4 mr-2" />
+                              )}
+                              Establecer como principal
+                            </DropdownMenuItem>
+                          </>
+                        )}
+
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(image);
+                          }}
+                          disabled={isDeleting}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          {isDeleting ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4 mr-2" />
+                          )}
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
+
+                {/* Info del archivo */}
+                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-xs text-white truncate" title={image.filename}>
+                    {image.filename}
+                  </p>
+                  <p className="text-xs text-white/70">
+                    {(image.file_size / 1024).toFixed(0)} KB
+                  </p>
+                </div>
               </div>
-            </div>
-          );
+            );
           })}
         </div>
       )}
@@ -938,8 +943,7 @@ export function ImageManager({
             </DialogTitle>
             <DialogDescription>
               {selectedImage &&
-                `${(selectedImage.file_size / 1024).toFixed(2)} KB - ${
-                  selectedImage.mime_type
+                `${(selectedImage.file_size / 1024).toFixed(2)} KB - ${selectedImage.mime_type
                 } - Subida el ${new Date(
                   selectedImage.created_at
                 ).toLocaleDateString('es-ES')}`}

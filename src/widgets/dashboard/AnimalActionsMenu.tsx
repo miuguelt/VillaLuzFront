@@ -879,13 +879,8 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
             <div
               key={item.id || index}
               onClick={() => {
-                if (type === 'treatment') {
-                  setSelectedTreatmentForSupplies(item);
-                  setSuppliesModalOpen(true);
-                } else {
-                  setEditingItem(item);
-                  setModalMode('view');
-                }
+                setEditingItem(item);
+                setModalMode('view');
               }}
               className={`relative bg-card border border-border/60 rounded-xl p-4 group hover:shadow-md hover:border-border transition-all duration-200 border-l-4 ${getBorderColor()} cursor-pointer hover:bg-muted/50`}
             >
@@ -1185,41 +1180,26 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
                           <ul className="space-y-1.5 mt-2">
                             {Array.isArray(validationErrors) ? (
                               // Si es un array simple de strings
-                              validationErrors.map((errStr: string, idx: number) => {
-                                // Traducir mensajes comunes que vienen del backend
-                                const translatedStr = String(errStr)
-                                  .replace(/'frequency'/g, "'frecuencia'")
-                                  .replace(/'dose'/g, "'dosis'")
-                                  .replace(/'treatment_date'/g, "'fecha'")
-                                  .replace(/is required/g, "es requerido");
-
-                                return (
-                                  <li key={idx} className="flex items-start gap-2 text-xs font-medium opacity-90">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0" />
-                                    <span>{translatedStr}</span>
-                                  </li>
-                                );
-                              })
+                              validationErrors.map((errStr: string, idx: number) => (
+                                <li key={idx} className="flex items-start gap-2 text-xs font-medium opacity-90">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0" />
+                                  <span>{String(errStr)}</span>
+                                </li>
+                              ))
                             ) : (
                               // Si es un objeto mapa de errores
                               Object.entries(validationErrors).map(([field, fieldErrors], idx) => {
                                 const fieldLabel = field === 'description' ? 'Descripción' :
                                   field === 'treatment_date' ? 'Fecha' :
-                                    field === 'dosis' ? 'Dosis' :
+                                    field === 'dosis' ? 'Dosis' : // Es posible que sea "dose" si viene del backend
                                       field === 'dose' ? 'Dosis' :
                                         field === 'frequency' ? 'Frecuencia' :
                                           field === 'checkup_date' ? 'Fecha' :
                                             field === 'health_status' ? 'Estado de salud' :
                                               field === 'vaccine_id' ? 'Vacuna' :
-                                                field === 'field_id' ? 'Campo' :
-                                                  field === 'disease_id' ? 'Enfermedad' :
-                                                    field;
+                                                field;
 
-                                const rawError = Array.isArray(fieldErrors) ? fieldErrors.join(', ') : String(fieldErrors);
-                                const errorText = rawError
-                                  .replace(/'frequency'/g, "'frecuencia'")
-                                  .replace(/'dose'/g, "'dosis'")
-                                  .replace(/is required/g, "es requerido");
+                                const errorText = Array.isArray(fieldErrors) ? fieldErrors.join(', ') : String(fieldErrors);
 
                                 return (
                                   <li key={idx} className="flex items-start gap-2 text-xs font-medium opacity-90">

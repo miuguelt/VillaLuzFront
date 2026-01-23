@@ -16,6 +16,7 @@ import { animalFieldsService } from '@/entities/animal-field/api/animalFields.se
 import { vaccinationsService } from '@/entities/vaccination/api/vaccinations.service';
 import { treatmentsService } from '@/entities/treatment/api/treatments.service';
 import { controlService } from '@/entities/control/api/control.service';
+import { animalImageService } from '@/entities/animal/api/animalImage.service';
 // Importar servicio para limpiar caché de dependencias
 import { clearAnimalDependencyCache, checkTreatmentDependencies } from '@/features/diagnostics/api/dependencyCheck.service';
 import { diseaseService } from '@/entities/disease/api/disease.service';
@@ -90,6 +91,8 @@ export function AnimalModalContent({
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [dataRefreshTrigger, setDataRefreshTrigger] = useState(0);
   const [hasRecentTreatments, setHasRecentTreatments] = useState<boolean | null>(null);
+  const [animalImages, setAnimalImages] = useState<any[]>([]);
+  const [imagesLoading, setImagesLoading] = useState(true);
 
   // Opciones para nombres
   const [diseaseOptions, setDiseaseOptions] = useState<Record<number, string>>({});
@@ -194,9 +197,14 @@ export function AnimalModalContent({
   // Cargar datos relacionados
   useEffect(() => {
     const loadRelatedData = async () => {
-      setLoading(true);
+      if (dataRefreshTrigger === 0 && !isManualRefreshing) setLoading(true);
       try {
-        const params = { animal_id: animal.id, page: 1, limit: 1000, cache_bust: isManualRefreshing ? Date.now() : undefined };
+        const params = {
+          animal_id: animal.id,
+          page: 1,
+          limit: 1000,
+          cache_bust: (isManualRefreshing || dataRefreshTrigger > 0) ? Date.now() : undefined
+        };
 
         const [
           geneticData,
@@ -204,14 +212,16 @@ export function AnimalModalContent({
           fieldsData,
           vaccinationsData,
           treatmentsData,
-          controlsData
+          controlsData,
+          imagesData
         ] = await Promise.allSettled([
           geneticImprovementsService.getGeneticImprovements(params),
           animalDiseasesService.getAnimalDiseases(params),
           animalFieldsService.getAnimalFields(params),
           vaccinationsService.getVaccinations(params),
           treatmentsService.getTreatments(params),
-          controlService.getControls(params)
+          controlService.getControls(params),
+          animalImageService.getAnimalImages(animal.id)
         ]);
 
         if (geneticData.status === 'fulfilled') {
@@ -253,6 +263,12 @@ export function AnimalModalContent({
           setControls(filtered);
         }
 
+        if (imagesData.status === 'fulfilled') {
+          const allImages = imagesData.value?.data?.images || [];
+          setAnimalImages(allImages);
+        }
+        setImagesLoading(false);
+
         // Calcular si hay tratamientos o vacunaciones recientes (≤ 30 días)
         const checkRecent = () => {
           const now = new Date().getTime();
@@ -291,17 +307,20 @@ export function AnimalModalContent({
   return (
     <div className="space-y-4 pb-6" onKeyDown={(e) => e.stopPropagation()}>
       {/* Banner de imágenes con carrusel - LO PRIMERO - se oculta si no hay imágenes */}
-      <div className="w-full rounded-xl overflow-hidden shadow-lg -mt-4">
-        <AnimalImageBanner
-          animalId={animal.id}
-          height="clamp(200px, 40vh, 500px)"
-          showControls={true}
-          autoPlayInterval={5000}
-          hideWhenEmpty={true}
-          objectFit="contain"
-          refreshTrigger={refreshTrigger}
-        />
-      </div>
+      {!imagesLoading && animalImages.length > 0 && (
+        <div className="w-full rounded-xl overflow-hidden shadow-lg -mt-4">
+          <AnimalImageBanner
+            animalId={animal.id}
+            height="clamp(200px, 40vh, 500px)"
+            showControls={true}
+            autoPlayInterval={5000}
+            hideWhenEmpty={true}
+            objectFit="contain"
+            refreshTrigger={refreshTrigger}
+            initialImages={animalImages}
+          />
+        </div>
+      )}
 
       {/* Header con título y menú de acciones - DEBAJO DEL CARRUSEL */}
       <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-accent/30 to-accent/10 rounded-xl p-4 shadow-md border border-border/50">
@@ -469,7 +488,7 @@ export function AnimalModalContent({
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Mejoras Genéticas - Verde */}
-          {geneticImprovements.length > 0 && (
+          {!loading && geneticImprovements.length > 0 && (
             <RelatedDataSection
               title="Mejoras Genéticas"
               icon={<TrendingUp className="h-5 w-5" />}
@@ -513,14 +532,11 @@ export function AnimalModalContent({
 
                   try {
                     await geneticImprovementsService.deleteGeneticImprovement(recordId as any);
-                    geneticImprovementsService.clearCache();
+                    await geneticImprovementsService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
                     showToast('Mejora genética eliminada correctamente', 'success');
 
-                    // Delay refresh to ensure backend consistency
-                    setTimeout(() => {
-                      setDataRefreshTrigger(prev => prev + 1);
-                    }, 500);
+
                   } catch (error: any) {
                     // Revert optimistic update
                     setGeneticImprovements(previousItems);
@@ -548,7 +564,7 @@ export function AnimalModalContent({
           )}
 
           {/* Enfermedades - Rojo */}
-          {diseases.length > 0 && (
+          {!loading && diseases.length > 0 && (
             <RelatedDataSection
               title="Enfermedades"
               icon={<Activity className="h-5 w-5" />}
@@ -596,14 +612,11 @@ export function AnimalModalContent({
 
                   try {
                     await animalDiseasesService.deleteAnimalDisease(recordId as any);
-                    animalDiseasesService.clearCache();
+                    await animalDiseasesService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
                     showToast('Registro de enfermedad eliminado correctamente', 'success');
 
-                    // Delay refresh to ensure backend consistency
-                    setTimeout(() => {
-                      setDataRefreshTrigger(prev => prev + 1);
-                    }, 500);
+
                   } catch (error: any) {
                     // Revert optimistic update
                     setDiseases(previousItems);
@@ -631,7 +644,7 @@ export function AnimalModalContent({
           )}
 
           {/* Campos Asignados - Amarillo */}
-          {fields.length > 0 && (
+          {!loading && fields.length > 0 && (
             <RelatedDataSection
               title="Campos Asignados"
               icon={<MapPin className="h-5 w-5" />}
@@ -680,14 +693,11 @@ export function AnimalModalContent({
 
                   try {
                     await animalFieldsService.deleteAnimalField(recordId as any);
-                    animalFieldsService.clearCache();
+                    await animalFieldsService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
                     showToast('Asignación de campo eliminada correctamente', 'success');
 
-                    // Delay refresh to ensure backend consistency
-                    setTimeout(() => {
-                      setDataRefreshTrigger(prev => prev + 1);
-                    }, 500);
+
                   } catch (error: any) {
                     // Revert optimistic update
                     setFields(previousItems);
@@ -715,7 +725,7 @@ export function AnimalModalContent({
           )}
 
           {/* Vacunaciones - Azul */}
-          {vaccinations.length > 0 && (
+          {!loading && vaccinations.length > 0 && (
             <RelatedDataSection
               title="Vacunaciones"
               icon={<Syringe className="h-5 w-5" />}
@@ -760,14 +770,11 @@ export function AnimalModalContent({
 
                   try {
                     await vaccinationsService.deleteVaccination(recordId as any);
-                    vaccinationsService.clearCache();
+                    await vaccinationsService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
                     showToast('Vacunación eliminada correctamente', 'success');
 
-                    // Delay refresh to ensure backend consistency
-                    setTimeout(() => {
-                      setDataRefreshTrigger(prev => prev + 1);
-                    }, 500);
+
                   } catch (error: any) {
                     // Revert optimistic update
                     setVaccinations(previousItems);
@@ -795,7 +802,7 @@ export function AnimalModalContent({
           )}
 
           {/* Tratamientos - Púrpura */}
-          {treatments.length > 0 && (
+          {!loading && treatments.length > 0 && (
             <RelatedDataSection
               title="Tratamientos"
               icon={<Pill className="h-5 w-5" />}
@@ -852,14 +859,11 @@ export function AnimalModalContent({
                     setTreatments(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
 
                     await treatmentsService.deleteTreatment(recordId as any);
-                    treatmentsService.clearCache();
+                    await treatmentsService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
                     showToast('Tratamiento eliminado correctamente', 'success');
 
-                    // Delay refresh to ensure backend consistency
-                    setTimeout(() => {
-                      setDataRefreshTrigger(prev => prev + 1);
-                    }, 500);
+
 
                   } catch (error: any) {
                     // Revert optimistic update
@@ -901,7 +905,7 @@ export function AnimalModalContent({
           )}
 
           {/* Controles - Naranja */}
-          {controls.length > 0 && (
+          {!loading && controls.length > 0 && (
             <RelatedDataSection
               title="Controles de Crecimiento"
               icon={<TrendingUp className="h-5 w-5" />}
@@ -952,14 +956,11 @@ export function AnimalModalContent({
 
                   try {
                     await controlService.deleteControl(recordId as any);
-                    controlService.clearCache();
+                    await controlService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
                     showToast('Control eliminado correctamente', 'success');
 
-                    // Delay refresh to ensure backend consistency
-                    setTimeout(() => {
-                      setDataRefreshTrigger(prev => prev + 1);
-                    }, 500);
+
                   } catch (error: any) {
                     // Revert optimistic update
                     setControls(previousItems);
@@ -1001,12 +1002,15 @@ export function AnimalModalContent({
           title=""
           onGalleryUpdate={() => {
             preserveScroll();
+            // Refrescar también el estado local
+            setDataRefreshTrigger(prev => prev + 1);
             setRefreshTrigger(prev => prev + 1);
             setTimeout(restoreScroll, 0);
           }}
           showControls={true}
           refreshTrigger={refreshTrigger}
           compact={true}
+          initialImages={animalImages}
         />
       </CollapsibleCard>
 
@@ -1024,10 +1028,6 @@ export function AnimalModalContent({
             }}
             onClose={closeActionModal}
             onEdit={() => setActionModalMode('edit')}
-            onOpenSupplies={() => {
-              setSelectedTreatmentForSupplies(selectedItem);
-              setSuppliesModalOpen(true);
-            }}
             zIndex={2000}
           />
         )

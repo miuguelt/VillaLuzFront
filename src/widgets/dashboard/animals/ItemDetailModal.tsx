@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Syringe, MapPin, Pill, ClipboardList, TrendingUp, Edit, Activity, GitBranch, Calendar, Copy } from 'lucide-react';
+import { TreatmentSuppliesPanel } from '@/widgets/dashboard/treatments/TreatmentSuppliesPanel';
 import { cn } from '@/shared/ui/cn';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
@@ -18,7 +19,6 @@ interface ItemDetailModalProps {
     };
     onClose: () => void;
     onEdit?: () => void;
-    onOpenSupplies?: () => void;
     onReplicate?: () => void;
     zIndex?: number;
 }
@@ -29,10 +29,10 @@ export function ItemDetailModal({
     options,
     onClose,
     onEdit,
-    onOpenSupplies,
     onReplicate,
     zIndex = 1000
 }: ItemDetailModalProps) {
+    // onOpenSupplies removed/unused
     if (!item) return null;
 
     const formatDate = (dateStr: string) => {
@@ -206,15 +206,8 @@ export function ItemDetailModal({
                                 {item.observations && <InfoField label="Observaciones" value={item.observations} fullWidth />}
                             </DetailSection>
 
-                            <div className="col-span-full pt-2">
-                                <Button
-                                    onClick={onOpenSupplies}
-                                    variant="outline"
-                                    className="w-full bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 hover:text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800 rounded-xl"
-                                >
-                                    <Pill className="w-4 h-4 mr-2" />
-                                    Ver Insumos (Vacunas y Medicamentos)
-                                </Button>
+                            <div className="col-span-full pt-2 border-t border-border/50 mt-2">
+                                <TreatmentSuppliesPanel treatment={item} />
                             </div>
                         </>
                     )}
