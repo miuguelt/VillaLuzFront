@@ -52,7 +52,7 @@ interface AnimalActionsMenuProps {
   onOpenHistory?: () => void;
   onOpenAncestorsTree?: () => void;
   onOpenDescendantsTree?: () => void;
-  onRefresh?: () => void;
+  onRefresh?: (type?: string) => void;
   externalOpenModal?: ModalType;
   externalModalMode?: ModalMode;
   externalEditingItem?: any;
@@ -431,7 +431,7 @@ interface AnimalActionModalInstanceProps {
   editingItem: any | null;
   zIndex: number;
   onClose: () => void;
-  onRefreshParent?: () => void;
+  onRefreshParent?: (type?: string) => void;
   diseaseOptions: any[];
   fieldOptions: any[];
   vaccineOptions: any[];
@@ -654,7 +654,7 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
       // Programar refresco con delay para consistencia del backend
       setTimeout(async () => {
         await loadListData(true);
-        onRefreshParent?.();
+        onRefreshParent?.(type || undefined);
       }, 1200);
     } catch (err: any) {
       console.error('[AnimalActionModalInstance] Error saving:', err);
@@ -797,8 +797,8 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
 
       // Programar refresco con delay para consistencia del backend
       setTimeout(() => {
-        onRefreshParent?.();
-      }, 1200);
+        onRefreshParent?.(type || undefined);
+      }, 300);
     } catch (err: any) {
       console.error('[AnimalActionsMenu] Error al eliminar:', err);
 
@@ -1105,10 +1105,7 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
           setModalMode('create');
         }}
         onReplicate={handleReplicate}
-        onOpenSupplies={() => {
-          setSelectedTreatmentForSupplies(editingItem);
-          setSuppliesModalOpen(true);
-        }}
+
         zIndex={zIndex}
       />
     );

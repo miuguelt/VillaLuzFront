@@ -14,8 +14,9 @@ import { medicationsService } from '@/entities/medication/api/medications.servic
 import { treatmentVaccinesService } from '@/entities/treatment-vaccine/api/treatmentVaccines.service';
 import { treatmentMedicationService } from '@/entities/treatment-medication/api/treatmentMedication.service';
 import { TreatmentSuppliesCards } from './TreatmentSuppliesCards';
-import { ItemDetailModal } from '../animals/ItemDetailModal';
+import { ItemDetailModal, DetailSection, InfoField } from '../animals/ItemDetailModal';
 import { ConfirmDialog } from '@/shared/ui/common/ConfirmDialog';
+import { ClipboardList } from 'lucide-react';
 
 interface TreatmentSuppliesModalProps {
     isOpen: boolean;
@@ -37,7 +38,8 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
     // Data State
     const [vaccines, setVaccines] = useState<TreatmentVaccineResponse[]>([]);
     const [medications, setMedications] = useState<TreatmentMedicationResponse[]>([]);
-    const [loadingAssoc, setLoadingAssoc] = useState(false);
+    const [loadingVaccines, setLoadingVaccines] = useState(false);
+    const [loadingMedications, setLoadingMedications] = useState(false);
     const [assocError, setAssocError] = useState<string | null>(null);
 
     // Options State
@@ -104,7 +106,7 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
     const [medPageSize, setMedPageSize] = useState(5);
 
     // Refs
-    const associationsLoadingRef = useRef<Promise<void> | null>(null);
+    // const associationsLoadingRef = useRef<Promise<void> | null>(null);
     const associationsIdRef = useRef<number | null>(null);
     const optionsLoadedRef = useRef(false);
     const optionsLoadingRef = useRef<Promise<void> | null>(null);
@@ -178,126 +180,109 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
     }, []);
 
     // Fetch Associations
-    const refreshAssociations = useCallback(async (treatmentId: number, bypassCache: boolean = false) => {
+    const refreshAssociations = useCallback(async (treatmentId: number, bypassCache: boolean = false, target: 'all' | 'vaccines' | 'medications' = 'all') => {
         if (!treatmentId) return;
-        if (!bypassCache && associationsLoadingRef.current && associationsIdRef.current === treatmentId) {
-            return associationsLoadingRef.current;
-        }
 
-        setLoadingAssoc(true);
+        if (target === 'all' || target === 'vaccines') setLoadingVaccines(true);
+        if (target === 'all' || target === 'medications') setLoadingMedications(true);
+
         setAssocError(null);
         associationsIdRef.current = treatmentId;
 
-        const req = (async () => {
+        // Helper recursivo para garantizar la carga completa de datos
+        const fetchAllItems = async (service: any, method: string, queryParams: any) => {
+            let allData: any[] = [];
+            let page = 1;
+            const ITEMS_PER_PAGE = 50;
+
+            while (page <= 10) { // Límite de seguridad
+                const p = { ...queryParams, page, limit: ITEMS_PER_PAGE };
+                try {
+                    const res = await service[method](p);
+                    const list = res.data || (Array.isArray(res) ? res : []);
+
+                    if (!list || list.length === 0) break;
+
+                    const newItems = list.filter((item: any) => !allData.some((existing) => existing.id === item.id));
+                    if (newItems.length === 0) break;
+
+                    allData = [...allData, ...newItems];
+                    page++;
+                } catch (e) {
+                    console.error(`Error fetching page ${page}`, e);
+                    break;
+                }
+            }
+            return allData;
+        };
+
+        const params: any = {
+            treatment_id: treatmentId,
+            treatmentId: treatmentId,
+            sort_by: 'id',
+            sort_order: 'desc',
+            _t: Date.now()
+        };
+
+        if (bypassCache) {
+            params.cache_bust = Date.now();
+        }
+
+        const tIdStr = String(treatmentId);
+        const isNotDeleted = (item: any) => !item.deleted_at && !item.deletedAt;
+        const getGhosts = (): number[] => {
             try {
-                // Helper recursivo para garantizar la carga completa de datos
-                const fetchAllItems = async (service: any, method: string, queryParams: any) => {
-                    let allData: any[] = [];
-                    let page = 1;
-                    const ITEMS_PER_PAGE = 50;
+                const store = localStorage.getItem('ghost_items_v1');
+                const map = store ? JSON.parse(store) : {};
+                return map[Number(treatmentId)] || [];
+            } catch { return []; }
+        };
+        const ghostIds = new Set(getGhosts());
 
-                    while (page <= 10) { // Límite de seguridad
-                        const p = { ...queryParams, page, limit: ITEMS_PER_PAGE };
-                        try {
-                            const res = await service[method](p);
-                            const list = res.data || (Array.isArray(res) ? res : []);
-
-                            if (!list || list.length === 0) break;
-
-                            // Filtrar duplicados por ID
-                            const newItems = list.filter((item: any) => !allData.some((existing) => existing.id === item.id));
-                            if (newItems.length === 0) break;
-
-                            allData = [...allData, ...newItems];
-
-                            // IMPORTANT: Removed optimization to force full scan
-                            // if (list.length < ITEMS_PER_PAGE) break;
-                            page++;
-                        } catch (e) {
-                            console.error(`Error fetching page ${page}`, e);
-                            break;
-                        }
-                    }
-                    return allData;
-                };
-
-                const params: any = {
-                    treatment_id: treatmentId,
-                    treatmentId: treatmentId, // Redundancia
-                    sort_by: 'id',
-                    sort_order: 'desc',
-                    _t: Date.now() // Cache busting agresivo
-                };
-
-                if (bypassCache) {
-                    params.cache_bust = Date.now();
-                }
-
-                console.log('[TreatmentSuppliesModal] Fetching associations with params:', params);
-
-                const [vData, mData] = await Promise.all([
-                    fetchAllItems(treatmentVaccinesService, 'getTreatmentVaccines', params),
-                    fetchAllItems(treatmentMedicationService, 'getTreatmentMedications', params),
-                ]);
-
-                console.log('[TreatmentSuppliesModal] RAW Response Data:', {
-                    vaccinesCount: vData.length,
-                    medsCount: mData.length,
-                    rawData: { vData, mData }
-                });
-
-                // INSPECCIÓN DEEP DEBUG PARA GHOST ITEMS
-                if (mData.length > 0) {
-                    console.log('[GHOST DEBUG] Primer medicamento RAW:', JSON.parse(JSON.stringify(mData[0])));
-                    console.log('[GHOST DEBUG] Todos los medicamentos:', mData);
-                }
-                if (vData.length > 0) {
-                    console.log('[GHOST DEBUG] Primera vacuna RAW:', JSON.parse(JSON.stringify(vData[0])));
-                }
-
-                // GHOST BUSTER: Filtrar items que sabemos que son fantasmas (dieron 404 al borrar)
-                const getGhosts = (): number[] => {
-                    try {
-                        const store = localStorage.getItem('ghost_items_v1');
-                        const map = store ? JSON.parse(store) : {};
-                        return map[Number(treatmentId)] || [];
-                    } catch { return []; }
-                };
-                const ghostIds = new Set(getGhosts());
-
-                // FILTRADO ROBUSTO y FILTRADO DE SOFT DELETES
-                const tIdStr = String(treatmentId);
-                const isNotDeleted = (item: any) => !item.deleted_at && !item.deletedAt;
-
-                const filteredVaccines = vData.filter((v: any) => {
-                    const vTId = v.treatment_id ?? v.treatmentId;
-                    return String(vTId) === tIdStr && isNotDeleted(v) && !ghostIds.has(v.id);
-                });
-                const filteredMedications = mData.filter((m: any) => {
-                    const mTId = m.treatment_id ?? m.treatmentId;
-                    return String(mTId) === tIdStr && isNotDeleted(m) && !ghostIds.has(m.id);
-                });
-
-                console.log('[TreatmentSuppliesModal] Datos filtrados:', { filteredVaccines, filteredMedications });
-
-                setVaccines(filteredVaccines);
-                setMedications(filteredMedications);
-            } catch (err) {
-                console.error('[TreatmentSuppliesModal] Error refreshing associations:', err);
-                setAssocError('No se pudieron cargar los insumos del tratamiento.');
-            } finally {
-                setLoadingAssoc(false);
-            }
-        })();
-
-        associationsLoadingRef.current = req;
         try {
-            await req;
-        } finally {
-            if (associationsLoadingRef.current === req) {
-                associationsLoadingRef.current = null;
-                associationsIdRef.current = null;
+            const promises: Promise<void>[] = [];
+
+            if (target === 'all' || target === 'vaccines') {
+                promises.push((async () => {
+                    try {
+                        const vData = await fetchAllItems(treatmentVaccinesService, 'getTreatmentVaccines', params);
+                        const filteredVaccines = vData.filter((v: any) => {
+                            const vTId = v.treatment_id ?? v.treatmentId;
+                            return String(vTId) === tIdStr && isNotDeleted(v) && !ghostIds.has(v.id);
+                        });
+                        setVaccines(filteredVaccines);
+                    } catch (err) {
+                        console.error('Error fetching vaccines', err);
+                    } finally {
+                        setLoadingVaccines(false);
+                    }
+                })());
             }
+
+            if (target === 'all' || target === 'medications') {
+                promises.push((async () => {
+                    try {
+                        const mData = await fetchAllItems(treatmentMedicationService, 'getTreatmentMedications', params);
+                        const filteredMedications = mData.filter((m: any) => {
+                            const mTId = m.treatment_id ?? m.treatmentId;
+                            return String(mTId) === tIdStr && isNotDeleted(m) && !ghostIds.has(m.id);
+                        });
+                        setMedications(filteredMedications);
+                    } catch (err) {
+                        console.error('Error fetching medications', err);
+                    } finally {
+                        setLoadingMedications(false);
+                    }
+                })());
+            }
+
+            await Promise.all(promises);
+
+        } catch (err) {
+            console.error('[TreatmentSuppliesModal] Error refreshing associations:', err);
+            setAssocError('No se pudieron cargar los insumos del tratamiento.');
+            setLoadingVaccines(false);
+            setLoadingMedications(false);
         }
     }, []);
 
@@ -306,7 +291,7 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
         if (isOpen && treatment?.id) {
             loadOptions();
             // SIEMPRE forzar recarga fresca al abrir para evitar "items fantasmas" de caché vieja
-            refreshAssociations(treatment.id, true);
+            refreshAssociations(treatment.id, true, 'all');
         }
     }, [isOpen, treatment, loadOptions, refreshAssociations]);
 
@@ -363,13 +348,10 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
                 console.log('[TreatmentSuppliesModal] Creación bulk vacunas exitosa:', res);
             }
             // INVALIDAR CACHÉ ANTES DE REFRESCAR
-            await Promise.all([
-                treatmentVaccinesService.clearCache(),
-                treatmentMedicationService.clearCache()
-            ]);
+            await treatmentVaccinesService.clearCache();
             // Mayor retardo para asegurar consistencia DB y replicación
             setTimeout(() => {
-                refreshAssociations(treatment.id, true);
+                refreshAssociations(treatment.id, true, 'vaccines');
             }, 1200);
 
             setShowAddVaccine(false);
@@ -416,13 +398,10 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
                 console.log('[TreatmentSuppliesModal] Creación bulk medicamentos exitosa:', res);
             }
             // INVALIDAR CACHÉ ANTES DE REFRESCAR
-            await Promise.all([
-                treatmentVaccinesService.clearCache(),
-                treatmentMedicationService.clearCache()
-            ]);
+            await treatmentMedicationService.clearCache();
             // Mayor retardo para asegurar consistencia DB y replicación
             setTimeout(() => {
-                refreshAssociations(treatment.id, true);
+                refreshAssociations(treatment.id, true, 'medications');
             }, 1200);
 
             setShowAddMedication(false);
@@ -460,24 +439,18 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
         try {
             await (treatmentVaccinesService as any).deleteTreatmentVaccine(String(itemId));
             // INVALIDAR CACHÉ ANTES DE REFRESCAR
-            await Promise.all([
-                treatmentVaccinesService.clearCache(),
-                treatmentMedicationService.clearCache()
-            ]);
-            await refreshAssociations(treatment.id, true);
+            await treatmentVaccinesService.clearCache();
+            await refreshAssociations(treatment.id, true, 'vaccines');
             showToast('Vacuna desvinculada', 'success');
         } catch (e: any) {
             // Manejo de consistencia: Si da 404, es que ya no existe.
             if (e?.response?.status === 404 || e?.status === 404) {
                 console.warn('Item fantasma detectado (404), limpiando caché...');
-                await Promise.all([
-                    treatmentVaccinesService.clearCache(),
-                    treatmentMedicationService.clearCache()
-                ]);
-                await refreshAssociations(treatment.id, true);
+                await treatmentVaccinesService.clearCache();
+                await refreshAssociations(treatment.id, true, 'vaccines');
             } else {
                 // ROLLBACK: Restaurar item si falla
-                await refreshAssociations(treatment.id, true);
+                await refreshAssociations(treatment.id, true, 'vaccines');
                 showToast('Error al desvincular vacuna', 'error');
             }
         } finally {
@@ -509,24 +482,18 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
         try {
             await (treatmentMedicationService as any).deleteTreatmentMedication(String(itemId));
             // INVALIDAR CACHÉ ANTES DE REFRESCAR
-            await Promise.all([
-                treatmentVaccinesService.clearCache(),
-                treatmentMedicationService.clearCache()
-            ]);
-            await refreshAssociations(treatment.id, true);
+            await treatmentMedicationService.clearCache();
+            await refreshAssociations(treatment.id, true, 'medications');
             showToast('Medicamento desvinculado', 'success');
         } catch (e: any) {
             // Manejo de consistencia: Si da 404, es que ya no existe.
             if (e?.response?.status === 404 || e?.status === 404) {
                 console.warn('Item fantasma detectado (404), limpiando caché...');
-                await Promise.all([
-                    treatmentVaccinesService.clearCache(),
-                    treatmentMedicationService.clearCache()
-                ]);
-                await refreshAssociations(treatment.id, true);
+                await treatmentMedicationService.clearCache();
+                await refreshAssociations(treatment.id, true, 'medications');
             } else {
                 // ROLLBACK: Restaurar item si falla
-                await refreshAssociations(treatment.id, true);
+                await refreshAssociations(treatment.id, true, 'medications');
                 showToast('Error al desvincular medicamento', 'error');
             }
         } finally {
@@ -606,7 +573,7 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
         setSavingBulkVacc(true);
         try {
             await Promise.all(selectedVaccIds.map((id) => (treatmentVaccinesService as any).patchTreatmentVaccine(String(id), payload)));
-            await refreshAssociations(treatment.id, true);
+            await refreshAssociations(treatment.id, true, 'vaccines');
             setBulkVaccForm(null);
             setSelectedVaccIds([]);
             showToast(`Vacunas actualizadas`, 'success');
@@ -627,7 +594,7 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
         setSavingBulkMed(true);
         try {
             await Promise.all(selectedMedIds.map((id) => (treatmentMedicationService as any).patchTreatmentMedication(String(id), payload)));
-            await refreshAssociations(treatment.id, true);
+            await refreshAssociations(treatment.id, true, 'medications');
             setBulkMedForm(null);
             setSelectedMedIds([]);
             showToast(`Medicamentos actualizados`, 'success');
@@ -693,18 +660,18 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
                 title={
                     <div className="flex items-center justify-between w-full pr-8">
                         <div className="flex items-center gap-2">
-                            <span>Insumos del tratamiento {treatment?.id ?? ''}</span>
+                            <span>Detalle del Tratamiento {treatment?.id ? `#${treatment.id}` : ''}</span>
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 w-7 p-0 hover:bg-primary/20 hover:text-primary transition-colors"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    if (treatment?.id) refreshAssociations(treatment.id, true);
+                                    if (treatment?.id) refreshAssociations(treatment.id, true, 'all');
                                 }}
                                 title="Refrescar datos (bypass cache)"
                             >
-                                <RefreshCw className={cn("h-4 w-4", loadingAssoc && "animate-spin")} />
+                                <RefreshCw className={cn("h-4 w-4", (loadingVaccines || loadingMedications) && "animate-spin")} />
                             </Button>
                         </div>
                     </div>
@@ -717,14 +684,43 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
             >
                 <div className="space-y-4">
                     {/* Actions Header */}
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                        <div className="text-sm text-muted-foreground">
-                            {treatment && (
-                                <span>
-                                    Tratamiento seleccionado: <span className="font-medium">#{treatment.id}</span>{' '}
-                                    {treatment.diagnosis ? `· ${treatment.diagnosis}` : ''}
-                                </span>
-                            )}
+                    {/* Treatment Details and Actions Header */}
+                    {treatment && (
+                        <div className="grid grid-cols-1 gap-4 mb-4">
+                            <DetailSection
+                                title="Información del Tratamiento"
+                                accent="purple"
+                                icon={<ClipboardList className="w-4 h-4" />}
+                                fullWidth
+                            >
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                                    <InfoField label="Diagnóstico" value={treatment.diagnosis || '-'} fullWidth />
+                                    <InfoField label="Fecha" value={treatment.treatment_date ? new Date(treatment.treatment_date).toLocaleDateString('es-ES') : '-'} />
+                                    <InfoField
+                                        label="Estado"
+                                        value={treatment.status || 'Iniciado'}
+                                        badge
+                                        badgeVariant={
+                                            treatment.status === 'Completado' ? 'success' :
+                                                treatment.status === 'Suspendido' ? 'destructive' :
+                                                    treatment.status === 'En progreso' ? 'secondary' : 'default'
+                                        }
+                                    />
+                                </div>
+
+                                {((treatment as any).description || (treatment as any).notes) && (
+                                    <div className="pt-2 border-t border-border/40 mt-2">
+                                        <InfoField label="Descripción / Notas" value={(treatment as any).description || (treatment as any).notes} fullWidth />
+                                    </div>
+                                )}
+                            </DetailSection>
+                        </div>
+                    )}
+
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-secondary/10 p-3 rounded-lg border border-secondary/20">
+                        <div className="text-sm font-medium flex items-center gap-2">
+                            <Syringe className="w-4 h-4 text-primary" />
+                            <span>Gestión de Insumos</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <Button
@@ -820,8 +816,8 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
                     )}
 
                     <TreatmentSuppliesCards
-                        vaccines={vaccines as any}
-                        medications={medications as any}
+                        vaccines={paginatedVaccines as any}
+                        medications={paginatedMedications as any}
                         vaccineFullMap={vaccineFullMap}
                         medicationFullMap={medicationFullMap}
                         vaccineRouteMap={vaccineRouteMap}
@@ -831,7 +827,8 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
                         onDeleteMedication={openDeleteMedication}
                         confirmingDeleteId={confirmingDeleteId}
                         deleteLoadingId={deleteLoadingId}
-                        loading={loadingAssoc} // Pasamos loadingAssoc directo para que Cards maneje el overlay si hay datos
+                        loadingVaccines={loadingVaccines}
+                        loadingMedications={loadingMedications}
                     />
 
                     <div className="flex justify-end pt-4 border-t">

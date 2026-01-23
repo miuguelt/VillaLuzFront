@@ -194,113 +194,199 @@ export function AnimalModalContent({
     loadOptions();
   }, []);
 
-  // Cargar datos relacionados
-  useEffect(() => {
-    const loadRelatedData = async () => {
-      if (dataRefreshTrigger === 0 && !isManualRefreshing) setLoading(true);
-      try {
-        const params = {
-          animal_id: animal.id,
-          page: 1,
-          limit: 1000,
-          cache_bust: (isManualRefreshing || dataRefreshTrigger > 0) ? Date.now() : undefined
-        };
+  // Triggers individuales para cada sección
+  const [triggers, setTriggers] = useState({
+    genetic: 0,
+    diseases: 0,
+    fields: 0,
+    vaccinations: 0,
+    treatments: 0,
+    controls: 0,
+    images: 0,
+    general: 0 // Para refrescos completos
+  });
 
-        const [
-          geneticData,
-          diseasesData,
-          fieldsData,
-          vaccinationsData,
-          treatmentsData,
-          controlsData,
-          imagesData
-        ] = await Promise.allSettled([
-          geneticImprovementsService.getGeneticImprovements(params),
-          animalDiseasesService.getAnimalDiseases(params),
-          animalFieldsService.getAnimalFields(params),
-          vaccinationsService.getVaccinations(params),
-          treatmentsService.getTreatments(params),
-          controlService.getControls(params),
-          animalImageService.getAnimalImages(animal.id)
-        ]);
+  // Función unificada para refrescar secciones específicas
+  const handleRefresh = useCallback((type?: string) => {
+    if (!type) {
+      // Si no se especifica tipo, refrescar todo
+      setTriggers(prev => ({
+        ...prev,
+        genetic: prev.genetic + 1,
+        diseases: prev.diseases + 1,
+        fields: prev.fields + 1,
+        vaccinations: prev.vaccinations + 1,
+        treatments: prev.treatments + 1,
+        controls: prev.controls + 1,
+        images: prev.images + 1,
+        general: prev.general + 1
+      }));
+      return;
+    }
 
-        if (geneticData.status === 'fulfilled') {
-          const allData = geneticData.value.data || geneticData.value || [];
-          const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
-          console.log('[AnimalModalContent] Genetic Improvements for animal', animal.id, ':', filtered.length, 'items');
-          setGeneticImprovements(filtered);
-        }
-        if (diseasesData.status === 'fulfilled') {
-          const allData = diseasesData.value.data || diseasesData.value || [];
-          const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
-          console.log('[AnimalModalContent] Diseases for animal', animal.id, ':', filtered.length, 'items');
-          setDiseases(filtered);
-        }
-        if (fieldsData.status === 'fulfilled') {
-          const allData = fieldsData.value.data || fieldsData.value || [];
-          const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
-          console.log('[AnimalModalContent] Fields for animal', animal.id, ':', filtered.length, 'items');
-          console.log('[AnimalModalContent] All fields data:', allData);
-          console.log('[AnimalModalContent] Filtered fields:', filtered);
-          setFields(filtered);
-        }
-        if (vaccinationsData.status === 'fulfilled') {
-          const allData = vaccinationsData.value.data || vaccinationsData.value || [];
-          const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
-          console.log('[AnimalModalContent] Vaccinations for animal', animal.id, ':', filtered.length, 'items');
-          setVaccinations(filtered);
-        }
-        if (treatmentsData.status === 'fulfilled') {
-          const allData = treatmentsData.value.data || treatmentsData.value || [];
-          const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
-          console.log('[AnimalModalContent] Treatments for animal', animal.id, ':', filtered.length, 'items');
-          setTreatments(filtered);
-        }
-        if (controlsData.status === 'fulfilled') {
-          const allData = controlsData.value.data || controlsData.value || [];
-          const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
-          console.log('[AnimalModalContent] Controls for animal', animal.id, ':', filtered.length, 'items');
-          setControls(filtered);
-        }
-
-        if (imagesData.status === 'fulfilled') {
-          const allImages = imagesData.value?.data?.images || [];
-          setAnimalImages(allImages);
-        }
-        setImagesLoading(false);
-
-        // Calcular si hay tratamientos o vacunaciones recientes (≤ 30 días)
-        const checkRecent = () => {
-          const now = new Date().getTime();
-          const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-
-          const hasRecentTreatment = (treatmentsData.status === 'fulfilled' ? (treatmentsData.value.data || treatmentsData.value || []) : [])
-            .filter((t: any) => t.animal_id === animal.id)
-            .some((t: any) => {
-              const d = new Date(t.treatment_date || t.date || t.created_at);
-              return !isNaN(d.getTime()) && (now - d.getTime() <= THIRTY_DAYS_MS);
-            });
-
-          const hasRecentVaccination = (vaccinationsData.status === 'fulfilled' ? (vaccinationsData.value.data || vaccinationsData.value || []) : [])
-            .filter((v: any) => v.animal_id === animal.id)
-            .some((v: any) => {
-              const d = new Date(v.vaccination_date || v.date || v.created_at);
-              return !isNaN(d.getTime()) && (now - d.getTime() <= THIRTY_DAYS_MS);
-            });
-
-          setHasRecentTreatments(hasRecentTreatment || hasRecentVaccination);
-        };
-        checkRecent();
-      } catch (error) {
-        console.error('Error loading related data:', error);
-      } finally {
-        setLoading(false);
-        setIsManualRefreshing(false);
-      }
+    // Mapeo de tipos de modal a claves del estado triggers
+    const mapping: Record<string, keyof typeof triggers> = {
+      'genetic_improvement': 'genetic',
+      'animal_disease': 'diseases',
+      'animal_field': 'fields',
+      'vaccination': 'vaccinations',
+      'treatment': 'treatments',
+      'control': 'controls'
     };
 
-    loadRelatedData();
-  }, [animal.id, dataRefreshTrigger]);
+    const key = mapping[type];
+    if (key) {
+      console.log(`[AnimalModalContent] Refreshing specific section: ${key}`);
+      setTriggers(prev => ({ ...prev, [key]: prev[key] + 1 }));
+
+      // Si cambiamos tratamientos o vacunas, verificar fecha reciente
+      if (key === 'treatments' || key === 'vaccinations') {
+        // Se actualizará en el efecto correspondiente
+      }
+    } else {
+      // Fallback a general si no coincide
+      setTriggers(prev => ({ ...prev, general: prev.general + 1 }));
+    }
+  }, []);
+
+  // Efectos individuales para cargar datos
+
+  // 1. Mejoras Genéticas
+  useEffect(() => {
+    const fetchGenetic = async () => {
+      try {
+        const params = { animal_id: animal.id, page: 1, limit: 1000, cache_bust: triggers.genetic > 0 ? Date.now() : undefined };
+        const res = await geneticImprovementsService.getGeneticImprovements(params);
+        const allData = (res as any)?.data || res || [];
+        const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
+        setGeneticImprovements(filtered);
+      } catch (e) {
+        console.error('Error fetching genetic stats', e);
+      }
+    };
+    fetchGenetic();
+  }, [animal.id, triggers.genetic]);
+
+  // 2. Enfermedades
+  useEffect(() => {
+    const fetchDiseases = async () => {
+      try {
+        const params = { animal_id: animal.id, page: 1, limit: 1000, cache_bust: triggers.diseases > 0 ? Date.now() : undefined };
+        const res = await animalDiseasesService.getAnimalDiseases(params);
+        const allData = (res as any)?.data || res || [];
+        const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
+        setDiseases(filtered);
+      } catch (e) {
+        console.error('Error fetching diseases', e);
+      }
+    };
+    fetchDiseases();
+  }, [animal.id, triggers.diseases]);
+
+  // 3. Campos
+  useEffect(() => {
+    const fetchFields = async () => {
+      try {
+        const params = { animal_id: animal.id, page: 1, limit: 1000, cache_bust: triggers.fields > 0 ? Date.now() : undefined };
+        const res = await animalFieldsService.getAnimalFields(params);
+        const allData = (res as any)?.data || res || [];
+        const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
+        setFields(filtered);
+      } catch (e) {
+        console.error('Error fetching fields', e);
+      }
+    };
+    fetchFields();
+  }, [animal.id, triggers.fields]);
+
+  // 4. Vacunaciones
+  useEffect(() => {
+    const fetchVaccinations = async () => {
+      try {
+        const params = { animal_id: animal.id, page: 1, limit: 1000, cache_bust: triggers.vaccinations > 0 ? Date.now() : undefined };
+        const res = await vaccinationsService.getVaccinations(params);
+        const allData = (res as any)?.data || res || [];
+        const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
+        setVaccinations(filtered);
+      } catch (e) {
+        console.error('Error fetching vaccinations', e);
+      }
+    };
+    fetchVaccinations();
+  }, [animal.id, triggers.vaccinations]);
+
+  // 5. Tratamientos
+  useEffect(() => {
+    const fetchTreatments = async () => {
+      try {
+        const params = { animal_id: animal.id, page: 1, limit: 1000, cache_bust: triggers.treatments > 0 ? Date.now() : undefined };
+        const res = await treatmentsService.getTreatments(params);
+        const allData = (res as any)?.data || res || [];
+        const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
+        setTreatments(filtered);
+      } catch (e) {
+        console.error('Error fetching treatments', e);
+      }
+    };
+    fetchTreatments();
+  }, [animal.id, triggers.treatments]);
+
+  // 6. Controles
+  useEffect(() => {
+    const fetchControls = async () => {
+      try {
+        const params = { animal_id: animal.id, page: 1, limit: 1000, cache_bust: triggers.controls > 0 ? Date.now() : undefined };
+        const res = await controlService.getControls(params);
+        const allData = (res as any)?.data || res || [];
+        const filtered = Array.isArray(allData) ? allData.filter((item: any) => String(item.animal_id) === String(animal.id)) : [];
+        setControls(filtered);
+      } catch (e) {
+        console.error('Error fetching controls', e);
+      }
+    };
+    fetchControls();
+  }, [animal.id, triggers.controls]);
+
+  // 7. Imágenes
+  useEffect(() => {
+    const fetchImages = async () => {
+      setImagesLoading(true);
+      try {
+        const res = await animalImageService.getAnimalImages(animal.id);
+        const allImages = res?.data?.images || [];
+        setAnimalImages(allImages);
+      } catch (e) {
+        console.error('Error fetching images', e);
+      } finally {
+        setImagesLoading(false);
+      }
+    };
+    fetchImages();
+  }, [animal.id, triggers.images]);
+
+  // Efecto global para calcular "Recientes" y loading inicial
+  useEffect(() => {
+    // Cuando cargan tanto tratamientos como vacunas, recalculamos la flag de recientes
+    const now = new Date().getTime();
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+    const hasRecentTreatment = treatments.some((t: any) => {
+      const d = new Date(t.treatment_date || t.date || t.created_at);
+      return !isNaN(d.getTime()) && (now - d.getTime() <= THIRTY_DAYS_MS);
+    });
+
+    const hasRecentVaccination = vaccinations.some((v: any) => {
+      const d = new Date(v.vaccination_date || v.date || v.created_at);
+      return !isNaN(d.getTime()) && (now - d.getTime() <= THIRTY_DAYS_MS);
+    });
+
+    setHasRecentTreatments(hasRecentTreatment || hasRecentVaccination);
+
+    // Asumimos que si tenemos los arrays inicializados (aunque vacios si no hay error), ya no estamos cargando lo vital
+    // Es una heurística simple
+    setLoading(false);
+
+  }, [treatments, vaccinations]);
 
 
 
@@ -381,12 +467,7 @@ export function AnimalModalContent({
             onOpenHistory={onOpenHistory}
             onOpenAncestorsTree={onOpenAncestorsTree}
             onOpenDescendantsTree={onOpenDescendantsTree}
-            onRefresh={() => {
-              // Refresh con delay para consistencia
-              setTimeout(() => {
-                setDataRefreshTrigger(prev => prev + 1);
-              }, 1200);
-            }}
+            onRefresh={handleRefresh}
           />
         </div>
       </div>
@@ -488,7 +569,7 @@ export function AnimalModalContent({
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Mejoras Genéticas - Verde */}
-          {!loading && geneticImprovements.length > 0 && (
+          {geneticImprovements.length > 0 && (
             <RelatedDataSection
               title="Mejoras Genéticas"
               icon={<TrendingUp className="h-5 w-5" />}
@@ -564,7 +645,7 @@ export function AnimalModalContent({
           )}
 
           {/* Enfermedades - Rojo */}
-          {!loading && diseases.length > 0 && (
+          {diseases.length > 0 && (
             <RelatedDataSection
               title="Enfermedades"
               icon={<Activity className="h-5 w-5" />}
@@ -644,7 +725,7 @@ export function AnimalModalContent({
           )}
 
           {/* Campos Asignados - Amarillo */}
-          {!loading && fields.length > 0 && (
+          {fields.length > 0 && (
             <RelatedDataSection
               title="Campos Asignados"
               icon={<MapPin className="h-5 w-5" />}
@@ -725,7 +806,7 @@ export function AnimalModalContent({
           )}
 
           {/* Vacunaciones - Azul */}
-          {!loading && vaccinations.length > 0 && (
+          {vaccinations.length > 0 && (
             <RelatedDataSection
               title="Vacunaciones"
               icon={<Syringe className="h-5 w-5" />}
@@ -802,7 +883,7 @@ export function AnimalModalContent({
           )}
 
           {/* Tratamientos - Púrpura */}
-          {!loading && treatments.length > 0 && (
+          {treatments.length > 0 && (
             <RelatedDataSection
               title="Tratamientos"
               icon={<Pill className="h-5 w-5" />}
@@ -905,7 +986,7 @@ export function AnimalModalContent({
           )}
 
           {/* Controles - Naranja */}
-          {!loading && controls.length > 0 && (
+          {controls.length > 0 && (
             <RelatedDataSection
               title="Controles de Crecimiento"
               icon={<TrendingUp className="h-5 w-5" />}
@@ -1042,9 +1123,7 @@ export function AnimalModalContent({
             externalOpenModal={actionModalType}
             externalModalMode={actionModalMode === 'edit' ? 'create' : actionModalMode}
             externalEditingItem={selectedItem}
-            onRefresh={() => {
-              setDataRefreshTrigger(prev => prev + 1);
-            }}
+            onRefresh={handleRefresh}
             onModalClose={closeActionModal}
           />
         )

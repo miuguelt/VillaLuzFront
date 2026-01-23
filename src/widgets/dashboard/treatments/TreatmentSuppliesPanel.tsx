@@ -25,7 +25,8 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
     // Data State
     const [vaccines, setVaccines] = useState<TreatmentVaccineResponse[]>([]);
     const [medications, setMedications] = useState<TreatmentMedicationResponse[]>([]);
-    const [loadingAssoc, setLoadingAssoc] = useState(false);
+    const [loadingVaccines, setLoadingVaccines] = useState(false);
+    const [loadingMedications, setLoadingMedications] = useState(false);
     const [assocError, setAssocError] = useState<string | null>(null);
 
     // Options State
@@ -58,7 +59,7 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
     const [deleteLoadingId, setDeleteLoadingId] = useState<{ type: 'vaccine' | 'medication'; id: number } | null>(null);
 
     // Refs
-    const associationsLoadingRef = useRef<Promise<void> | null>(null);
+    // const associationsLoadingRef = useRef<Promise<void> | null>(null); // Removed to avoid stale promise issues with granular refresh
     const associationsIdRef = useRef<number | null>(null);
     const optionsLoadedRef = useRef(false);
     const optionsLoadingRef = useRef<Promise<void> | null>(null);
@@ -132,93 +133,101 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
     }, []);
 
     // Fetch Associations
-    const refreshAssociations = useCallback(async (treatmentId: number, bypassCache: boolean = false) => {
+    const refreshAssociations = useCallback(async (treatmentId: number, bypassCache: boolean = false, target: 'all' | 'vaccines' | 'medications' = 'all') => {
         if (!treatmentId) return;
-        if (!bypassCache && associationsLoadingRef.current && associationsIdRef.current === treatmentId) {
-            return associationsLoadingRef.current;
-        }
 
-        setLoadingAssoc(true);
+        if (target === 'all' || target === 'vaccines') setLoadingVaccines(true);
+        if (target === 'all' || target === 'medications') setLoadingMedications(true);
+
         setAssocError(null);
         associationsIdRef.current = treatmentId;
 
-        const req = (async () => {
-            try {
-                // Helper recursivo para garantizar la carga completa de datos
-                const fetchAllItems = async (service: any, method: string, queryParams: any) => {
-                    let allData: any[] = [];
-                    let page = 1;
-                    const ITEMS_PER_PAGE = 50;
+        // Helper recursivo para garantizar la carga completa de datos
+        const fetchAllItems = async (service: any, method: string, queryParams: any) => {
+            let allData: any[] = [];
+            let page = 1;
+            const ITEMS_PER_PAGE = 50;
 
-                    while (page <= 10) { // Límite de seguridad
-                        const p = { ...queryParams, page, limit: ITEMS_PER_PAGE };
-                        try {
-                            const res = await service[method](p);
-                            const list = res.data || (Array.isArray(res) ? res : []);
+            while (page <= 10) { // Límite de seguridad
+                const p = { ...queryParams, page, limit: ITEMS_PER_PAGE };
+                try {
+                    const res = await service[method](p);
+                    const list = res.data || (Array.isArray(res) ? res : []);
 
-                            if (!list || list.length === 0) break;
+                    if (!list || list.length === 0) break;
 
-                            const newItems = list.filter((item: any) => !allData.some((existing) => existing.id === item.id));
-                            if (newItems.length === 0) break;
+                    const newItems = list.filter((item: any) => !allData.some((existing) => existing.id === item.id));
+                    if (newItems.length === 0) break;
 
-                            allData = [...allData, ...newItems];
-                            page++;
-                        } catch (e) {
-                            console.error(`Error fetching page ${page}`, e);
-                            break;
-                        }
-                    }
-                    return allData;
-                };
-
-                const params: any = {
-                    treatment_id: treatmentId,
-                    treatmentId: treatmentId,
-                    sort_by: 'id',
-                    sort_order: 'desc',
-                    _t: Date.now()
-                };
-
-                if (bypassCache) {
-                    params.cache_bust = Date.now();
+                    allData = [...allData, ...newItems];
+                    page++;
+                } catch (e) {
+                    console.error(`Error fetching page ${page}`, e);
+                    break;
                 }
-
-                const [vData, mData] = await Promise.all([
-                    fetchAllItems(treatmentVaccinesService, 'getTreatmentVaccines', params),
-                    fetchAllItems(treatmentMedicationService, 'getTreatmentMedications', params),
-                ]);
-
-                // FILTRADO ROBUSTO y FILTRADO DE SOFT DELETES
-                const tIdStr = String(treatmentId);
-                const isNotDeleted = (item: any) => !item.deleted_at && !item.deletedAt;
-
-                const filteredVaccines = vData.filter((v: any) => {
-                    const vTId = v.treatment_id ?? v.treatmentId;
-                    return String(vTId) === tIdStr && isNotDeleted(v);
-                });
-                const filteredMedications = mData.filter((m: any) => {
-                    const mTId = m.treatment_id ?? m.treatmentId;
-                    return String(mTId) === tIdStr && isNotDeleted(m);
-                });
-
-                setVaccines(filteredVaccines);
-                setMedications(filteredMedications);
-            } catch (err) {
-                console.error('[TreatmentSuppliesPanel] Error refreshing associations:', err);
-                setAssocError('No se pudieron cargar los insumos del tratamiento.');
-            } finally {
-                setLoadingAssoc(false);
             }
-        })();
+            return allData;
+        };
 
-        associationsLoadingRef.current = req;
+        const params: any = {
+            treatment_id: treatmentId,
+            treatmentId: treatmentId,
+            sort_by: 'id',
+            sort_order: 'desc',
+            _t: Date.now()
+        };
+
+        if (bypassCache) {
+            params.cache_bust = Date.now();
+        }
+
+        const tIdStr = String(treatmentId);
+        const isNotDeleted = (item: any) => !item.deleted_at && !item.deletedAt;
+
         try {
-            await req;
-        } finally {
-            if (associationsLoadingRef.current === req) {
-                associationsLoadingRef.current = null;
-                associationsIdRef.current = null;
+            const promises: Promise<void>[] = [];
+
+            if (target === 'all' || target === 'vaccines') {
+                promises.push((async () => {
+                    try {
+                        const vData = await fetchAllItems(treatmentVaccinesService, 'getTreatmentVaccines', params);
+                        const filteredVaccines = vData.filter((v: any) => {
+                            const vTId = v.treatment_id ?? v.treatmentId;
+                            return String(vTId) === tIdStr && isNotDeleted(v);
+                        });
+                        setVaccines(filteredVaccines);
+                    } catch (err) {
+                        console.error('Error fetching vaccines', err);
+                    } finally {
+                        setLoadingVaccines(false);
+                    }
+                })());
             }
+
+            if (target === 'all' || target === 'medications') {
+                promises.push((async () => {
+                    try {
+                        const mData = await fetchAllItems(treatmentMedicationService, 'getTreatmentMedications', params);
+                        const filteredMedications = mData.filter((m: any) => {
+                            const mTId = m.treatment_id ?? m.treatmentId;
+                            return String(mTId) === tIdStr && isNotDeleted(m);
+                        });
+                        setMedications(filteredMedications);
+                    } catch (err) {
+                        console.error('Error fetching medications', err);
+                    } finally {
+                        setLoadingMedications(false);
+                    }
+                })());
+            }
+
+            await Promise.all(promises);
+
+        } catch (err) {
+            console.error('[TreatmentSuppliesPanel] Error refreshing associations:', err);
+            setAssocError('No se pudieron cargar los insumos del tratamiento.');
+            setLoadingVaccines(false);
+            setLoadingMedications(false);
         }
     }, []);
 
@@ -226,7 +235,7 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
     useEffect(() => {
         if (treatment?.id) {
             loadOptions();
-            refreshAssociations(treatment.id, true);
+            refreshAssociations(treatment.id, true, 'all');
         }
     }, [treatment, loadOptions, refreshAssociations]);
 
@@ -262,13 +271,10 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
                 await (treatmentVaccinesService as any).createBulk(payload as any);
             }
 
-            await Promise.all([
-                treatmentVaccinesService.clearCache(),
-                treatmentMedicationService.clearCache()
-            ]);
+            await treatmentVaccinesService.clearCache();
 
             setTimeout(() => {
-                refreshAssociations(treatment.id, true);
+                refreshAssociations(treatment.id, true, 'vaccines');
             }, 1200);
 
             setShowAddVaccine(false);
@@ -314,13 +320,10 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
                 await (treatmentMedicationService as any).createBulk(payload as any);
             }
 
-            await Promise.all([
-                treatmentVaccinesService.clearCache(),
-                treatmentMedicationService.clearCache()
-            ]);
+            await treatmentMedicationService.clearCache();
 
             setTimeout(() => {
-                refreshAssociations(treatment.id, true);
+                refreshAssociations(treatment.id, true, 'medications');
             }, 1200);
 
             setShowAddMedication(false);
@@ -354,21 +357,15 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
 
         try {
             await (treatmentVaccinesService as any).deleteTreatmentVaccine(String(itemId));
-            await Promise.all([
-                treatmentVaccinesService.clearCache(),
-                treatmentMedicationService.clearCache()
-            ]);
-            await refreshAssociations(treatment.id, true);
+            await treatmentVaccinesService.clearCache();
+            await refreshAssociations(treatment.id, true, 'vaccines');
             showToast('Vacuna desvinculada', 'success');
         } catch (e: any) {
             if (e?.response?.status === 404 || e?.status === 404) {
-                await Promise.all([
-                    treatmentVaccinesService.clearCache(),
-                    treatmentMedicationService.clearCache()
-                ]);
-                await refreshAssociations(treatment.id, true);
+                await treatmentVaccinesService.clearCache();
+                await refreshAssociations(treatment.id, true, 'vaccines');
             } else {
-                await refreshAssociations(treatment.id, true);
+                await refreshAssociations(treatment.id, true, 'vaccines');
                 showToast('Error al desvincular vacuna', 'error');
             }
         } finally {
@@ -396,21 +393,15 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
 
         try {
             await (treatmentMedicationService as any).deleteTreatmentMedication(String(itemId));
-            await Promise.all([
-                treatmentVaccinesService.clearCache(),
-                treatmentMedicationService.clearCache()
-            ]);
-            await refreshAssociations(treatment.id, true);
+            await treatmentMedicationService.clearCache();
+            await refreshAssociations(treatment.id, true, 'medications');
             showToast('Medicamento desvinculado', 'success');
         } catch (e: any) {
             if (e?.response?.status === 404 || e?.status === 404) {
-                await Promise.all([
-                    treatmentVaccinesService.clearCache(),
-                    treatmentMedicationService.clearCache()
-                ]);
-                await refreshAssociations(treatment.id, true);
+                await treatmentMedicationService.clearCache();
+                await refreshAssociations(treatment.id, true, 'medications');
             } else {
-                await refreshAssociations(treatment.id, true);
+                await refreshAssociations(treatment.id, true, 'medications');
                 showToast('Error al desvincular medicamento', 'error');
             }
         } finally {
@@ -451,10 +442,10 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0 hover:bg-primary/20 hover:text-primary transition-colors"
-                        onClick={() => treatment?.id && refreshAssociations(treatment.id, true)}
+                        onClick={() => treatment?.id && refreshAssociations(treatment.id, true, 'all')}
                         title="Refrescar datos (bypass cache)"
                     >
-                        <RefreshCw className={cn("h-3.5 w-3.5", loadingAssoc && "animate-spin")} />
+                        <RefreshCw className={cn("h-3.5 w-3.5", (loadingVaccines || loadingMedications) && "animate-spin")} />
                     </Button>
                 </div>
                 <div className="flex items-center gap-2">
@@ -565,7 +556,8 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
                 onDeleteMedication={openDeleteMedication}
                 confirmingDeleteId={confirmingDeleteId}
                 deleteLoadingId={deleteLoadingId}
-                loading={loadingAssoc}
+                loadingVaccines={loadingVaccines}
+                loadingMedications={loadingMedications}
             />
 
             {/* Nested Detail Modal for Vaccines/Meds */}

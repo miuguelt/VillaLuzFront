@@ -35,6 +35,8 @@ interface TreatmentSuppliesCardsProps {
     confirmingDeleteId?: number | null;
     deleteLoadingId?: { type: 'vaccine' | 'medication'; id: number } | null;
     loading?: boolean;
+    loadingVaccines?: boolean;
+    loadingMedications?: boolean;
     className?: string;
 }
 
@@ -51,10 +53,11 @@ export const TreatmentSuppliesCards: React.FC<TreatmentSuppliesCardsProps> = ({
     confirmingDeleteId,
     deleteLoadingId,
     loading = false,
+    loadingVaccines = false,
+    loadingMedications = false,
     className = ''
 }) => {
-    // Si está cargando pero NO hay datos, mostrar mensaje de carga.
-    // Si hay datos, mostramos la lista con un indicador visual (overlay).
+    // Si está cargando todo y NO hay nada de datos
     const showFullLoader = loading && vaccines.length === 0 && medications.length === 0;
 
     if (showFullLoader) {
@@ -68,16 +71,17 @@ export const TreatmentSuppliesCards: React.FC<TreatmentSuppliesCardsProps> = ({
 
     return (
         <div className={`grid grid-cols-1 lg:grid-cols-2 gap-4 relative ${className}`}>
-            {loading && (
-                <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-[1px] flex items-center justify-center rounded-xl transition-all duration-300">
-                    <div className="bg-background/80 px-4 py-2 rounded-full shadow-lg border border-border flex items-center gap-2">
-                        <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                        <span className="text-xs font-medium">Actualizando...</span>
-                    </div>
-                </div>
-            )}
+
             {/* Vacunas */}
-            <div className="rounded-xl border border-cyan-200/60 dark:border-cyan-800/60 bg-card p-4 shadow-md has-[.group:hover]:shadow-lg transition-all duration-300">
+            <div className="rounded-xl border border-cyan-200/60 dark:border-cyan-800/60 bg-card p-4 shadow-md has-[.group:hover]:shadow-lg transition-all duration-300 relative overflow-hidden">
+                {(loading || loadingVaccines) && (
+                    <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300">
+                        <div className="bg-background/80 px-3 py-1.5 rounded-full shadow-md border border-border flex items-center gap-2">
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
+                            <span className="text-[10px] font-medium text-muted-foreground">Actualizando...</span>
+                        </div>
+                    </div>
+                )}
                 <h3 className="font-semibold mb-4 flex items-center gap-2 text-cyan-800 dark:text-cyan-300 border-b border-cyan-100 dark:border-cyan-800/50 pb-2">
                     <div className="p-1.5 rounded-full bg-cyan-50 dark:bg-cyan-900/40">
                         <Syringe className="w-4 h-4" />
@@ -167,7 +171,15 @@ export const TreatmentSuppliesCards: React.FC<TreatmentSuppliesCardsProps> = ({
             </div>
 
             {/* Medicamentos */}
-            <div className="rounded-xl border border-purple-200/60 dark:border-purple-800/60 bg-card p-4 shadow-md has-[.group:hover]:shadow-lg transition-all duration-300">
+            <div className="rounded-xl border border-purple-200/60 dark:border-purple-800/60 bg-card p-4 shadow-md has-[.group:hover]:shadow-lg transition-all duration-300 relative overflow-hidden">
+                {(loading || loadingMedications) && (
+                    <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-[1px] flex items-center justify-center transition-all duration-300">
+                        <div className="bg-background/80 px-3 py-1.5 rounded-full shadow-md border border-border flex items-center gap-2">
+                            <div className="w-3.5 h-3.5 rounded-full border-2 border-purple-500 border-t-transparent animate-spin" />
+                            <span className="text-[10px] font-medium text-muted-foreground">Actualizando...</span>
+                        </div>
+                    </div>
+                )}
                 <h3 className="font-semibold mb-4 flex items-center gap-2 text-purple-800 dark:text-purple-300 border-b border-purple-100 dark:border-purple-800/50 pb-2">
                     <div className="p-1.5 rounded-full bg-purple-50 dark:bg-purple-900/40">
                         <Pill className="w-4 h-4" />
