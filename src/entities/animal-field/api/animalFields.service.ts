@@ -20,7 +20,7 @@ export class AnimalFieldsService extends BaseService<AnimalFieldResponse> {
    * @param {number} [options.limit=10] - The number of items per page.
    * @returns {Promise<PaginatedResponse<AnimalFieldResponse>>} A promise that resolves to the paginated list of animal fields.
    */
-  public async getAnimalFields(options: { page?: number; limit?: number } = {}): Promise<PaginatedResponse<AnimalFieldResponse>> {
+  public async getAnimalFields(options: { page?: number; limit?: number;[key: string]: any } = {}): Promise<PaginatedResponse<AnimalFieldResponse>> {
     return this.getPaginated(options);
   }
 

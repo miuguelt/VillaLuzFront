@@ -175,7 +175,7 @@ export interface CRUDConfig<T, TInput> {
   viewMode?: 'table' | 'cards';
   // Contenido interno opcional para cada tarjeta
   renderCard?: (item: T) => React.ReactNode;
-  customDetailContent?: (item: T) => React.ReactNode;
+  customDetailContent?: (item: T, options: { onEdit?: () => void, onOpenSupplies?: () => void }) => React.ReactNode;
   // Callbacks para refrescar datos después de operaciones
   onAfterCreate?: (createdItem: T) => void | Promise<void>;  // Llamado después de crear
   onAfterUpdate?: (updatedItem: T) => void | Promise<void>;  // Llamado después de actualizar
@@ -188,7 +188,7 @@ interface AdminCRUDPageProps<T extends { id: number }, TInput extends Record<str
   initialFormData: TInput | (() => TInput);
   mapResponseToForm?: (item: T) => TInput;
   validateForm?: (formData: TInput) => string | null;
-  customDetailContent?: (item: T) => React.ReactNode;
+  customDetailContent?: (item: T, options: { onEdit?: () => void, onOpenSupplies?: () => void }) => React.ReactNode;
   onFormDataChange?: (formData: TInput) => void;
   // Opciones de tiempo real
   realtime?: boolean;
@@ -1583,6 +1583,16 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         errorMessage = error.message;
       }
 
+      // Detectar errores de dependencia (lanzados por el frontend o backend)
+      const isDependencyError =
+        (error as any)?.isDependencyError ||
+        (typeof errorMessage === 'string' && (
+          errorMessage.toLowerCase().includes('dependencia') ||
+          errorMessage.toLowerCase().includes('relacionado') ||
+          errorMessage.toLowerCase().includes('foreign key') ||
+          errorMessage.toLowerCase().includes('constraint')
+        ));
+
       // Manejo específico de error 404 (elemento ya eliminado)
       if (status === 404) {
         errorMessage = `⚠️ Este ${config.entityName.toLowerCase()} ya fue eliminado previamente. La vista se actualizará automáticamente.`;
@@ -1613,12 +1623,12 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
           setPage(currentPage - 1);
         }
       }
-      // Mensaje especial si hay relaciones (409 Conflict o constraint errors)
-      else if (status === 409 ||
-        errorMessage.toLowerCase().includes('foreign key') ||
-        errorMessage.toLowerCase().includes('constraint') ||
-        errorMessage.toLowerCase().includes('relacionado')) {
-        errorMessage = `⚠️ No se puede eliminar este ${config.entityName.toLowerCase()} porque tiene registros relacionados. Elimine primero los registros dependientes.`;
+      // Mensaje especial si hay relaciones (409 Conflict, error de dependencias, etc.)
+      else if (status === 409 || isDependencyError) {
+        // Si ya tenemos un mensaje específico (del backend), lo usamos. Si es genérico, ponemos el explicativo.
+        errorMessage = (error?.message && error?.message !== 'Error al eliminar')
+          ? error.message
+          : `⚠️ No se puede eliminar este ${config.entityName.toLowerCase()} porque tiene registros relacionados. Elimine primero los registros dependientes.`;
       }
       // Error de integridad típico: "Column 'breeds_id' cannot be null" (MySQL 1048 / SQLAlchemy)
       else if (
@@ -1724,7 +1734,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   return (
     <AppLayout
       header={header}
-      className="h-full flex flex-col p-0 !max-w-none overflow-hidden"
+      className="h-full flex flex-col !p-0 !pb-0 !max-w-none overflow-hidden"
       contentClassName="space-y-0 flex-1 flex flex-col min-h-0"
     >
       <div className="flex-shrink-0 px-4 py-2 border-b border-border/40 bg-background/50 backdrop-blur-sm z-10">
@@ -1747,8 +1757,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
               'overflow-x-auto overflow-y-auto flex-1 transition-colors',
               config.viewMode === 'cards'
                 ? 'bg-surface-secondary'
-                : 'bg-surface',
-              wrapperMaxHeight != null && 'dynamic-max-height'
+                : 'bg-surface'
             )}
           >
             {config.viewMode === 'cards' ? (
@@ -2097,7 +2106,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
           variant="compact"
           allowFullScreenToggle
           enableBackdropBlur
-          className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out max-h-[90vh]"
+          className="bg-card/95 backdrop-blur-md text-card-foreground border-border/10 shadow-xl transition-all duration-200 ease-out max-h-[90vh]"
         >
           <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 h-full flex flex-col text-[13px] sm:text-sm">
             {Object.keys(formErrors).length > 0 && (
@@ -2164,9 +2173,17 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                           )}
                         </label>
                         {field.required && (
-                          <p className="text-[10px] sm:text-xs text-muted-foreground/70 -mt-1 mb-1 flex items-center gap-1">
-                            <span className="text-red-500 dark:text-red-400">●</span>
-                            <span>Campo obligatorio</span>
+                          <p className={cn(
+                            "text-[10px] sm:text-xs transition-opacity duration-300 flex items-center gap-1",
+                            Object.keys(formErrors).length > 0
+                              ? "text-red-500 font-medium opacity-100"
+                              : "text-muted-foreground/50 opacity-100"
+                          )}>
+                            <span className={cn(
+                              "h-1.5 w-1.5 rounded-full",
+                              Object.keys(formErrors).length > 0 ? "bg-red-500" : "bg-muted-foreground/30"
+                            )}></span>
+                            <span>{t('validation.required', 'Campo obligatorio')}</span>
                           </p>
                         )}
 
@@ -2545,7 +2562,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
           variant="compact"
           allowFullScreenToggle
           enableBackdropBlur
-          className="bg-card text-card-foreground border-border shadow-lg transition-all duration-200 ease-out"
+          className="bg-card/95 backdrop-blur-md text-card-foreground border-border/10 shadow-xl transition-all duration-200 ease-out"
           enableNavigation={!!visibleItems && visibleItems.length > 1}
           onNavigatePrevious={handlePrevDetail}
           onNavigateNext={handleNextDetail}
@@ -2611,7 +2628,9 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
             <div className="grid grid-cols-1 gap-4">
               <div className="space-y-4">
                 {customDetailContent || config.customDetailContent ? (
-                  (customDetailContent || config.customDetailContent)!(detailItem)
+                  (customDetailContent || config.customDetailContent)!(detailItem, {
+                    onEdit: config.enableEditModal !== false ? () => openEdit(detailItem) : undefined
+                  })
                 ) : (
                   <Card className="shadow-sm hover:shadow-md transition-shadow duration-200">
                     <CardHeader className="pb-3">

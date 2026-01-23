@@ -36,6 +36,7 @@ interface GenericModalProps {
   onNavigateNext?: () => void;
   hasPrevious?: boolean;
   hasNext?: boolean;
+  zIndex?: number;
 }
 
 // Mapeo de tamaños a clases Tailwind
@@ -76,6 +77,7 @@ export const GenericModal: React.FC<GenericModalProps> = ({
   onNavigateNext,
   hasPrevious = false,
   hasNext = false,
+  zIndex,
 }) => {
   const overlayClasses = cn(
     'fixed inset-0 flex items-start justify-center px-4 py-6',
@@ -196,6 +198,7 @@ export const GenericModal: React.FC<GenericModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent
+        zIndex={zIndex}
         ref={dialogRef}
         className={cn(modalClasses)}
         overlayClassName={overlayClasses}
@@ -226,7 +229,7 @@ export const GenericModal: React.FC<GenericModalProps> = ({
                 <span className="flex-1 min-w-0 truncate">{title}</span>
               </DialogTitle>
             ) : (
-              <VisuallyHidden>
+              <VisuallyHidden asChild>
                 <DialogTitle id={titleId}>Modal</DialogTitle>
               </VisuallyHidden>
             )}
@@ -262,8 +265,8 @@ export const GenericModal: React.FC<GenericModalProps> = ({
               {description}
             </DialogDescription>
           ) : (
-            <VisuallyHidden>
-              <DialogDescription id={descriptionId}>Dialog content</DialogDescription>
+            <VisuallyHidden asChild>
+              <DialogDescription id={descriptionId}>Contenido del diálogo</DialogDescription>
             </VisuallyHidden>
           )}
         </DialogHeader>

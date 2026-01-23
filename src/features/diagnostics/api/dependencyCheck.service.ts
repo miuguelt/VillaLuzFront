@@ -359,7 +359,7 @@ export async function checkAnimalDependencies(animalId: number): Promise<Depende
       }
 
       if (activeItems.length > 0) {
-        console.log(`[checkAnimalDependencies] 🔍 Dependencias encontradas para ${type}:`, activeItems.map(i => ({ id: i.id, date: i.date || i.created_at || 'N/A' })));
+        // console.log(`[checkAnimalDependencies] 🔍 Dependencias encontradas para ${type}:`, activeItems.map(i => ({ id: i.id, date: i.date || i.created_at || 'N/A' })));
       }
 
       return activeItems;
@@ -554,8 +554,11 @@ export async function checkDiseaseDependencies(diseaseId: number): Promise<Depen
     const diagnoses = Array.isArray(diagnosesResp?.data) ? diagnosesResp.data : [];
     const diagnosesCount = diagnosesResp?.total || diagnoses.length;
 
+    let diagnosisDetails: string[] = [];
+    let diagnosisMoreText = '';
+
     if (diagnosesCount > 0) {
-      const diagnosisDetails = await Promise.all(
+      diagnosisDetails = await Promise.all(
         diagnoses.slice(0, 3).map(async (d: any) => {
           try {
             const animal = await animalsService.getAnimalById(d.animal_id);
@@ -566,13 +569,49 @@ export async function checkDiseaseDependencies(diseaseId: number): Promise<Depen
           }
         })
       );
-      const moreText = diagnosesCount > 3 ? ` y ${diagnosesCount - 3} más` : '';
+      diagnosisMoreText = diagnosesCount > 3 ? ` y ${diagnosesCount - 3} más` : '';
+    }
 
+    // Verificar vacunas que tienen esta enfermedad como objetivo (target_disease_id)
+    const vaccinesResp = await vaccinesService.getPaginated({ target_disease_id: diseaseId, limit: 5, page: 1, fields: 'id,name', cache_bust: Date.now() });
+    const vaccines = Array.isArray(vaccinesResp?.data) ? vaccinesResp.data : [];
+    const vaccinesCount = vaccinesResp?.total || vaccines.length;
+
+    if (vaccinesCount > 0) {
+      const vaccineDetails = vaccines.slice(0, 3).map((v: any) => `${v.name || 'Vacuna'} (ID ${v.id})`);
+      const vaccineMoreText = vaccinesCount > 3 ? ` y ${vaccinesCount - 3} más` : '';
+
+      return {
+        hasDependencies: true,
+        message: `⚠️ No se puede eliminar esta enfermedad porque es el objetivo de ${vaccinesCount} vacuna(s).`,
+        detailedMessage: `Esta enfermedad tiene las siguientes dependencias que deben ser eliminadas o reasignadas primero:\n\n` +
+          `💉 **Vacunas Objetivo (${vaccinesCount})**: ${vaccineDetails.join(', ')}${vaccineMoreText}\n\n` +
+          `((También verifique Diagnósticos: ${diagnosesCount > 0 ? diagnosesCount : '0'}))\n\n` +
+          `**Acciones sugeridas:**\n` +
+          `1. Reasignar o eliminar las vacunas que apuntan a esta enfermedad\n` +
+          `2. Eliminar los diagnósticos si existen\n` +
+          `3. Luego podrá eliminar esta enfermedad`,
+        dependencies: [
+          {
+            entity: 'Vacunas Objetivo',
+            count: vaccinesCount,
+            samples: vaccineDetails
+          },
+          ...(diagnosesCount > 0 ? [{
+            entity: 'Diagnósticos',
+            count: diagnosesCount,
+            samples: diagnosisDetails
+          }] : [])
+        ]
+      };
+    }
+
+    if (diagnosesCount > 0) {
       return {
         hasDependencies: true,
         message: `⚠️ No se puede eliminar esta enfermedad porque tiene ${diagnosesCount} diagnóstico(s) asociado(s).`,
         detailedMessage: `Esta enfermedad tiene las siguientes dependencias que deben ser eliminadas o reasignadas primero:\n\n` +
-          `🏥 **Diagnósticos (${diagnosesCount})**: ${diagnosisDetails.join(', ')}${moreText}\n\n` +
+          `🏥 **Diagnósticos (${diagnosesCount})**: ${diagnosisDetails.join(', ')}${diagnosisMoreText}\n\n` +
           `**Acciones sugeridas:**\n` +
           `1. Reasignar todos los diagnósticos a otra enfermedad\n` +
           `2. O eliminar los diagnósticos si ya no son relevantes\n` +

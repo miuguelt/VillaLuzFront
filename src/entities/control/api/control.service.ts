@@ -20,7 +20,7 @@ export class ControlService extends BaseService<ControlResponse> {
    * @param {number} [options.limit=10] - The number of items per page.
    * @returns {Promise<PaginatedResponse<ControlResponse>>} A promise that resolves to the paginated list of controls.
    */
-  public async getControls(options: { page?: number; limit?: number } = {}): Promise<PaginatedResponse<ControlResponse>> {
+  public async getControls(options: { page?: number; limit?: number;[key: string]: any } = {}): Promise<PaginatedResponse<ControlResponse>> {
     return this.getPaginated(options);
   }
 

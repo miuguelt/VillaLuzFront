@@ -31,6 +31,7 @@ import { useActivityFeed } from '@/features/activity/model/useActivityFeed';
 import { fetchMyActivity } from '@/features/activity/api/activity.service';
 import type { ActivityItem, ActivityEntity as ApiActivityEntity, ActivitySeverity as ApiActivitySeverity, ActivityAction as ApiActivityAction } from '@/features/activity/api/activity.service';
 import { useMyActivitySummary } from '@/features/activity/model/useMyActivitySummary';
+import { CollapsibleCard } from '@/shared/ui/common/CollapsibleCard';
 
 const profileSchema = z.object({
     fullname: z.string().min(3, 'Ingresa al menos 3 caracteres').max(120, 'Nombre demasiado largo'),
@@ -1089,7 +1090,7 @@ const UserProfile = () => {
     }
 
     return (
-        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
+        <div className="h-full overflow-auto p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500" tabIndex={0}>
             <header className="flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-green-100 rounded-full">
@@ -1109,15 +1110,13 @@ const UserProfile = () => {
             </header>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <Card className="lg:col-span-1 shadow-sm border-muted/50">
-                    <CardHeader>
-                        <CardTitle className="text-xl flex items-center gap-2">
-                            <User className="w-5 h-5 text-green-600" />
-                            Información Personal
-                        </CardTitle>
-                        <CardDescription>Detalles de tu cuenta en el sistema</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                <CollapsibleCard
+                    title="Información Personal"
+                    accent="emerald"
+                    defaultCollapsed={true}
+                    className="lg:col-span-1"
+                >
+                    <div className="space-y-4">
                         <div className="space-y-1">
                             <p className="text-xs font-semibold text-muted-foreground uppercase">Identificación</p>
                             <p className="font-medium">{user.identification}</p>
@@ -1144,453 +1143,451 @@ const UserProfile = () => {
                                 <p className="font-medium">{user.address}</p>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </CollapsibleCard>
 
-                <Card className="lg:col-span-2 shadow-sm border-muted/50">
-                    <CardHeader>
-                        <CardTitle className="text-xl flex items-center gap-2">
-                            <Activity className="w-5 h-5 text-green-600" />
-                            Tu Actividad
-                        </CardTitle>
-                        <CardDescription>Resumen de tus acciones y asignaciones</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-6">
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                <div className="rounded-lg border bg-white p-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-xs text-muted-foreground">Acciones (7/30)</p>
-                                        <Activity className="h-4 w-4 text-green-600" aria-hidden />
-                                    </div>
-                                    <p className="mt-1 text-lg font-semibold text-foreground">
-                                        {summaryLoading ? '-' : actions7} <span className="text-muted-foreground">/</span> {summaryLoading ? '-' : actions30}
-                                    </p>
-                                    <p className="text-[11px] text-muted-foreground">Eventos recientes</p>
+                <CollapsibleCard
+                    title="Tu Actividad"
+                    accent="emerald"
+                    defaultCollapsed={true}
+                    className="lg:col-span-2"
+                >
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            <div className="rounded-lg border bg-white p-3">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs text-muted-foreground">Acciones (7/30)</p>
+                                    <Activity className="h-4 w-4 text-green-600" aria-hidden />
                                 </div>
-                                <div className="rounded-lg border bg-white p-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-xs text-muted-foreground">Mis animales</p>
-                                        <User className="h-4 w-4 text-green-600" aria-hidden />
-                                    </div>
-                                    <p className="mt-1 text-lg font-semibold text-foreground">{summaryLoading ? '-' : distinctAnimals30}</p>
-                                    <p className="text-[11px] text-muted-foreground">Involucrados (30d)</p>
+                                <p className="mt-1 text-lg font-semibold text-foreground">
+                                    {summaryLoading ? '-' : actions7} <span className="text-muted-foreground">/</span> {summaryLoading ? '-' : actions30}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">Eventos recientes</p>
+                            </div>
+                            <div className="rounded-lg border bg-white p-3">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs text-muted-foreground">Mis animales</p>
+                                    <User className="h-4 w-4 text-green-600" aria-hidden />
                                 </div>
-                                <div className="rounded-lg border bg-white p-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-xs text-muted-foreground">Tratamientos activos</p>
-                                        <ClipboardList className="h-4 w-4 text-green-600" aria-hidden />
-                                    </div>
-                                    <p className="mt-1 text-lg font-semibold text-foreground">{activeTreatments}</p>
-                                    <p className="text-[11px] text-muted-foreground">En seguimiento</p>
+                                <p className="mt-1 text-lg font-semibold text-foreground">{summaryLoading ? '-' : distinctAnimals30}</p>
+                                <p className="text-[11px] text-muted-foreground">Involucrados (30d)</p>
+                            </div>
+                            <div className="rounded-lg border bg-white p-3">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs text-muted-foreground">Tratamientos activos</p>
+                                    <ClipboardList className="h-4 w-4 text-green-600" aria-hidden />
                                 </div>
-                                <div className="rounded-lg border bg-white p-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-xs text-muted-foreground">Ultima actividad</p>
-                                        <CalendarClock className="h-4 w-4 text-blue-600" aria-hidden />
+                                <p className="mt-1 text-lg font-semibold text-foreground">{activeTreatments}</p>
+                                <p className="text-[11px] text-muted-foreground">En seguimiento</p>
+                            </div>
+                            <div className="rounded-lg border bg-white p-3">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-xs text-muted-foreground">Ultima actividad</p>
+                                    <CalendarClock className="h-4 w-4 text-blue-600" aria-hidden />
+                                </div>
+                                <p className="mt-1 text-lg font-semibold text-foreground">
+                                    {summaryLoading ? '-' : lastActivityAt ? new Date(lastActivityAt).toLocaleDateString('es-ES') : '-'}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                    {summaryLoading ? '' : lastActivityAt ? new Date(lastActivityAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Sin eventos'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="rounded-lg border bg-white p-4">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">Timeline de actividad</p>
+                                    <p className="text-xs text-muted-foreground">Usa paginado + filtros (sin reordenar la data) y navega con deep links.</p>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2 sm:items-center w-full md:w-auto">
+                                    <div className="flex items-center gap-2">
+                                        <Label className="text-xs text-muted-foreground whitespace-nowrap" htmlFor="activityFrom">
+                                            Desde
+                                        </Label>
+                                        <Input
+                                            id="activityFrom"
+                                            type="date"
+                                            value={activityFrom}
+                                            onChange={(e) => {
+                                                setActivityFrom(e.target.value);
+                                                setActivityPage(1);
+                                            }}
+                                            className="h-9"
+                                        />
                                     </div>
-                                    <p className="mt-1 text-lg font-semibold text-foreground">
-                                        {summaryLoading ? '-' : lastActivityAt ? new Date(lastActivityAt).toLocaleDateString('es-ES') : '-'}
-                                    </p>
-                                    <p className="text-[11px] text-muted-foreground">
-                                        {summaryLoading ? '' : lastActivityAt ? new Date(lastActivityAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Sin eventos'}
-                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <Label className="text-xs text-muted-foreground whitespace-nowrap" htmlFor="activityTo">
+                                            Hasta
+                                        </Label>
+                                        <Input
+                                            id="activityTo"
+                                            type="date"
+                                            value={activityTo}
+                                            onChange={(e) => {
+                                                setActivityTo(e.target.value);
+                                                setActivityPage(1);
+                                            }}
+                                            className="h-9"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Label className="text-xs text-muted-foreground whitespace-nowrap" htmlFor="activityAnimalId">
+                                            Animal ID
+                                        </Label>
+                                        <Input
+                                            id="activityAnimalId"
+                                            type="number"
+                                            inputMode="numeric"
+                                            value={activityAnimalId}
+                                            onChange={(e) => {
+                                                setActivityAnimalId(e.target.value);
+                                                setActivityPage(1);
+                                            }}
+                                            className="h-9"
+                                            placeholder="80"
+                                        />
+                                    </div>
+                                    <Select
+                                        value={activityEntity}
+                                        onValueChange={(v) => {
+                                            setActivityEntity(v as ActivityEntityFilter);
+                                            setActivityPage(1);
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-9 w-full lg:w-[170px]">
+                                            <SelectValue placeholder="Entidad" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todas</SelectItem>
+                                            <SelectItem value="animal">Animales</SelectItem>
+                                            <SelectItem value="treatment">Tratamientos</SelectItem>
+                                            <SelectItem value="vaccination">Vacunaciones</SelectItem>
+                                            <SelectItem value="control">Controles</SelectItem>
+                                            <SelectItem value="disease">Enfermedades</SelectItem>
+                                            <SelectItem value="field">Lotes</SelectItem>
+                                            <SelectItem value="improvement">Mejoras</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Select
+                                        value={activityAction}
+                                        onValueChange={(v) => {
+                                            setActivityAction(v as ActivityActionFilter);
+                                            setActivityPage(1);
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-9 w-full lg:w-[150px]">
+                                            <SelectValue placeholder="Accion" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todas</SelectItem>
+                                            <SelectItem value="create">Crear</SelectItem>
+                                            <SelectItem value="update">Actualizar</SelectItem>
+                                            <SelectItem value="delete">Eliminar</SelectItem>
+                                            <SelectItem value="alert">Alertas</SelectItem>
+                                            <SelectItem value="system">Sistema</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <Select
+                                        value={activitySeverity}
+                                        onValueChange={(v) => {
+                                            setActivitySeverity(v as ActivitySeverityFilter);
+                                            setActivityPage(1);
+                                        }}
+                                    >
+                                        <SelectTrigger className="h-9 w-full lg:w-[150px]">
+                                            <SelectValue placeholder="Severidad" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todas</SelectItem>
+                                            <SelectItem value="low">Baja</SelectItem>
+                                            <SelectItem value="medium">Media</SelectItem>
+                                            <SelectItem value="high">Alta</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <div className="flex items-center gap-2">
+                                        <Select
+                                            value={String(activityLimit)}
+                                            onValueChange={(v) => {
+                                                setActivityLimit(Number(v));
+                                                setActivityPage(1);
+                                            }}
+                                        >
+                                            <SelectTrigger className="h-9 w-full lg:w-[120px]">
+                                                <SelectValue placeholder="Items" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="10">10</SelectItem>
+                                                <SelectItem value="20">20</SelectItem>
+                                                <SelectItem value="50">50</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <Button type="button" variant="outline" size="sm" onClick={refetchActivity} disabled={activityLoading}>
+                                            Refrescar
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="rounded-lg border bg-white p-4">
-                                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                                    <div>
-                                        <p className="text-sm font-semibold text-foreground">Timeline de actividad</p>
-                                        <p className="text-xs text-muted-foreground">Usa paginado + filtros (sin reordenar la data) y navega con deep links.</p>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2 sm:items-center w-full md:w-auto">
-                                        <div className="flex items-center gap-2">
-                                            <Label className="text-xs text-muted-foreground whitespace-nowrap" htmlFor="activityFrom">
-                                                Desde
-                                            </Label>
-                                            <Input
-                                                id="activityFrom"
-                                                type="date"
-                                                value={activityFrom}
-                                                onChange={(e) => {
-                                                    setActivityFrom(e.target.value);
-                                                    setActivityPage(1);
-                                                }}
-                                                className="h-9"
-                                            />
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Label className="text-xs text-muted-foreground whitespace-nowrap" htmlFor="activityTo">
-                                                Hasta
-                                            </Label>
-                                            <Input
-                                                id="activityTo"
-                                                type="date"
-                                                value={activityTo}
-                                                onChange={(e) => {
-                                                    setActivityTo(e.target.value);
-                                                    setActivityPage(1);
-                                                }}
-                                                className="h-9"
-                                            />
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Label className="text-xs text-muted-foreground whitespace-nowrap" htmlFor="activityAnimalId">
-                                                Animal ID
-                                            </Label>
-                                            <Input
-                                                id="activityAnimalId"
-                                                type="number"
-                                                inputMode="numeric"
-                                                value={activityAnimalId}
-                                                onChange={(e) => {
-                                                    setActivityAnimalId(e.target.value);
-                                                    setActivityPage(1);
-                                                }}
-                                                className="h-9"
-                                                placeholder="80"
-                                            />
-                                        </div>
-                                        <Select
-                                            value={activityEntity}
-                                            onValueChange={(v) => {
-                                                setActivityEntity(v as ActivityEntityFilter);
-                                                setActivityPage(1);
-                                            }}
-                                        >
-                                            <SelectTrigger className="h-9 w-full lg:w-[170px]">
-                                                <SelectValue placeholder="Entidad" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todas</SelectItem>
-                                                <SelectItem value="animal">Animales</SelectItem>
-                                                <SelectItem value="treatment">Tratamientos</SelectItem>
-                                                <SelectItem value="vaccination">Vacunaciones</SelectItem>
-                                                <SelectItem value="control">Controles</SelectItem>
-                                                <SelectItem value="disease">Enfermedades</SelectItem>
-                                                <SelectItem value="field">Lotes</SelectItem>
-                                                <SelectItem value="improvement">Mejoras</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <Select
-                                            value={activityAction}
-                                            onValueChange={(v) => {
-                                                setActivityAction(v as ActivityActionFilter);
-                                                setActivityPage(1);
-                                            }}
-                                        >
-                                            <SelectTrigger className="h-9 w-full lg:w-[150px]">
-                                                <SelectValue placeholder="Accion" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todas</SelectItem>
-                                                <SelectItem value="create">Crear</SelectItem>
-                                                <SelectItem value="update">Actualizar</SelectItem>
-                                                <SelectItem value="delete">Eliminar</SelectItem>
-                                                <SelectItem value="alert">Alertas</SelectItem>
-                                                <SelectItem value="system">Sistema</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <Select
-                                            value={activitySeverity}
-                                            onValueChange={(v) => {
-                                                setActivitySeverity(v as ActivitySeverityFilter);
-                                                setActivityPage(1);
-                                            }}
-                                        >
-                                            <SelectTrigger className="h-9 w-full lg:w-[150px]">
-                                                <SelectValue placeholder="Severidad" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todas</SelectItem>
-                                                <SelectItem value="low">Baja</SelectItem>
-                                                <SelectItem value="medium">Media</SelectItem>
-                                                <SelectItem value="high">Alta</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <div className="flex items-center gap-2">
-                                            <Select
-                                                value={String(activityLimit)}
-                                                onValueChange={(v) => {
-                                                    setActivityLimit(Number(v));
-                                                    setActivityPage(1);
-                                                }}
-                                            >
-                                                <SelectTrigger className="h-9 w-full lg:w-[120px]">
-                                                    <SelectValue placeholder="Items" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="10">10</SelectItem>
-                                                    <SelectItem value="20">20</SelectItem>
-                                                    <SelectItem value="50">50</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <Button type="button" variant="outline" size="sm" onClick={refetchActivity} disabled={activityLoading}>
-                                                Refrescar
+                            {activityError ? (
+                                <div className="mt-4">
+                                    <Alert className="bg-red-50 border-red-200">
+                                        <AlertTitle className="font-semibold">No se pudo cargar la actividad</AlertTitle>
+                                        <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                            <span className="text-sm">{activityError}</span>
+                                            <Button type="button" variant="outline" size="sm" onClick={refetchActivity}>
+                                                Reintentar
                                             </Button>
-                                        </div>
+                                        </AlertDescription>
+                                    </Alert>
+                                </div>
+                            ) : activityLoading ? (
+                                <div className="mt-4 flex justify-center py-6">
+                                    <ClimbingBoxLoader color="#16a34a" size={10} />
+                                </div>
+                            ) : activityItems.length === 0 ? (
+                                <div className="mt-4 rounded-lg border border-dashed p-4 text-center">
+                                    <p className="text-sm font-medium text-foreground">Sin actividad con estos filtros.</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Ajusta fechas/entidad o registra una accion desde el CRUD.</p>
+                                    <div className="mt-3 flex flex-col sm:flex-row gap-2 justify-center">
+                                        <Button type="button" variant="outline" size="sm" onClick={() => openCrudList('animals')}>
+                                            Ir a Animales
+                                        </Button>
+                                        <Button type="button" variant="outline" size="sm" onClick={() => navigate(`${rolePrefix}/analytics/executive`)}>
+                                            Ver Analytics
+                                        </Button>
                                     </div>
                                 </div>
+                            ) : (
+                                <div className="mt-4 space-y-3">
+                                    {activityTimelineGroups.map(([dayLabel, items]) => (
+                                        <CollapsibleCard
+                                            key={dayLabel}
+                                            title={dayLabel}
+                                            defaultCollapsed={true}
+                                            accent="slate"
+                                            className="border-none shadow-none bg-transparent"
+                                        >
+                                            <div className="space-y-2">
+                                                {items.map((item) => {
+                                                    const severity = String(item.severity ?? 'low');
+                                                    const accent =
+                                                        severity === 'high'
+                                                            ? 'border-l-red-500'
+                                                            : severity === 'medium'
+                                                                ? 'border-l-amber-500'
+                                                                : 'border-l-green-500';
+                                                    const timestamp = new Date(item.timestamp);
+                                                    const timeLabel = Number.isFinite(timestamp.getTime())
+                                                        ? timestamp.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
+                                                        : '';
+                                                    const title = item.title || `${String(item.action)} · ${String(item.entity)}`;
+                                                    const summary = item.summary || '';
+                                                    const canOpenDetail = Boolean(item.links?.detail || entityCrudPath(item.entity));
+                                                    const canOpenAnimal = Boolean(item.animal_id || item.links?.animal);
+                                                    const canOpenCrud = Boolean(item.links?.crud || entityCrudPath(item.entity));
+                                                    const key = `${String(item.id)}:${String(item.timestamp)}`;
 
-                                {activityError ? (
-                                    <div className="mt-4">
-                                        <Alert className="bg-red-50 border-red-200">
-                                            <AlertTitle className="font-semibold">No se pudo cargar la actividad</AlertTitle>
-                                            <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                                <span className="text-sm">{activityError}</span>
-                                                <Button type="button" variant="outline" size="sm" onClick={refetchActivity}>
-                                                    Reintentar
-                                                </Button>
-                                            </AlertDescription>
-                                        </Alert>
-                                    </div>
-                                ) : activityLoading ? (
-                                    <div className="mt-4 flex justify-center py-6">
-                                        <ClimbingBoxLoader color="#16a34a" size={10} />
-                                    </div>
-                                ) : activityItems.length === 0 ? (
-                                    <div className="mt-4 rounded-lg border border-dashed p-4 text-center">
-                                        <p className="text-sm font-medium text-foreground">Sin actividad con estos filtros.</p>
-                                        <p className="text-xs text-muted-foreground mt-1">Ajusta fechas/entidad o registra una accion desde el CRUD.</p>
-                                        <div className="mt-3 flex flex-col sm:flex-row gap-2 justify-center">
-                                            <Button type="button" variant="outline" size="sm" onClick={() => openCrudList('animals')}>
-                                                Ir a Animales
-                                            </Button>
-                                            <Button type="button" variant="outline" size="sm" onClick={() => navigate(`${rolePrefix}/analytics/executive`)}>
-                                                Ver Analytics
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mt-4 space-y-4">
-                                        {activityTimelineGroups.map(([dayLabel, items]) => (
-                                            <div key={dayLabel}>
-                                                <p className="text-xs font-semibold text-muted-foreground uppercase">{dayLabel}</p>
-                                                <div className="mt-2 space-y-2">
-                                                    {items.map((item) => {
-                                                        const severity = String(item.severity ?? 'low');
-                                                        const accent =
-                                                            severity === 'high'
-                                                                ? 'border-l-red-500'
-                                                                : severity === 'medium'
-                                                                    ? 'border-l-amber-500'
-                                                                    : 'border-l-green-500';
-                                                        const timestamp = new Date(item.timestamp);
-                                                        const timeLabel = Number.isFinite(timestamp.getTime())
-                                                            ? timestamp.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-                                                            : '';
-                                                        const title = item.title || `${String(item.action)} · ${String(item.entity)}`;
-                                                        const summary = item.summary || '';
-                                                        const canOpenDetail = Boolean(item.links?.detail || entityCrudPath(item.entity));
-                                                        const canOpenAnimal = Boolean(item.animal_id || item.links?.animal);
-                                                        const canOpenCrud = Boolean(item.links?.crud || entityCrudPath(item.entity));
-                                                        const key = `${String(item.id)}:${String(item.timestamp)}`;
-
-                                                        return (
-                                                            <div
-                                                                key={key}
-                                                                className={`flex flex-col md:flex-row md:items-center gap-3 rounded-lg border border-muted/60 bg-background/50 p-3 border-l-4 ${accent}`}
-                                                            >
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex flex-wrap items-center gap-2">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => openActivityDetail(item)}
-                                                                            className="text-left text-sm font-semibold text-foreground truncate hover:underline"
-                                                                        >
-                                                                            {title}
-                                                                        </button>
-                                                                        {timeLabel && <span className="text-[11px] text-muted-foreground">{timeLabel}</span>}
-                                                                        <Badge variant="outline" className="text-[10px]">
-                                                                            {String(item.entity)}
-                                                                        </Badge>
-                                                                        <Badge variant="outline" className="text-[10px]">
-                                                                            {String(item.action)}
-                                                                        </Badge>
-                                                                    </div>
-                                                                    {summary && <p className="text-xs text-muted-foreground mt-1 truncate">{summary}</p>}
+                                                    return (
+                                                        <div
+                                                            key={key}
+                                                            className={`flex flex-col md:flex-row md:items-center gap-3 rounded-lg border border-muted/60 bg-background/50 p-3 border-l-4 ${accent}`}
+                                                        >
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => openActivityDetail(item)}
+                                                                        className="text-left text-sm font-semibold text-foreground truncate hover:underline"
+                                                                    >
+                                                                        {title}
+                                                                    </button>
+                                                                    {timeLabel && <span className="text-[11px] text-muted-foreground">{timeLabel}</span>}
+                                                                    <Badge variant="outline" className="text-[10px]">
+                                                                        {String(item.entity)}
+                                                                    </Badge>
+                                                                    <Badge variant="outline" className="text-[10px]">
+                                                                        {String(item.action)}
+                                                                    </Badge>
                                                                 </div>
-                                                                <div className="flex flex-wrap gap-2">
-                                                                    {canOpenDetail && (
-                                                                        <Button type="button" variant="ghost" size="sm" onClick={() => openActivityDetail(item)}>
-                                                                            Ver
-                                                                        </Button>
-                                                                    )}
-                                                                    {canOpenAnimal && (
-                                                                        <Button type="button" variant="ghost" size="sm" onClick={() => openActivityAnimal(item)}>
-                                                                            Animal
-                                                                        </Button>
-                                                                    )}
-                                                                    {canOpenCrud && (
-                                                                        <Button type="button" variant="outline" size="sm" onClick={() => openActivityCrud(item)}>
-                                                                            CRUD <ExternalLink className="h-3 w-3 ml-1" aria-hidden />
-                                                                        </Button>
-                                                                    )}
-                                                                    {item.links?.analytics && (
-                                                                        <Button type="button" variant="outline" size="sm" onClick={() => openActivityLink(item.links?.analytics)}>
-                                                                            Analytics <ExternalLink className="h-3 w-3 ml-1" aria-hidden />
-                                                                        </Button>
-                                                                    )}
-                                                                </div>
+                                                                {summary && <p className="text-xs text-muted-foreground mt-1 truncate">{summary}</p>}
                                                             </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {canOpenDetail && (
+                                                                    <Button type="button" variant="ghost" size="sm" onClick={() => openActivityDetail(item)}>
+                                                                        Ver
+                                                                    </Button>
+                                                                )}
+                                                                {canOpenAnimal && (
+                                                                    <Button type="button" variant="ghost" size="sm" onClick={() => openActivityAnimal(item)}>
+                                                                        Animal
+                                                                    </Button>
+                                                                )}
+                                                                {canOpenCrud && (
+                                                                    <Button type="button" variant="outline" size="sm" onClick={() => openActivityCrud(item)}>
+                                                                        CRUD <ExternalLink className="h-3 w-3 ml-1" aria-hidden />
+                                                                    </Button>
+                                                                )}
+                                                                {item.links?.analytics && (
+                                                                    <Button type="button" variant="outline" size="sm" onClick={() => openActivityLink(item.links?.analytics)}>
+                                                                        Analytics <ExternalLink className="h-3 w-3 ml-1" aria-hidden />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
-                                        ))}
+                                        </CollapsibleCard>
+                                    ))}
 
-                                        <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                                            <p className="text-xs text-muted-foreground">
-                                                Pagina {activityPage}
-                                                {typeof activityMeta?.total_pages === 'number' ? ` de ${activityMeta.total_pages}` : ''}
-                                                {typeof activityMeta?.total === 'number' ? ` · Total: ${activityMeta.total}` : ''}
-                                            </p>
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
-                                                    disabled={activityPage <= 1 || activityLoading}
-                                                >
-                                                    Anterior
+                                    <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                        <p className="text-xs text-muted-foreground">
+                                            Pagina {activityPage}
+                                            {typeof activityMeta?.total_pages === 'number' ? ` de ${activityMeta.total_pages}` : ''}
+                                            {typeof activityMeta?.total === 'number' ? ` · Total: ${activityMeta.total}` : ''}
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                                                disabled={activityPage <= 1 || activityLoading}
+                                            >
+                                                Anterior
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setActivityPage((p) => p + 1)}
+                                                disabled={!activityHasNext || activityLoading}
+                                            >
+                                                Siguiente
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <Tabs defaultValue={activitySections[0]?.key || 'animals'} className="w-full">
+                            <TabsList className="flex flex-wrap gap-2 mb-6 bg-muted/50 p-1 rounded-lg">
+                                {activitySections.map((section) => (
+                                    <TabsTrigger
+                                        key={section.key}
+                                        value={section.key}
+                                        className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                                    >
+                                        {section.title} <span className="ml-1 text-xs text-muted-foreground">({section.rows.length})</span>
+                                    </TabsTrigger>
+                                ))}
+                            </TabsList>
+
+                            {activitySections.map((section) => {
+                                const rows = Array.isArray(section.rows) ? section.rows : [];
+                                const lastTs = rows
+                                    .map((row: any) => toEpochMs(row.ts))
+                                    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0)
+                                    .reduce((max, v) => Math.max(max, v), 0);
+                                const lastLabel = lastTs ? new Date(lastTs).toLocaleString('es-ES') : 'Sin actividad';
+
+                                const emptyCopy: Record<string, { title: string; body: string; cta: string }> = {
+                                    animals: { title: 'Aun no tienes animales asignados', body: 'Agrega o asigna animales para ver su trazabilidad aqui.', cta: 'Ir a Animales' },
+                                    genetics: { title: 'Sin mejoras geneticas registradas', body: 'Registra una mejora para mantener el historial productivo al dia.', cta: 'Ir a Mejoras' },
+                                    fields: { title: 'Sin lotes vinculados', body: 'Asigna un animal a un lote para mejorar el seguimiento de ubicacion.', cta: 'Ir a Lotes' },
+                                    diseases: { title: 'Sin enfermedades registradas', body: 'Si aparece un caso, registralo para mantener el historial medico.', cta: 'Ir a Enfermedades' },
+                                    treatments: { title: 'Aun no tienes tratamientos', body: 'Registra el primer tratamiento para uno de tus animales.', cta: 'Ir a Tratamientos' },
+                                    vaccinations: { title: 'Aun no tienes vacunaciones', body: 'Registra una aplicacion para mantener los vencimientos controlados.', cta: 'Ir a Vacunaciones' },
+                                    controls: { title: 'Aun no tienes controles', body: 'Registra un control para dar seguimiento al estado del animal.', cta: 'Ir a Controles' },
+                                };
+                                const empty = emptyCopy[section.key] ?? { title: 'Sin registros', body: 'Aun no hay actividad en esta seccion.', cta: 'Abrir CRUD' };
+
+                                return (
+                                    <TabsContent
+                                        key={section.key}
+                                        value={section.key}
+                                        className="min-h-[200px] animate-in slide-in-from-bottom-2 duration-300"
+                                    >
+                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                                            <div>
+                                                <p className="text-xs text-muted-foreground">Ultima actividad: {lastLabel}</p>
+                                                <p className="text-xs text-muted-foreground">Deep links: ver detalle, ver animal, ver CRUD filtrado.</p>
+                                            </div>
+                                            <div className="flex flex-col sm:flex-row gap-2">
+                                                <Button type="button" variant="outline" size="sm" onClick={() => openCrudList(section.crudPath)}>
+                                                    Abrir CRUD completo
                                                 </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => setActivityPage((p) => p + 1)}
-                                                    disabled={!activityHasNext || activityLoading}
-                                                >
-                                                    Siguiente
+                                                <Button type="button" variant="outline" size="sm" onClick={() => navigate(`${rolePrefix}/analytics/executive`)}>
+                                                    Analytics
                                                 </Button>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
 
-                            <Tabs defaultValue={activitySections[0]?.key || 'animals'} className="w-full">
-                                <TabsList className="flex flex-wrap gap-2 mb-6 bg-muted/50 p-1 rounded-lg">
-                                    {activitySections.map((section) => (
-                                        <TabsTrigger
-                                            key={section.key}
-                                            value={section.key}
-                                            className="rounded-md data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                                        >
-                                            {section.title} <span className="ml-1 text-xs text-muted-foreground">({section.rows.length})</span>
-                                        </TabsTrigger>
-                                    ))}
-                                </TabsList>
-
-                                {activitySections.map((section) => {
-                                    const rows = Array.isArray(section.rows) ? section.rows : [];
-                                    const lastTs = rows
-                                        .map((row: any) => toEpochMs(row.ts))
-                                        .filter((v): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0)
-                                        .reduce((max, v) => Math.max(max, v), 0);
-                                    const lastLabel = lastTs ? new Date(lastTs).toLocaleString('es-ES') : 'Sin actividad';
-
-                                    const emptyCopy: Record<string, { title: string; body: string; cta: string }> = {
-                                        animals: { title: 'Aun no tienes animales asignados', body: 'Agrega o asigna animales para ver su trazabilidad aqui.', cta: 'Ir a Animales' },
-                                        genetics: { title: 'Sin mejoras geneticas registradas', body: 'Registra una mejora para mantener el historial productivo al dia.', cta: 'Ir a Mejoras' },
-                                        fields: { title: 'Sin lotes vinculados', body: 'Asigna un animal a un lote para mejorar el seguimiento de ubicacion.', cta: 'Ir a Lotes' },
-                                        diseases: { title: 'Sin enfermedades registradas', body: 'Si aparece un caso, registralo para mantener el historial medico.', cta: 'Ir a Enfermedades' },
-                                        treatments: { title: 'Aun no tienes tratamientos', body: 'Registra el primer tratamiento para uno de tus animales.', cta: 'Ir a Tratamientos' },
-                                        vaccinations: { title: 'Aun no tienes vacunaciones', body: 'Registra una aplicacion para mantener los vencimientos controlados.', cta: 'Ir a Vacunaciones' },
-                                        controls: { title: 'Aun no tienes controles', body: 'Registra un control para dar seguimiento al estado del animal.', cta: 'Ir a Controles' },
-                                    };
-                                    const empty = emptyCopy[section.key] ?? { title: 'Sin registros', body: 'Aun no hay actividad en esta seccion.', cta: 'Abrir CRUD' };
-
-                                    return (
-                                        <TabsContent
-                                            key={section.key}
-                                            value={section.key}
-                                            className="min-h-[200px] animate-in slide-in-from-bottom-2 duration-300"
-                                        >
-                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                                                <div>
-                                                    <p className="text-xs text-muted-foreground">Ultima actividad: {lastLabel}</p>
-                                                    <p className="text-xs text-muted-foreground">Deep links: ver detalle, ver animal, ver CRUD filtrado.</p>
-                                                </div>
-                                                <div className="flex flex-col sm:flex-row gap-2">
-                                                    <Button type="button" variant="outline" size="sm" onClick={() => openCrudList(section.crudPath)}>
-                                                        Abrir CRUD completo
-                                                    </Button>
-                                                    <Button type="button" variant="outline" size="sm" onClick={() => navigate(`${rolePrefix}/analytics/executive`)}>
-                                                        Analytics
+                                        {rows.length === 0 ? (
+                                            <div className="rounded-lg border border-dashed p-6 text-center bg-muted/10">
+                                                <p className="text-sm font-semibold text-foreground">{empty.title}</p>
+                                                <p className="text-xs text-muted-foreground mt-1">{empty.body}</p>
+                                                <div className="mt-4 flex justify-center">
+                                                    <Button type="button" size="sm" onClick={() => openCrudList(section.crudPath)}>
+                                                        {empty.cta}
                                                     </Button>
                                                 </div>
                                             </div>
-
-                                            {rows.length === 0 ? (
-                                                <div className="rounded-lg border border-dashed p-6 text-center bg-muted/10">
-                                                    <p className="text-sm font-semibold text-foreground">{empty.title}</p>
-                                                    <p className="text-xs text-muted-foreground mt-1">{empty.body}</p>
-                                                    <div className="mt-4 flex justify-center">
-                                                        <Button type="button" size="sm" onClick={() => openCrudList(section.crudPath)}>
-                                                            {empty.cta}
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div className="rounded-md border border-muted/60 bg-white">
-                                                    <HistoryTable
-                                                        columns={section.columns}
-                                                        data={rows}
-                                                        getRowId={(row) => row.id}
-                                                        onRowClick={(row) => openCrudDetail(section.crudPath, row.id)}
-                                                        renderRowActions={(row) => (
-                                                            <div className="flex gap-2 justify-end">
+                                        ) : (
+                                            <div className="rounded-md border border-muted/60 bg-white">
+                                                <HistoryTable
+                                                    columns={section.columns}
+                                                    data={rows}
+                                                    getRowId={(row) => row.id}
+                                                    onRowClick={(row) => openCrudDetail(section.crudPath, row.id)}
+                                                    renderRowActions={(row) => (
+                                                        <div className="flex gap-2 justify-end">
+                                                            <Button
+                                                                type="button"
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    openCrudDetail(section.crudPath, row.id);
+                                                                }}
+                                                            >
+                                                                Ver
+                                                            </Button>
+                                                            {row.animalId && section.crudPath !== 'animals' && (
                                                                 <Button
                                                                     type="button"
                                                                     variant="ghost"
                                                                     size="sm"
                                                                     onClick={(event) => {
                                                                         event.stopPropagation();
-                                                                        openCrudDetail(section.crudPath, row.id);
+                                                                        openCrudDetail('animals', row.animalId);
                                                                     }}
                                                                 >
-                                                                    Ver
+                                                                    Animal
                                                                 </Button>
-                                                                {row.animalId && section.crudPath !== 'animals' && (
-                                                                    <Button
-                                                                        type="button"
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        onClick={(event) => {
-                                                                            event.stopPropagation();
-                                                                            openCrudDetail('animals', row.animalId);
-                                                                        }}
-                                                                    >
-                                                                        Animal
-                                                                    </Button>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                    />
-                                                </div>
-                                            )}
-                                        </TabsContent>
-                                    );
-                                })}
-                            </Tabs>
-                        </div>
-                    </CardContent>
-                </Card>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                />
+                                            </div>
+                                        )}
+                                    </TabsContent>
+                                );
+                            })}
+                        </Tabs>
+                    </div>
+                </CollapsibleCard>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="shadow-sm border-muted/50">
-                    <CardHeader>
-                        <CardTitle className="text-xl flex items-center gap-2">
-                            <Save className="w-5 h-5 text-green-600" />
-                            Actualiza tus datos
-                        </CardTitle>
-                        <CardDescription>El formulario usa cookies + header CSRF automático desde el cliente.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                <CollapsibleCard
+                    title="Actualiza tus datos"
+                    accent="emerald"
+                    defaultCollapsed={true}
+                >
+                    <div className="space-y-4">
                         {profileStatus && (
                             <Alert className={profileStatus.type === 'error' ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}>
                                 <AlertTitle className="font-semibold">{profileStatus.type === 'error' ? 'Error' : 'Datos guardados'}</AlertTitle>
@@ -1656,18 +1653,15 @@ const UserProfile = () => {
                                 </Button>
                             </div>
                         </form>
-                    </CardContent>
-                </Card>
+                    </div>
+                </CollapsibleCard>
 
-                <Card className="shadow-sm border-muted/50">
-                    <CardHeader>
-                        <CardTitle className="text-xl flex items-center gap-2">
-                            <Lock className="w-5 h-5 text-green-600" />
-                            Seguridad y contrasena
-                        </CardTitle>
-                        <CardDescription>Usa el endpoint /auth/change-password protegido con cookies + CSRF.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                <CollapsibleCard
+                    title="Seguridad y contraseña"
+                    accent="emerald"
+                    defaultCollapsed={true}
+                >
+                    <div className="space-y-4">
                         {passwordStatus && (
                             <Alert
                                 className={
@@ -1790,8 +1784,8 @@ const UserProfile = () => {
                                 </Button>
                             </div>
                         </form>
-                    </CardContent>
-                </Card>
+                    </div>
+                </CollapsibleCard>
             </div>
         </div>
     );

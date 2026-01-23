@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { MoreVertical, Dna, Activity, Syringe, Pill, MapPin, ClipboardList, Eye, Plus, History, GitBranch, Baby, Edit2, Trash2, X, PlusCircle, Trash, Save } from 'lucide-react';
+import { MoreVertical, Dna, Activity, Syringe, Pill, MapPin, ClipboardList, Eye, Plus, History, GitBranch, Baby, Edit2, Trash2, X, PlusCircle, Trash, Save, AlertCircle, XCircle } from 'lucide-react';
 import { useToast } from '@/app/providers/ToastContext';
 import {
   DropdownMenu,
@@ -32,6 +32,9 @@ import { diseaseService } from '@/entities/disease/api/disease.service';
 import { fieldService } from '@/entities/field/api/field.service';
 import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
 import { usersService } from '@/entities/user/api/user.service';
+import { TreatmentSuppliesModal } from '@/widgets/dashboard/treatments/TreatmentSuppliesModal';
+import { ItemDetailModal } from './animals/ItemDetailModal';
+import { ApiFetchError } from '@/shared/api/apiFetch';
 
 function formatDate(dateStr: string) {
   if (!dateStr) return '-';
@@ -448,7 +451,8 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
   fieldOptions,
   vaccineOptions,
   userOptions,
-  loadOptions
+  loadOptions,
+  zIndex
 }) => {
   const { showToast } = useToast();
   const [modalMode, setModalMode] = useState<ModalMode>(mode === 'edit' ? 'create' : mode);
@@ -456,14 +460,45 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
   const [formData, setFormData] = useState<any>(initialEditingItem || {});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<any | null>(null);
   const [listData, setListData] = useState<any[]>([]);
   const [pendingBulkItems, setPendingBulkItems] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+
   const [deletingItemId, setDeletingItemId] = useState<string | number | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | number | null>(null);
   const modalStateId = useMemo(() => Math.random().toString(36).substring(2, 9), []);
 
-  const loadListData = useCallback(async () => {
+  // Convertir opciones a mapas para ItemDetailModal
+  const diseaseOptionsMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    diseaseOptions.forEach(o => map[o.value] = o.label);
+    return map;
+  }, [diseaseOptions]);
+
+  const fieldOptionsMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    fieldOptions.forEach(o => map[o.value] = o.label);
+    return map;
+  }, [fieldOptions]);
+
+  const vaccineOptionsMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    vaccineOptions.forEach(o => map[o.value] = o.label);
+    return map;
+  }, [vaccineOptions]);
+
+  const userOptionsMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    userOptions.forEach(o => map[o.value] = o.label);
+    return map;
+  }, [userOptions]);
+
+  // Estado para modal de insumos (tratamientos)
+  const [suppliesModalOpen, setSuppliesModalOpen] = useState(false);
+  const [selectedTreatmentForSupplies, setSelectedTreatmentForSupplies] = useState<any>(null);
+
+  const loadListData = useCallback(async (forceRefresh = false) => {
     setLoadingList(true);
     try {
       let data: any[] = [];
@@ -472,24 +507,26 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
         return arr.filter((item: any) => String(item.animal_id || item.animalId) === String(animal.id));
       };
 
+      const params = { animal_id: animal.id, limit: 100, cache_bust: forceRefresh ? Date.now() : undefined } as any;
+
       switch (type) {
         case 'genetic_improvement':
-          data = filterById(await geneticImprovementsService.getGeneticImprovements({ limit: 1000 }));
+          data = filterById(await geneticImprovementsService.getGeneticImprovements(params));
           break;
         case 'animal_disease':
-          data = filterById(await animalDiseasesService.getAnimalDiseases({ limit: 1000 }));
+          data = filterById(await animalDiseasesService.getAnimalDiseases(params));
           break;
         case 'animal_field':
-          data = filterById(await animalFieldsService.getAnimalFields({ limit: 1000 }));
+          data = filterById(await animalFieldsService.getAnimalFields(params));
           break;
         case 'vaccination':
-          data = filterById(await vaccinationsService.getVaccinations({ limit: 1000 }));
+          data = filterById(await vaccinationsService.getVaccinations(params));
           break;
         case 'treatment':
-          data = filterById(await treatmentsService.getTreatments({ limit: 1000 }));
+          data = filterById(await treatmentsService.getTreatments(params));
           break;
         case 'control':
-          data = filterById(await controlService.getControls({ limit: 1000 }));
+          data = filterById(await controlService.getControls(params));
           break;
       }
       setListData(data);
@@ -518,7 +555,7 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
           setFormData({ animal_id: animal.id, vaccine_id: undefined, vaccination_date: today, instructor_id: currentUserId, apprentice_id: undefined });
           break;
         case 'treatment':
-          setFormData({ animal_id: animal.id, treatment_date: today, diagnosis: '', dosis: '', frequency: '', observations: '', veterinarian: '' });
+          setFormData({ animal_id: animal.id, treatment_date: today, description: '', dosis: '', frequency: '', observations: '' });
           break;
         case 'control':
           setFormData({ animal_id: animal.id, checkup_date: today, weight: undefined, height: undefined, health_status: 'Sano', description: '' });
@@ -541,13 +578,21 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
     try {
       const isEditing = !!editingItem;
       const targetId = isEditing ? resolveRecordId(editingItem) : null;
-      const dataToSend = { ...formData, animal_id: animal.id };
+      if (isEditing && !targetId) {
+        throw new Error('Error interno: No se pudo identificar el registro a actualizar (ID desconocido).');
+      }
+
+      const dataToSend = {
+        ...formData,
+        animal_id: animal.id,
+        animalId: animal.id // Redundancia para consistencia
+      };
 
       if (type === 'genetic_improvement' && (!dataToSend.date || !dataToSend.genetic_event_technique?.trim())) throw new Error('Complete los campos obligatorios.');
       if (type === 'animal_disease' && (!dataToSend.disease_id || !dataToSend.diagnosis_date)) throw new Error('Complete los campos obligatorios.');
       if (type === 'animal_field' && (!dataToSend.field_id || !dataToSend.assignment_date)) throw new Error('Complete los campos obligatorios.');
       if (type === 'vaccination' && (!dataToSend.vaccine_id || !dataToSend.vaccination_date)) throw new Error('Complete los campos obligatorios.');
-      if (type === 'treatment' && (!dataToSend.treatment_date || !dataToSend.diagnosis?.trim())) throw new Error('Complete los campos obligatorios.');
+      if (type === 'treatment' && (!dataToSend.treatment_date || !dataToSend.description?.trim())) throw new Error('Complete los campos obligatorios.');
       if (type === 'control' && (!dataToSend.checkup_date || !dataToSend.health_status)) throw new Error('Complete los campos obligatorios.');
 
       switch (type) {
@@ -576,7 +621,7 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
             await controlService.updateControl(targetId as any, dataToSend);
           } else {
             if (pendingBulkItems.length > 0) {
-              const allItems = [...pendingBulkItems.map(item => ({ ...item, animal_id: animal.id })), dataToSend];
+              const allItems = [...pendingBulkItems.map(item => ({ ...item, animal_id: animal.id, animalId: animal.id })), dataToSend];
               await controlService.createBulk(allItems);
             } else {
               await controlService.createControl(dataToSend);
@@ -595,7 +640,7 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
         } else if (type === 'vaccination') {
           setFormData({ ...baseReset, vaccination_date: prevDate, vaccine_id: '', instructor_id: currentUserId });
         } else if (type === 'treatment') {
-          setFormData({ ...baseReset, treatment_date: prevDate, veterinarian: dataToSend.veterinarian, diagnosis: '', description: '', dosis: '', frequency: '', observations: '' });
+          setFormData({ ...baseReset, treatment_date: prevDate, description: '', dosis: '', frequency: '', observations: '' });
         } else {
           setFormData({ ...baseReset });
         }
@@ -606,10 +651,23 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
         showToast(isEditing ? 'Registro actualizado correctamente' : 'Registro creado correctamente', 'success');
       }
 
-      await loadListData();
-      onRefreshParent?.();
+      // Programar refresco con delay para consistencia del backend
+      setTimeout(async () => {
+        await loadListData(true);
+        onRefreshParent?.();
+      }, 1200);
     } catch (err: any) {
-      setError(err?.response?.data?.message || err.message || 'Error al guardar');
+      console.error('[AnimalActionModalInstance] Error saving:', err);
+      let msg = err?.response?.data?.message || err.message || 'Error al guardar';
+      setValidationErrors(null);
+
+      // Si es un error de validación con detalles, guardarlos en estado para mostrarlos bonito
+      if (err instanceof ApiFetchError && err.validationErrors) {
+        setValidationErrors(err.validationErrors);
+        msg = 'Por favor, corrige los siguientes errores:';
+      }
+
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -737,8 +795,10 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
         case 'control': controlService.clearCache(); break;
       }
 
-      onRefreshParent?.();
-      onRefreshParent?.();
+      // Programar refresco con delay para consistencia del backend
+      setTimeout(() => {
+        onRefreshParent?.();
+      }, 1200);
     } catch (err: any) {
       console.error('[AnimalActionsMenu] Error al eliminar:', err);
 
@@ -818,7 +878,16 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
           return (
             <div
               key={item.id || index}
-              className={`relative bg-card border border-border/60 rounded-xl p-4 group hover:shadow-md hover:border-border transition-all duration-200 border-l-4 ${getBorderColor()}`}
+              onClick={() => {
+                if (type === 'treatment') {
+                  setSelectedTreatmentForSupplies(item);
+                  setSuppliesModalOpen(true);
+                } else {
+                  setEditingItem(item);
+                  setModalMode('view');
+                }
+              }}
+              className={`relative bg-card border border-border/60 rounded-xl p-4 group hover:shadow-md hover:border-border transition-all duration-200 border-l-4 ${getBorderColor()} cursor-pointer hover:bg-muted/50`}
             >
               {/* Número de registro */}
               <div className="absolute -top-2 -right-2 bg-muted text-muted-foreground text-[9px] font-bold px-2 py-0.5 rounded-full border border-border/50 shadow-sm">
@@ -919,16 +988,13 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
       );
       case 'treatment': return (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div><label htmlFor={`${idPrefix}-date`} className={labelClass}>Fecha *</label><input id={`${idPrefix}-date`} type="date" value={formData.treatment_date || ''} onChange={(e) => setFormData({ ...formData, treatment_date: e.target.value })} className={inputClass} /></div>
+          <div><label htmlFor={`${idPrefix}-desc`} className={labelClass}>Descripción *</label><textarea id={`${idPrefix}-desc`} placeholder="Descripción del tratamiento" value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={2} className={inputClass} /></div>
           <div className="grid grid-cols-2 gap-4">
-            <div><label htmlFor={`${idPrefix}-date`} className={labelClass}>Fecha *</label><input id={`${idPrefix}-date`} type="date" value={formData.treatment_date || ''} onChange={(e) => setFormData({ ...formData, treatment_date: e.target.value })} className={inputClass} /></div>
-            <div><label htmlFor={`${idPrefix}-vet`} className={labelClass}>Veterinario</label><input id={`${idPrefix}-vet`} type="text" placeholder="..." value={formData.veterinarian || ''} onChange={(e) => setFormData({ ...formData, veterinarian: e.target.value })} className={inputClass} /></div>
+            <div><label htmlFor={`${idPrefix}-dose`} className={labelClass}>Dosis</label><input id={`${idPrefix}-dose`} type="text" placeholder="Ej: 5ml" value={formData.dosis || ''} onChange={(e) => setFormData({ ...formData, dosis: e.target.value })} className={inputClass} /></div>
+            <div><label htmlFor={`${idPrefix}-freq`} className={labelClass}>Frecuencia</label><input id={`${idPrefix}-freq`} type="text" placeholder="Ej: Cada 12 horas" value={formData.frequency || ''} onChange={(e) => setFormData({ ...formData, frequency: e.target.value })} className={inputClass} /></div>
           </div>
-          <div><label htmlFor={`${idPrefix}-diag`} className={labelClass}>Diagnóstico *</label><input id={`${idPrefix}-diag`} type="text" placeholder="..." value={formData.diagnosis || ''} onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })} className={inputClass} /></div>
-          <div className="grid grid-cols-2 gap-4">
-            <div><label htmlFor={`${idPrefix}-dose`} className={labelClass}>Dosis *</label><input id={`${idPrefix}-dose`} type="text" placeholder="..." value={formData.dosis || ''} onChange={(e) => setFormData({ ...formData, dosis: e.target.value })} className={inputClass} /></div>
-            <div><label htmlFor={`${idPrefix}-freq`} className={labelClass}>Frecuencia *</label><input id={`${idPrefix}-freq`} type="text" placeholder="..." value={formData.frequency || ''} onChange={(e) => setFormData({ ...formData, frequency: e.target.value })} className={inputClass} /></div>
-          </div>
-          <div><label htmlFor={`${idPrefix}-obs`} className={labelClass}>Observaciones</label><textarea id={`${idPrefix}-obs`} placeholder="..." value={formData.observations || ''} onChange={(e) => setFormData({ ...formData, observations: e.target.value })} rows={2} className={inputClass} /></div>
+          <div><label htmlFor={`${idPrefix}-obs`} className={labelClass}>Observaciones</label><textarea id={`${idPrefix}-obs`} placeholder="Observaciones adicionales" value={formData.observations || ''} onChange={(e) => setFormData({ ...formData, observations: e.target.value })} rows={2} className={inputClass} /></div>
         </div>
       );
       case 'control': return (
@@ -997,90 +1063,232 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
     }
   };
 
+  const handleReplicate = () => {
+    if (!editingItem) return;
+
+    // Copiar datos del item actual
+    const replicatedData = { ...editingItem };
+
+    // Limpiar campos únicos e identificadores
+    delete replicatedData.id;
+    delete replicatedData.created_at;
+    delete replicatedData.updated_at;
+    delete replicatedData.code; // Si existe
+
+    // Establecer fecha a HOY para el nuevo registro (comportamiento usual de replicar)
+    const today = getTodayColombia();
+    if (replicatedData.checkup_date) replicatedData.checkup_date = today;
+    if (replicatedData.date) replicatedData.date = today;
+    if (replicatedData.vaccination_date) replicatedData.vaccination_date = today;
+    if (replicatedData.treatment_date) replicatedData.treatment_date = today;
+    if (replicatedData.diagnosis_date) replicatedData.diagnosis_date = today;
+    if (replicatedData.assignment_date) replicatedData.assignment_date = today;
+
+    // Asegurar IDs correctos
+    replicatedData.animal_id = animal.id;
+
+    setFormData(replicatedData);
+    setEditingItem(null); // NULL para que sea un NUEVO registro
+    setModalMode('create');
+    showToast('Modo replicación: Datos copiados. Ajuste la fecha si es necesario.', 'info');
+  };
+
+  if (modalMode === 'view' && editingItem) {
+    return (
+      <ItemDetailModal
+        type={type as string}
+        item={editingItem}
+        options={{
+          diseases: diseaseOptionsMap,
+          fields: fieldOptionsMap,
+          vaccines: vaccineOptionsMap,
+          users: userOptionsMap
+        }}
+        onClose={onClose}
+        onEdit={() => {
+          setFormData(editingItem);
+          setModalMode('create');
+        }}
+        onReplicate={handleReplicate}
+        onOpenSupplies={() => {
+          setSelectedTreatmentForSupplies(editingItem);
+          setSuppliesModalOpen(true);
+        }}
+        zIndex={zIndex}
+      />
+    );
+  }
+
   return (
-    <GenericModal
-      isOpen={true}
-      onOpenChange={(open) => !open && onClose()}
-      title={getModalTitle()}
-      description={`Gestión de ${type} para el animal ${animal.record || animal.id}`}
-      size="2xl"
-      enableBackdropBlur
-      className="bg-card/95 backdrop-blur-md text-card-foreground border-border/10"
-    >
-      <div className="space-y-4" onKeyDown={(e) => e.stopPropagation()}>
-        {modalMode === 'list' ? (
-          <>
-            {renderListContent()}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/10">
-              <Button
-                variant="ghost"
-                onClick={onClose}
-                className="rounded-xl px-6 hover:bg-muted/50 transition-all font-semibold"
-              >
-                Cerrar
-              </Button>
-              <Button
-                onClick={() => { setEditingItem(null); setModalMode('create'); }}
-                className="rounded-xl px-6 bg-primary text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all font-bold"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nueva Entrada
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            {listData.length > 0 && (
-              <div className="flex justify-start mb-2">
-                <button
-                  onClick={() => { setModalMode('list'); setEditingItem(null); setError(null); }}
-                  className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                >
-                  ← Volver a la lista
-                </button>
-              </div>
-            )}
-            <div className="py-2">{renderFormContent()}</div>
-            {error && (
-              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl text-[10px] font-medium text-destructive animate-in fade-in slide-in-from-top-1">
-                {error}
-              </div>
-            )}
-            <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-6 mt-2 border-t border-border/10">
-              <Button
-                variant="ghost"
-                onClick={() => { if (listData.length > 0) setModalMode('list'); else onClose(); }}
-                disabled={loading}
-                className="w-full sm:w-auto rounded-xl px-6 hover:bg-muted/50 transition-all font-semibold order-3 sm:order-1"
-              >
-                {listData.length > 0 ? 'Cancelar' : 'Cerrar'}
-              </Button>
-
-              {!editingItem && (
+    <>
+      <GenericModal
+        isOpen={true}
+        onOpenChange={(open) => !open && onClose()}
+        title={getModalTitle()}
+        description={`Gestión de ${type} para el animal ${animal.record || animal.id}`}
+        size="2xl"
+        enableBackdropBlur
+        className="bg-card/95 backdrop-blur-md text-card-foreground border-border/10"
+        zIndex={zIndex}
+      >
+        <div className="space-y-4" onKeyDown={(e) => e.stopPropagation()}>
+          {modalMode === 'list' ? (
+            <>
+              {renderListContent()}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/10">
                 <Button
-                  onClick={() => handleSubmit(true)}
-                  disabled={loading}
-                  variant="outline"
-                  className="w-full sm:w-auto rounded-xl px-6 border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-600 transition-all font-semibold order-2"
+                  variant="ghost"
+                  onClick={onClose}
+                  className="rounded-xl px-6 hover:bg-muted/50 transition-all font-semibold"
                 >
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Guardar y añadir otro
+                  Cerrar
                 </Button>
+                <Button
+                  onClick={() => { setEditingItem(null); setModalMode('create'); }}
+                  className="rounded-xl px-6 bg-primary text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all font-bold"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nueva Entrada
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              {listData.length > 0 && (
+                <div className="flex justify-start mb-2">
+                  <button
+                    onClick={() => { setModalMode('list'); setEditingItem(null); setError(null); }}
+                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                  >
+                    ← Volver a la lista
+                  </button>
+                </div>
               )}
+              <div className="py-2">{renderFormContent()}</div>
+              {(error || validationErrors) && (
+                <div className="rounded-xl overflow-hidden animate-in fade-in slide-in-from-top-1">
+                  <div className={`p-4 border-l-4 ${validationErrors ? 'bg-orange-50 border-orange-500 text-orange-900 dark:bg-orange-950/30 dark:text-orange-200' : 'bg-red-50 border-red-500 text-red-900 dark:bg-red-950/30 dark:text-red-200'} shadow-sm`}>
+                    <div className="flex items-start gap-3">
+                      <div className="shrink-0 mt-0.5">
+                        {validationErrors ? (
+                          <AlertCircle className="h-5 w-5 text-orange-500" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-red-500" />
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <p className="text-sm font-bold">
+                          {error || 'Ha ocurrido un error'}
+                        </p>
 
-              <Button
-                onClick={() => handleSubmit(false)}
-                disabled={loading}
-                className="w-full sm:w-auto rounded-xl px-8 bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 active:scale-95 transition-all font-bold order-1 sm:order-3"
-              >
-                <Save className="h-4 w-4 mr-2 sm:hidden" />
-                {loading ? 'Procesando...' : (editingItem ? 'Actualizar Registro' : 'Guardar y Cerrar')}
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-    </GenericModal>
+                        {validationErrors && (
+                          <ul className="space-y-1.5 mt-2">
+                            {Array.isArray(validationErrors) ? (
+                              // Si es un array simple de strings
+                              validationErrors.map((errStr: string, idx: number) => {
+                                // Traducir mensajes comunes que vienen del backend
+                                const translatedStr = String(errStr)
+                                  .replace(/'frequency'/g, "'frecuencia'")
+                                  .replace(/'dose'/g, "'dosis'")
+                                  .replace(/'treatment_date'/g, "'fecha'")
+                                  .replace(/is required/g, "es requerido");
+
+                                return (
+                                  <li key={idx} className="flex items-start gap-2 text-xs font-medium opacity-90">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0" />
+                                    <span>{translatedStr}</span>
+                                  </li>
+                                );
+                              })
+                            ) : (
+                              // Si es un objeto mapa de errores
+                              Object.entries(validationErrors).map(([field, fieldErrors], idx) => {
+                                const fieldLabel = field === 'description' ? 'Descripción' :
+                                  field === 'treatment_date' ? 'Fecha' :
+                                    field === 'dosis' ? 'Dosis' :
+                                      field === 'dose' ? 'Dosis' :
+                                        field === 'frequency' ? 'Frecuencia' :
+                                          field === 'checkup_date' ? 'Fecha' :
+                                            field === 'health_status' ? 'Estado de salud' :
+                                              field === 'vaccine_id' ? 'Vacuna' :
+                                                field === 'field_id' ? 'Campo' :
+                                                  field === 'disease_id' ? 'Enfermedad' :
+                                                    field;
+
+                                const rawError = Array.isArray(fieldErrors) ? fieldErrors.join(', ') : String(fieldErrors);
+                                const errorText = rawError
+                                  .replace(/'frequency'/g, "'frecuencia'")
+                                  .replace(/'dose'/g, "'dosis'")
+                                  .replace(/is required/g, "es requerido");
+
+                                return (
+                                  <li key={idx} className="flex items-start gap-2 text-xs font-medium opacity-90">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0" />
+                                    <span>
+                                      <span className="font-bold underline decoration-orange-300/50">{fieldLabel}:</span> {errorText}
+                                    </span>
+                                  </li>
+                                );
+                              })
+                            )}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-6 mt-2 border-t border-border/10">
+                <Button
+                  variant="ghost"
+                  onClick={() => { if (listData.length > 0) setModalMode('list'); else onClose(); }}
+                  disabled={loading}
+                  className="w-full sm:w-auto rounded-xl px-6 hover:bg-muted/50 transition-all font-semibold order-3 sm:order-1"
+                >
+                  {listData.length > 0 ? 'Cancelar' : 'Cerrar'}
+                </Button>
+
+                {!editingItem && (
+                  <Button
+                    onClick={() => handleSubmit(true)}
+                    disabled={loading}
+                    variant="outline"
+                    className="w-full sm:w-auto rounded-xl px-6 border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-600 transition-all font-semibold order-2"
+                  >
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Guardar y añadir otro
+                  </Button>
+                )}
+
+                <Button
+                  onClick={() => handleSubmit(false)}
+                  disabled={loading}
+                  className="w-full sm:w-auto rounded-xl px-8 bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700 active:scale-95 transition-all font-bold order-1 sm:order-3"
+                >
+                  <Save className="h-4 w-4 mr-2 sm:hidden" />
+                  {loading ? 'Procesando...' : (editingItem ? 'Actualizar Registro' : 'Guardar y Cerrar')}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+
+
+        {/* Modal de Insumos del Tratamiento (superpuesto) */}
+      </GenericModal >
+
+      {/* Modal de Insumos del Tratamiento (superpuesto fuera del GenericModal para evitar cierre en cascada) */}
+      <TreatmentSuppliesModal
+        isOpen={suppliesModalOpen}
+        onClose={() => {
+          setSuppliesModalOpen(false);
+          setSelectedTreatmentForSupplies(null);
+        }}
+        treatment={selectedTreatmentForSupplies}
+        className="z-[2000]"
+        zIndex={zIndex ? zIndex + 20 : 2000}
+      />
+    </>
   );
 };
 
@@ -1242,15 +1450,15 @@ function renderListItemInternal(item: any, type: ModalType, options: any) {
             )}
           </div>
         );
-      case 'control':
+      case 'control': {
         const healthStatus = item.health_status || 'Desconocido';
-        const healthConfig = {
+        const healthConfig = ({
           'Excelente': { color: 'text-emerald-600', bg: 'bg-emerald-500/10', border: 'border-emerald-200', icon: '✓' },
           'Bueno': { color: 'text-green-600', bg: 'bg-green-500/10', border: 'border-green-200', icon: '✓' },
           'Sano': { color: 'text-green-600', bg: 'bg-green-500/10', border: 'border-green-200', icon: '✓' },
           'Regular': { color: 'text-amber-600', bg: 'bg-amber-500/10', border: 'border-amber-200', icon: '⚠' },
           'Malo': { color: 'text-rose-600', bg: 'bg-rose-500/10', border: 'border-rose-200', icon: '✗' },
-        }[healthStatus] || { color: 'text-muted-foreground', bg: 'bg-muted/50', border: 'border-border', icon: '?' };
+        } as Record<string, { color: string; bg: string; border: string; icon: string; }>)[healthStatus] || { color: 'text-muted-foreground', bg: 'bg-muted/50', border: 'border-border', icon: '?' };
 
         return (
           <div className="space-y-3">
@@ -1303,6 +1511,7 @@ function renderListItemInternal(item: any, type: ModalType, options: any) {
             )}
           </div>
         );
+      }
       default: return null;
     }
   })();

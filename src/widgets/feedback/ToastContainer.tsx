@@ -18,7 +18,7 @@ export const ToastContainer: React.FC<{ className?: string }> = ({ className }) 
   return createPortal(
     <div
       className={cn(
-        'pointer-events-none fixed top-3 right-3 z-[1000] flex w-full max-w-sm flex-col gap-2',
+        'pointer-events-none fixed top-3 right-3 z-[100000] flex w-full max-w-sm flex-col gap-2',
         'sm:top-4 sm:right-4',
         className
       )}
@@ -28,12 +28,12 @@ export const ToastContainer: React.FC<{ className?: string }> = ({ className }) 
       {toasts.map((t) => {
         const style = variantClasses[t.type || 'info'] || variantClasses.info;
         // Elegir aria-live según severidad
-        const live = t.type === 'error' || t.type === 'warning' ? 'assertive' : 'polite';
+        const live: "polite" | "assertive" = t.type === 'error' || t.type === 'warning' ? 'assertive' : 'polite';
         return (
           <div
             key={t.id}
             role="status"
-            aria-live={live as any}
+            aria-live={live}
             className={cn(
               'pointer-events-auto rounded-md border shadow-lg backdrop-blur-sm',
               'px-3 py-2 text-sm flex items-start gap-2',

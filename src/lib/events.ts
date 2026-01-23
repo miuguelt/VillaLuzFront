@@ -131,8 +131,41 @@ const scheduleReconnect = () => {
   }, delay);
 };
 
+let isEndpointInvalid = false;
+
+const validateEndpoint = async () => {
+  if (isEndpointInvalid) return;
+  try {
+    // Usar fetch para verificar si el endpoint devuelve HTML (error común detrás de proxy/SPA)
+    const res = await fetch(SSE_URL, { method: 'HEAD', headers: { 'Accept': 'text/event-stream' } });
+
+    // Detectar rate limiting explícito en la validación
+    if (res.status === 429) {
+      console.warn('[SSE] Endpoint returned 429 (Too Many Requests) during validation. Backing off.');
+      isRateLimited = true;
+      rateLimitExpiry = Date.now() + RATE_LIMIT_BACKOFF_MS;
+      saveState();
+      return;
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('text/html') || res.status === 404 || res.status === 500) {
+      console.warn(`[SSE] Endpoint validation failed (Status: ${res.status}, Type: ${contentType}). Disabling SSE.`);
+      isEndpointInvalid = true;
+      closeSource();
+    }
+  } catch (e) {
+    // Errores de red se manejan con reintentos normales
+  }
+};
+
 const handleError = () => {
   closeSource();
+  // Verificar endpoint si hay fallos rápidos, podría ser una ruta inválida
+  // Evitar probar el endpoint si ya sabemos que estamos limitados por tasa (429)
+  if (rapidFailureCount > 0 && !isRateLimited) {
+    void validateEndpoint();
+  }
   scheduleReconnect();
 };
 
@@ -141,6 +174,11 @@ const createEventSource = () => {
 
   // Reload state just in case
   loadState();
+
+  if (isEndpointInvalid) {
+    console.debug('[SSE] Endpoint marked as invalid, skipping connection');
+    return null;
+  }
 
   if (isConnecting) return source;
 

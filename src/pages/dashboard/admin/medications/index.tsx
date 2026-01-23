@@ -5,6 +5,7 @@ import type { MedicationResponse } from '@/shared/api/generated/swaggerTypes';
 import { routeAdministrationsService } from '@/entities/route-administration/api/routeAdministrations.service';
 import { Badge } from '@/shared/ui/badge';
 import { SectionCard, InfoField, modalStyles } from '@/shared/ui/common/ModalStyles';
+import { ItemDetailModal } from '@/widgets/dashboard/animals/ItemDetailModal';
 
 // Input del formulario
 type MedicationInput = {
@@ -19,7 +20,7 @@ type MedicationInput = {
 
 // Columnas de la tabla
 const columns: CRUDColumn<MedicationResponse & { [k: string]: any }>[] = [
-  
+
   { key: 'name', label: 'Nombre', render: (v) => v || '-' },
   { key: 'dosis', label: 'Dosis', render: (v) => v || '-' },
   { key: 'availability', label: 'Disponibilidad', render: (v) => (v ? 'Sí' : 'No') },
@@ -144,110 +145,6 @@ function AdminMedicationsPage() {
     return routeOptions.find((r) => r.value === id)?.label || `ID ${id}`;
   };
 
-  // Renderizado personalizado para la tarjeta
-  const renderMedicationCard = (item: MedicationResponse & { [k: string]: any }) => {
-    const availability = (item as any).availability;
-    const dosis = (item as any).dosis || '-';
-
-    return (
-      <div className={modalStyles.spacing.section}>
-        <SectionCard title="Información Básica">
-          <InfoField label="Nombre" value={item.name || '-'} valueSize="large" />
-          <div className="flex items-center gap-2 mt-2">
-            <Badge className={`text-xs px-3 py-1 ${
-              availability ? 'bg-green-500/90 hover:bg-green-600 text-white' : 'bg-gray-500/90 hover:bg-gray-600 text-white'
-            }`}>
-              {availability ? 'Disponible' : 'No disponible'}
-            </Badge>
-          </div>
-        </SectionCard>
-        <SectionCard title="Dosis">
-          <InfoField label="Dosis" value={dosis} valueSize="large" />
-        </SectionCard>
-      </div>
-    );
-  };
-
-  // Renderizado personalizado para el detalle
-  const renderDetail = (item: (MedicationResponse & { [k: string]: any })) => {
-    const availability = (item as any).availability;
-    const routeId = (item as any).route_administration_id as number | undefined;
-    const dosis = (item as any).dosis || '-';
-    const indications = (item as any).indications;
-    const contraindications = (item as any).contraindications;
-    const description = (item as any).description;
-
-    return (
-      <div className={modalStyles.spacing.section}>
-        <div className={modalStyles.twoColGrid}>
-          {/* Columna izquierda */}
-          <div className={modalStyles.spacing.section}>
-            <SectionCard title="Información Básica">
-              <div className={modalStyles.spacing.sectionSmall}>
-                <InfoField label="ID" value={`#${item.id}`} />
-                <InfoField label="Nombre" value={item.name || '-'} valueSize="xlarge" />
-                <div className="mt-3">
-                  <div className={modalStyles.fieldLabel}>Disponibilidad</div>
-                  <Badge className={`text-sm px-3 py-1 ${
-                    availability ? 'bg-green-500/90 hover:bg-green-600 text-white' : 'bg-gray-500/90 hover:bg-gray-600 text-white'
-                  }`}>
-                    {availability ? 'Disponible' : 'No disponible'}
-                  </Badge>
-                </div>
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Dosificación">
-              <div className={modalStyles.fieldsGrid}>
-                <InfoField label="Dosis" value={dosis} valueSize="large" />
-                <InfoField label="Ruta" value={getRouteLabel(routeId)} />
-              </div>
-            </SectionCard>
-
-            {description && (
-              <SectionCard title="Descripción">
-                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                  {description}
-                </p>
-              </SectionCard>
-            )}
-          </div>
-
-          {/* Columna derecha */}
-          <div className={modalStyles.spacing.section}>
-            {indications && (
-              <SectionCard title="Indicaciones">
-                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                  {indications}
-                </p>
-              </SectionCard>
-            )}
-
-            {contraindications && (
-              <SectionCard title="Contraindicaciones">
-                <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                  {contraindications}
-                </p>
-              </SectionCard>
-            )}
-
-            <SectionCard title="Información del Sistema">
-              <div className={modalStyles.fieldsGrid}>
-                <InfoField
-                  label="Creado"
-                  value={item.created_at ? new Date(item.created_at).toLocaleDateString('es-ES') : '-'}
-                />
-                <InfoField
-                  label="Actualizado"
-                  value={item.updated_at ? new Date(item.updated_at).toLocaleDateString('es-ES') : '-'}
-                />
-              </div>
-            </SectionCard>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const crudConfigLocal: CRUDConfig<MedicationResponse & { [k: string]: any }, MedicationInput> = {
     ...crudConfig,
@@ -255,7 +152,6 @@ function AdminMedicationsPage() {
     showDetailTimestamps: false,
     showEditTimestamps: false,
     showIdInDetailTitle: false,
-    renderCard: renderMedicationCard,
   };
 
   return (
@@ -265,7 +161,17 @@ function AdminMedicationsPage() {
       initialFormData={initialFormData}
       mapResponseToForm={mapResponseToForm}
       validateForm={validateForm}
-      customDetailContent={renderDetail}
+      customDetailContent={(item, { onEdit }) => (
+        <ItemDetailModal
+          type="medication"
+          item={item}
+          onEdit={onEdit}
+          onClose={() => { }} // CRUDPage handles closing
+          options={{
+            routes: Object.fromEntries(routeOptions.map(o => [o.value, o.label]))
+          }}
+        />
+      )}
       realtime={true}
       pollIntervalMs={0}
       refetchOnFocus={false}

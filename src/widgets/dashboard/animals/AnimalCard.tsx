@@ -5,6 +5,7 @@ import { AnimalImageBanner } from './AnimalImageBanner';
 import { Button } from '@/shared/ui/button';
 import { Eye, Trash2 } from 'lucide-react';
 import { AnimalActionsMenu } from '@/widgets/dashboard/AnimalActionsMenu';
+import { useState } from 'react';
 
 interface AnimalCardProps {
   animal: AnimalResponse & { [k: string]: any };
@@ -41,6 +42,7 @@ export function AnimalCard({
   const ageMonths = animal.age_in_months ?? '-';
   const weight = animal.weight ? `${animal.weight} kg` : '-';
   const status = animal.status || '-';
+  const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
 
   const handleCardClick = () => {
     if (onCardClick) {
@@ -89,8 +91,8 @@ export function AnimalCard({
             {/* Status Badge pequeño */}
             <div className="flex items-center gap-1">
               <div className={`w-2 h-2 rounded-full ${status === 'Sano' ? 'bg-green-500' :
-                  status === 'Enfermo' ? 'bg-red-500' :
-                    'bg-blue-500'
+                status === 'Enfermo' ? 'bg-red-500' :
+                  'bg-blue-500'
                 }`} />
               <span className="text-xs text-muted-foreground font-medium">{status}</span>
             </div>
@@ -193,14 +195,27 @@ export function AnimalCard({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 w-9 p-0 rounded-lg border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                    className={`h-9 w-9 p-0 transition-all duration-200 rounded-lg border-red-200 ${isConfirmingRemove
+                      ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-500/50 animate-pulse scale-110'
+                      : 'text-red-600 hover:bg-red-50 hover:text-red-700'
+                      }`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      onRemoveFromField();
+                      if (isConfirmingRemove) {
+                        setIsConfirmingRemove(false);
+                        onRemoveFromField();
+                      } else {
+                        setIsConfirmingRemove(true);
+                        setTimeout(() => setIsConfirmingRemove(false), 3000);
+                      }
                     }}
-                    title="Quitar del campo"
+                    title={isConfirmingRemove ? "¡Click para confirmar!" : "Quitar del campo"}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    {isConfirmingRemove ? (
+                      <span className="text-[10px] font-bold">✓</span>
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
                   </Button>
                 )}
                 <AnimalActionsMenu animal={animal} />

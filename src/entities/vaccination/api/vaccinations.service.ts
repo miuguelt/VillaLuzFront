@@ -20,7 +20,7 @@ export class VaccinationsService extends BaseService<VaccinationResponse> {
    * @param {number} [options.limit=10] - The number of items per page.
    * @returns {Promise<PaginatedResponse<VaccinationResponse>>} A promise that resolves to the paginated list of vaccinations.
    */
-  public async getVaccinations(options: { page?: number; limit?: number } = {}): Promise<PaginatedResponse<VaccinationResponse>> {
+  public async getVaccinations(options: { page?: number; limit?: number;[key: string]: any } = {}): Promise<PaginatedResponse<VaccinationResponse>> {
     return this.getPaginated(options);
   }
 

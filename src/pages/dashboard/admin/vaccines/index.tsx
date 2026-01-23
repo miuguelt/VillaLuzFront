@@ -6,6 +6,7 @@ import { diseaseService } from '@/entities/disease/api/disease.service';
 import { VACCINE_TYPES } from '@/shared/constants/enums';
 import type { VaccineResponse, VaccineInput } from '@/shared/api/generated/swaggerTypes';
 import { DiseaseLink } from '@/shared/ui/common/ForeignKeyHelpers';
+import { ItemDetailModal } from '@/widgets/dashboard/animals/ItemDetailModal';
 
 function AdminVaccinesPage() {
   const [routeOptions, setRouteOptions] = React.useState<Array<{ value: number; label: string }>>([]);
@@ -151,6 +152,18 @@ function AdminVaccinesPage() {
       cache={true}
       cacheTTL={300000}
       enhancedHover={true}
+      customDetailContent={(item, { onEdit }) => (
+        <ItemDetailModal
+          type="vaccine"
+          item={item}
+          onEdit={onEdit}
+          onClose={() => { }} // CRUDPage handles closing
+          options={{
+            diseases: Object.fromEntries(diseaseOptions.map(o => [o.value, o.label])),
+            routes: Object.fromEntries(routeOptions.map(o => [o.value, o.label]))
+          }}
+        />
+      )}
     />
   );
 }

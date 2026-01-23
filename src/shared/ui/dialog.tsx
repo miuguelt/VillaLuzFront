@@ -182,32 +182,40 @@ const DialogA11yContext = React.createContext<{
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
-    ref={ref}
-    className={cn(
-      "fixed inset-0 z-[900] vl-modal-overlay",
-      "pointer-events-auto",
-      "pointer-events-auto",
-      // Importante: si por alguna raz¢n el overlay queda montado en estado "closed",
-      // no debe bloquear la interacci¢n con la p gina.
-      "data-[state=closed]:pointer-events-none",
-      "data-[state=open]:animate-in data-[state=closed]:animate-out",
-      "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      "motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out motion-reduce:transition-none motion-reduce:animate-none",
-      className
-    )}
-    onPointerDown={(e) => {
-      e.preventDefault()
-      e.stopPropagation()
-    }}
-    onClick={(e) => {
-      e.preventDefault()
-      e.stopPropagation()
-    }}
-    {...props}
-  />
-))
+>(({ className, style, ...props }, ref) => {
+  // Si hay un zIndex en style, no aplicar la clase z-[900]
+  const hasCustomZIndex = style && typeof (style as any).zIndex !== 'undefined';
+
+  return (
+    <DialogPrimitive.Overlay
+      ref={ref}
+      className={cn(
+        "fixed inset-0 vl-modal-overlay",
+        // Solo aplicar z-[900] si NO hay zIndex personalizado
+        !hasCustomZIndex && "z-[900]",
+        "pointer-events-auto",
+        "pointer-events-auto",
+        // Importante: si por alguna razón el overlay queda montado en estado "closed",
+        // no debe bloquear la interacción con la página.
+        "data-[state=closed]:pointer-events-none",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "motion-safe:transition-all motion-safe:duration-300 motion-safe:ease-out motion-reduce:transition-none motion-reduce:animate-none",
+        className
+      )}
+      style={style}
+      onPointerDown={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      }}
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      }}
+      {...props}
+    />
+  )
+})
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 // Helper to detect whether a DialogTitle is present in children (recursively)
@@ -236,10 +244,11 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   Omit<React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>, "aria-labelledby" | "aria-describedby"> & {
     overlayClassName?: string
+    zIndex?: number
     ["aria-labelledby"]?: string
     ["aria-describedby"]?: string
   }
->(({ className, children, overlayClassName, ["aria-labelledby"]: ariaLabelledByProp, ["aria-describedby"]: ariaDescribedByProp, ...props }, ref) => {
+>(({ className, children, overlayClassName, zIndex, ["aria-labelledby"]: ariaLabelledByProp, ["aria-describedby"]: ariaDescribedByProp, style: propsStyle, ...props }, ref) => {
   const [registeredTitleId, setRegisteredTitleId] = React.useState<string | undefined>(undefined)
   const [registeredDescriptionId, setRegisteredDescriptionId] = React.useState<string | undefined>(undefined)
   const a11yValue = React.useMemo(() => ({
@@ -265,12 +274,17 @@ const DialogContent = React.forwardRef<
 
   return (
     <DialogPortal>
-      <DialogOverlay className={overlayClassName} />
+      <DialogOverlay
+        className={overlayClassName}
+        style={zIndex ? { zIndex: zIndex - 1 } : undefined}
+      />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
           // Posicionamiento centrado
-          "fixed left-1/2 top-1/2 z-[1000] -translate-x-1/2 -translate-y-1/2",
+          "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+          // Solo aplicar z-[1000] si NO hay zIndex personalizado (el inline style tiene precedencia)
+          !zIndex && "z-[1000]",
 
           // Dimensiones ADAPTATIVAS al contenido
           "w-[95vw] sm:w-auto",
@@ -306,15 +320,17 @@ const DialogContent = React.forwardRef<
         aria-labelledby={finalAriaLabelledBy}
         aria-describedby={finalAriaDescribedBy}
         onClick={(e) => e.stopPropagation()}
+        style={zIndex ? { ...propsStyle, zIndex } : propsStyle}
         {...props}
       >
         <DialogA11yContext.Provider value={a11yValue}>
-          {!hasTitle && (
+          {/* Ensure Radix always finds a Title and Description, even before registration completes */}
+          {!registeredTitleId && (
             <VisuallyHidden>
               <DialogPrimitive.Title id={titleId}>Dialog</DialogPrimitive.Title>
             </VisuallyHidden>
           )}
-          {!hasDescription && (
+          {!registeredDescriptionId && (
             <VisuallyHidden>
               <DialogPrimitive.Description id={descriptionId}>
                 Dialog content

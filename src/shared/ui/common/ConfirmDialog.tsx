@@ -54,6 +54,7 @@ export interface ConfirmDialogProps {
     count: number;
     samples?: string[];
   }>; // Lista estructurada de dependencias
+  zIndex?: number;
 }
 
 export function ConfirmDialog({
@@ -73,6 +74,7 @@ export function ConfirmDialog({
   detailedMessage,
   showWarningIcon = false,
   dependencies,
+  zIndex,
 }: ConfirmDialogProps) {
   // Si hay mensaje detallado o dependencias, usar tamaño más grande
   const effectiveSize = detailedMessage || dependencies ? "md" : size;
@@ -91,6 +93,7 @@ export function ConfirmDialog({
       size={effectiveSize}
       className={modalClassName}
       draggable={draggable}
+      zIndex={zIndex}
     >
       {/* Contenido adicional con advertencias detalladas */}
       {(showWarningIcon || detailedMessage || dependencies) && (

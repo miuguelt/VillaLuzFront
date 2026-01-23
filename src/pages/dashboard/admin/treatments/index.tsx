@@ -4,6 +4,7 @@ import { treatmentsService } from '@/entities/treatment/api/treatments.service';
 import { animalsService } from '@/entities/animal/api/animal.service';
 import { Button } from '@/shared/ui/button';
 import { GenericModal } from '@/shared/ui/common/GenericModal';
+import { TreatmentSuppliesModal } from '@/widgets/dashboard/treatments/TreatmentSuppliesModal';
 import { treatmentVaccinesService } from '@/entities/treatment-vaccine/api/treatmentVaccines.service';
 import { treatmentMedicationService } from '@/entities/treatment-medication/api/treatmentMedication.service';
 import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
@@ -126,7 +127,7 @@ const AdminTreatmentsPage: React.FC = () => {
 
     const req = (async () => {
       try {
-        const params: any = { treatment_id: treatmentId, limit: 100 };
+        const params: any = { treatment_id: treatmentId, limit: 1000 };
         if (bypassCache) {
           params.cache_bust = Date.now();
         }
@@ -135,9 +136,18 @@ const AdminTreatmentsPage: React.FC = () => {
           (treatmentVaccinesService as any).getAll?.(params).catch(() => []),
           (treatmentMedicationService as any).getAll?.(params).catch(() => []),
         ]);
-        setVaccines(Array.isArray(vaccRes) ? vaccRes : (vaccRes as any)?.data || []);
-        setMedications(Array.isArray(medRes) ? medRes : (medRes as any)?.data || []);
+
+        const vData = Array.isArray(vaccRes) ? vaccRes : (vaccRes as any)?.data || [];
+        const mData = Array.isArray(medRes) ? medRes : (medRes as any)?.data || [];
+
+        // Filtrado en frontend para asegurar consistencia
+        const filteredVaccines = vData.filter((v: any) => String(v.treatment_id) === String(treatmentId));
+        const filteredMedications = mData.filter((m: any) => String(m.treatment_id) === String(treatmentId));
+
+        setVaccines(filteredVaccines);
+        setMedications(filteredMedications);
       } catch (err) {
+        console.error('[AdminTreatmentsPage] Error refreshing associations:', err);
         setAssocError('No se pudieron cargar los insumos del tratamiento.');
       } finally {
         setLoadingAssoc(false);
@@ -464,7 +474,7 @@ const AdminTreatmentsPage: React.FC = () => {
             {assocError}
           </div>
         )}
-        {loadingAssoc ? (
+        {loadingAssoc && vaccines.length === 0 && medications.length === 0 ? (
           <div className="py-10 text-center text-muted-foreground">Cargando insumos…</div>
         ) : (
           <>
@@ -1772,7 +1782,13 @@ const AdminTreatmentsPage: React.FC = () => {
       />
 
       {/* Modal de Insumos (Vacunas y Medicamentos) */}
-      <GenericModal
+      <TreatmentSuppliesModal
+        isOpen={assocOpen}
+        onClose={closeAssociations}
+        treatment={selectedTreatment}
+      />
+      {/* Old Modal Disabled */}
+      {false && <GenericModal
         isOpen={assocOpen}
         onOpenChange={(open) => (open ? setAssocOpen(true) : closeAssociations())}
         title={
@@ -2424,7 +2440,7 @@ const AdminTreatmentsPage: React.FC = () => {
           confirmVariant="destructive"
           size="sm"
         />
-      </GenericModal>
+      </GenericModal>}
     </>
   );
 };

@@ -20,7 +20,7 @@ export class GeneticImprovementsService extends BaseService<GeneticImprovementRe
    * @param {number} [options.limit=10] - The number of items per page.
    * @returns {Promise<PaginatedResponse<GeneticImprovementResponse>>} A promise that resolves to the paginated list of genetic improvements.
    */
-  public async getGeneticImprovements(options: { page?: number; limit?: number } = {}): Promise<PaginatedResponse<GeneticImprovementResponse>> {
+  public async getGeneticImprovements(options: { page?: number; limit?: number;[key: string]: any } = {}): Promise<PaginatedResponse<GeneticImprovementResponse>> {
     return this.getPaginated(options);
   }
 

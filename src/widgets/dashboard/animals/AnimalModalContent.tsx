@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { X, Activity, Syringe, MapPin, Pill, ClipboardList, TrendingUp, Plus, List, Eye, Edit, Trash2 } from 'lucide-react';
+import { X, Activity, Syringe, MapPin, Pill, ClipboardList, TrendingUp, Plus, List, Eye, Edit, Trash2, RefreshCw, ChevronDown, ChevronUp, ImageIcon, Copy } from 'lucide-react';
+import { cn } from '@/shared/ui/cn';
 import { useToast } from '@/app/providers/ToastContext';
 import { Badge } from '@/shared/ui/badge';
 import { Button } from '@/shared/ui/button';
 import { AnimalResponse } from '@/shared/api/generated/swaggerTypes';
 import { ImageManager } from '@/shared/ui/common/ImageManager';
 import { AnimalImageBanner } from './AnimalImageBanner';
+import { GenericModal } from '@/shared/ui/common/GenericModal';
 import { AnimalActionsMenu } from '@/widgets/dashboard/AnimalActionsMenu';
 import { ParentMiniCard } from './ParentMiniCard';
 import { geneticImprovementsService } from '@/entities/genetic-improvement/api/geneticImprovements.service';
@@ -23,6 +24,9 @@ import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
 import { usersService } from '@/entities/user/api/user.service';
 import analyticsService from '@/features/reporting/api/analytics.service';
 import { resolveRecordId } from '@/shared/utils/recordIdUtils';
+import { TreatmentSuppliesModal } from '@/widgets/dashboard/treatments/TreatmentSuppliesModal';
+import { ItemDetailModal } from './ItemDetailModal';
+import { CollapsibleCard } from '@/shared/ui/common/CollapsibleCard';
 
 interface AnimalModalContentProps {
   animal: AnimalResponse & { [k: string]: any };
@@ -35,6 +39,8 @@ interface AnimalModalContentProps {
   onOpenHistory?: () => void;
   onOpenAncestorsTree?: () => void;
   onOpenDescendantsTree?: () => void;
+  onEdit?: () => void;
+  onReplicate?: () => void;
   // Contenedor con scroll para preservar posición al refrescar
   scrollContainerRef?: React.RefObject<HTMLDivElement>;
 }
@@ -50,12 +56,15 @@ export function AnimalModalContent({
   onOpenHistory,
   onOpenAncestorsTree,
   onOpenDescendantsTree,
+  onEdit,
+  onReplicate,
   scrollContainerRef
 }: AnimalModalContentProps) {
   const { showToast } = useToast();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const savedScrollTopRef = React.useRef(0);
   const [deletingItemId, setDeletingItemId] = useState<string | number | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | number | null>(null);
 
   const preserveScroll = useCallback(() => {
     const node = scrollContainerRef?.current;
@@ -78,6 +87,7 @@ export function AnimalModalContent({
   const [treatments, setTreatments] = useState<any[]>([]);
   const [controls, setControls] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const [dataRefreshTrigger, setDataRefreshTrigger] = useState(0);
   const [hasRecentTreatments, setHasRecentTreatments] = useState<boolean | null>(null);
 
@@ -103,6 +113,10 @@ export function AnimalModalContent({
   >(null);
   const [actionModalMode, setActionModalMode] = useState<'create' | 'list' | 'view' | 'edit'>('create');
   const [selectedItem, setSelectedItem] = useState<any>(null);
+
+  // Estado para modal de insumos (tratamientos)
+  const [suppliesModalOpen, setSuppliesModalOpen] = useState(false);
+  const [selectedTreatmentForSupplies, setSelectedTreatmentForSupplies] = useState<any>(null);
 
   // Funciones para abrir modales
   const openCreateModal = (type: typeof actionModalType) => {
@@ -182,6 +196,8 @@ export function AnimalModalContent({
     const loadRelatedData = async () => {
       setLoading(true);
       try {
+        const params = { animal_id: animal.id, page: 1, limit: 1000, cache_bust: isManualRefreshing ? Date.now() : undefined };
+
         const [
           geneticData,
           diseasesData,
@@ -190,12 +206,12 @@ export function AnimalModalContent({
           treatmentsData,
           controlsData
         ] = await Promise.allSettled([
-          geneticImprovementsService.getGeneticImprovements({ page: 1, limit: 1000 }),
-          animalDiseasesService.getAnimalDiseases({ page: 1, limit: 1000 }),
-          animalFieldsService.getAnimalFields({ page: 1, limit: 1000 }),
-          vaccinationsService.getVaccinations({ page: 1, limit: 1000 }),
-          treatmentsService.getTreatments({ page: 1, limit: 1000 }),
-          controlService.getControls({ page: 1, limit: 1000 })
+          geneticImprovementsService.getGeneticImprovements(params),
+          animalDiseasesService.getAnimalDiseases(params),
+          animalFieldsService.getAnimalFields(params),
+          vaccinationsService.getVaccinations(params),
+          treatmentsService.getTreatments(params),
+          controlService.getControls(params)
         ]);
 
         if (geneticData.status === 'fulfilled') {
@@ -263,6 +279,7 @@ export function AnimalModalContent({
         console.error('Error loading related data:', error);
       } finally {
         setLoading(false);
+        setIsManualRefreshing(false);
       }
     };
 
@@ -303,115 +320,161 @@ export function AnimalModalContent({
             )}
           </div>
         </div>
-        {/* Menú de acciones (tres puntos) - visible en PC y móvil */}
-        <div className="flex-shrink-0">
+        {/* Menú de acciones (tres puntos) y botón de refresco - visible en PC y móvil */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {onReplicate && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 hover:bg-secondary/20 hover:text-secondary transition-colors hidden sm:flex"
+              onClick={onReplicate}
+              title="Replicar Animal"
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+          )}
+          {onEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary transition-colors hidden sm:flex"
+              onClick={onEdit}
+              title="Editar Animal"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary transition-colors"
+            onClick={() => {
+              setIsManualRefreshing(true);
+              setDataRefreshTrigger(prev => prev + 1);
+            }}
+            title="Refrescar datos (bypass cache)"
+          >
+            <RefreshCw className={cn("h-4 w-4", (loading || isManualRefreshing) && "animate-spin")} />
+          </Button>
           <AnimalActionsMenu
             animal={animal as AnimalResponse}
             currentUserId={currentUserId}
             onOpenHistory={onOpenHistory}
             onOpenAncestorsTree={onOpenAncestorsTree}
             onOpenDescendantsTree={onOpenDescendantsTree}
-            onRefresh={() => setDataRefreshTrigger(prev => prev + 1)}
+            onRefresh={() => {
+              // Refresh con delay para consistencia
+              setTimeout(() => {
+                setDataRefreshTrigger(prev => prev + 1);
+              }, 1200);
+            }}
           />
         </div>
       </div>
 
-      {/* Información del animal - En el centro */}
-      <div className="space-y-6">
-        {/* Grid responsive: 1 columna en móvil, 2 columnas en pantallas grandes */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Información Básica */}
-          <div className="bg-gradient-to-br from-accent/50 to-accent/20 rounded-xl p-5 shadow-lg border border-border/50">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-4">
-              Información Básica
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-              <DetailField label="ID" value={animal.id} />
-              <DetailField label="Registro" value={animal.record || '-'} />
-              <DetailField label="Raza" value={breedLabel} />
-              <DetailField label="Sexo" value={gender || '-'}>
-                <Badge
-                  variant="secondary"
-                  className={`text-xs font-semibold shadow-sm ${gender === 'Macho' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' :
-                    gender === 'Hembra' ? 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300' :
-                      'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                    }`}
-                >
-                  {gender || '-'}
-                </Badge>
-              </DetailField>
-              <DetailField label="Estado" value={status}>
-                <Badge
-                  variant="outline"
-                  className={`text-xs font-semibold shadow-sm ${status === 'Sano' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400' :
-                    status === 'Enfermo' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400' :
-                      'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400'
-                    }`}
-                >
-                  {status}
-                </Badge>
-              </DetailField>
-              <DetailField label="Peso" value={`${weight} kg`} />
-              <DetailField label="Fecha de nacimiento" value={birthDate} />
-              <DetailField label="Edad (días)" value={ageDays} />
-              <DetailField label="Edad (meses)" value={ageMonths} />
-              <DetailField label="Adulto" value={isAdult} />
-            </div>
+
+
+      {/* Grid wrapper for collapsible sections */}
+      <div className="space-y-4">
+        {/* Información Básica - Collapsible */}
+        <CollapsibleCard
+          title="Información Básica"
+          defaultCollapsed={true}
+          accent="blue"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+            <DetailField label="ID" value={animal.id} />
+            <DetailField label="Registro" value={animal.record || '-'} />
+            <DetailField label="Raza" value={breedLabel} />
+            <DetailField label="Sexo" value={gender || '-'}>
+              <Badge
+                variant="secondary"
+                className={`text-xs font-semibold shadow-sm ${gender === 'Macho' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' :
+                  gender === 'Hembra' ? 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300' :
+                    'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
+                  }`}
+              >
+                {gender || '-'}
+              </Badge>
+            </DetailField>
+            <DetailField label="Estado" value={status}>
+              <Badge
+                variant="outline"
+                className={`text-xs font-semibold shadow-sm ${status === 'Sano' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400' :
+                  status === 'Enfermo' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400' :
+                    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400'
+                  }`}
+              >
+                {status}
+              </Badge>
+            </DetailField>
+            <DetailField label="Peso" value={`${weight} kg`} />
+            <DetailField label="Fecha de nacimiento" value={birthDate} />
+            <DetailField label="Edad (días)" value={ageDays} />
+            <DetailField label="Edad (meses)" value={ageMonths} />
+            <DetailField label="Adulto" value={isAdult} />
           </div>
+        </CollapsibleCard>
 
-          {/* Genealogía - Mini cards con carrusel de imágenes */}
-          <div className="bg-gradient-to-br from-accent/50 to-accent/20 rounded-xl p-5 shadow-lg border border-border/50">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-4">
-              Genealogía
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Padre */}
-              <ParentMiniCard
-                parentId={animal.idFather || animal.father_id}
-                parentLabel={fatherLabel || '-'}
-                gender="Padre"
-                onClick={
-                  onFatherClick && (animal.idFather || animal.father_id)
-                    ? () => onFatherClick(animal.idFather || animal.father_id)
-                    : undefined
-                }
-              />
+        {/* Genealogía - Collapsible */}
+        <CollapsibleCard
+          title="Genealogía"
+          defaultCollapsed={true}
+          accent="amber"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Padre */}
+            <ParentMiniCard
+              parentId={animal.idFather || animal.father_id}
+              parentLabel={fatherLabel || '-'}
+              gender="Padre"
+              onClick={
+                onFatherClick && (animal.idFather || animal.father_id)
+                  ? () => onFatherClick(animal.idFather || animal.father_id)
+                  : undefined
+              }
+            />
 
-              {/* Madre */}
-              <ParentMiniCard
-                parentId={animal.idMother || animal.mother_id}
-                parentLabel={motherLabel || '-'}
-                gender="Madre"
-                onClick={
-                  onMotherClick && (animal.idMother || animal.mother_id)
-                    ? () => onMotherClick(animal.idMother || animal.mother_id)
-                    : undefined
-                }
-              />
-            </div>
+            {/* Madre */}
+            <ParentMiniCard
+              parentId={animal.idMother || animal.mother_id}
+              parentLabel={motherLabel || '-'}
+              gender="Madre"
+              onClick={
+                onMotherClick && (animal.idMother || animal.mother_id)
+                  ? () => onMotherClick(animal.idMother || animal.mother_id)
+                  : undefined
+              }
+            />
           </div>
-        </div>
+        </CollapsibleCard>
 
-        {/* Notas - ancho completo */}
+        {/* Notas - Collapsible */}
         {animal.notes && (
-          <div className="bg-gradient-to-br from-accent/50 to-accent/20 rounded-xl p-5 shadow-lg border border-border/50">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-3">
-              Notas
-            </h3>
+          <CollapsibleCard
+            title="Notas"
+            defaultCollapsed={true}
+            accent="slate"
+          >
             <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
               {animal.notes}
             </p>
-          </div>
+          </CollapsibleCard>
         )}
+      </div>
+
+      {/* Información del animal - En el centro (LEGACY WRAPPER REMOVED) */}
+      <div className="space-y-6">
+        {/* Grid responsive: 1 columna en móvil, 2 columnas en pantallas grandes (LEGACY GRID REMOVED - now inside collapsible) */}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Mejoras Genéticas - Verde */}
-          {!loading && geneticImprovements.length > 0 && (
+          {geneticImprovements.length > 0 && (
             <RelatedDataSection
               title="Mejoras Genéticas"
               icon={<TrendingUp className="h-5 w-5" />}
               data={geneticImprovements}
-              colorClass="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-emerald-900/70 dark:to-emerald-950/60 border-green-200 dark:border-emerald-700"
+              accent="emerald"
               renderItem={(item) => (
                 <div className="flex flex-col gap-1.5 w-full">
                   <div className="flex items-start justify-between gap-2">
@@ -432,47 +495,65 @@ export function AnimalModalContent({
               onAdd={() => openCreateModal('genetic_improvement')}
               onViewAll={() => openListModal('genetic_improvement')}
               onView={(item) => openViewModal('genetic_improvement', item)}
+              onItemClick={(item) => openViewModal('genetic_improvement', item)}
               onEdit={(item) => openEditModal('genetic_improvement', item)}
               onDelete={async (item) => {
-                if (!confirm('¿Está seguro de eliminar esta mejora genética?')) return;
                 const recordId = resolveRecordId(item);
-                if (recordId === null) {
+                if (!recordId) {
                   showToast('No se pudo determinar el ID del registro', 'error');
                   return;
                 }
-                setDeletingItemId(recordId);
-                try {
-                  await geneticImprovementsService.deleteGeneticImprovement(recordId as any);
-                  // Limpiar cachés
-                  geneticImprovementsService.clearCache();
-                  if (animal?.id) clearAnimalDependencyCache(animal.id);
+                if (confirmingDeleteId === recordId) {
+                  setConfirmingDeleteId(null);
+                  setDeletingItemId(recordId);
 
-                  showToast('Mejora genética eliminada correctamente', 'success');
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-                  // Verificar si es 404
-                  if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                    showToast('El registro ya eliminado', 'info');
+                  // Optimistic update
+                  const previousItems = [...geneticImprovements];
+                  setGeneticImprovements(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
+
+                  try {
+                    await geneticImprovementsService.deleteGeneticImprovement(recordId as any);
+                    geneticImprovementsService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    setDataRefreshTrigger(prev => prev + 1);
-                  } else {
-                    showToast('Error al eliminar: ' + errorMessage, 'error');
+                    showToast('Mejora genética eliminada correctamente', 'success');
+
+                    // Delay refresh to ensure backend consistency
+                    setTimeout(() => {
+                      setDataRefreshTrigger(prev => prev + 1);
+                    }, 500);
+                  } catch (error: any) {
+                    // Revert optimistic update
+                    setGeneticImprovements(previousItems);
+
+                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                    if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                      showToast('El registro ya fue eliminado', 'info');
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      setDataRefreshTrigger(prev => prev + 1);
+                    } else {
+                      showToast('Error al eliminar: ' + errorMessage, 'error');
+                    }
+                  } finally {
+                    setDeletingItemId(null);
                   }
-                } finally {
-                  setDeletingItemId(null);
+                } else {
+                  setConfirmingDeleteId(recordId);
+                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
                 }
               }}
+              confirmingDeleteId={confirmingDeleteId}
+              deletingItemId={deletingItemId}
             />
           )}
 
           {/* Enfermedades - Rojo */}
-          {!loading && diseases.length > 0 && (
+          {diseases.length > 0 && (
             <RelatedDataSection
               title="Enfermedades"
               icon={<Activity className="h-5 w-5" />}
               data={diseases}
-              colorClass="bg-gradient-to-br from-red-50 to-rose-50 dark:from-rose-900/70 dark:to-rose-950/60 border-red-200 dark:border-rose-700"
+              accent="red"
               renderItem={(item) => (
                 <div className="flex flex-col gap-1.5 w-full">
                   <div className="flex items-center justify-between gap-2">
@@ -497,46 +578,65 @@ export function AnimalModalContent({
               onAdd={() => openCreateModal('animal_disease')}
               onViewAll={() => openListModal('animal_disease')}
               onView={(item) => openViewModal('animal_disease', item)}
+              onItemClick={(item) => openViewModal('animal_disease', item)}
               onEdit={(item) => openEditModal('animal_disease', item)}
               onDelete={async (item) => {
-                if (!confirm('¿Está seguro de eliminar este registro de enfermedad?')) return;
                 const recordId = resolveRecordId(item);
-                if (recordId === null) {
+                if (!recordId) {
                   showToast('No se pudo determinar el ID del registro', 'error');
                   return;
                 }
-                setDeletingItemId(recordId);
-                try {
-                  await animalDiseasesService.deleteAnimalDisease(recordId as any);
-                  // Limpiar cachés
-                  animalDiseasesService.clearCache();
-                  if (animal?.id) clearAnimalDependencyCache(animal.id);
+                if (confirmingDeleteId === recordId) {
+                  setConfirmingDeleteId(null);
+                  setDeletingItemId(recordId);
 
-                  showToast('Registro de enfermedad eliminado correctamente', 'success');
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-                  if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                    showToast('El registro ya eliminado', 'info');
+                  // Optimistic update
+                  const previousItems = [...diseases];
+                  setDiseases(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
+
+                  try {
+                    await animalDiseasesService.deleteAnimalDisease(recordId as any);
+                    animalDiseasesService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    setDataRefreshTrigger(prev => prev + 1);
-                  } else {
-                    showToast('Error al eliminar: ' + errorMessage, 'error');
+                    showToast('Registro de enfermedad eliminado correctamente', 'success');
+
+                    // Delay refresh to ensure backend consistency
+                    setTimeout(() => {
+                      setDataRefreshTrigger(prev => prev + 1);
+                    }, 500);
+                  } catch (error: any) {
+                    // Revert optimistic update
+                    setDiseases(previousItems);
+
+                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                    if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                      showToast('El registro ya fue eliminado', 'info');
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      setDataRefreshTrigger(prev => prev + 1);
+                    } else {
+                      showToast('Error al eliminar: ' + errorMessage, 'error');
+                    }
+                  } finally {
+                    setDeletingItemId(null);
                   }
-                } finally {
-                  setDeletingItemId(null);
+                } else {
+                  setConfirmingDeleteId(recordId);
+                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
                 }
               }}
+              confirmingDeleteId={confirmingDeleteId}
+              deletingItemId={deletingItemId}
             />
           )}
 
           {/* Campos Asignados - Amarillo */}
-          {!loading && fields.length > 0 && (
+          {fields.length > 0 && (
             <RelatedDataSection
               title="Campos Asignados"
               icon={<MapPin className="h-5 w-5" />}
               data={fields}
-              colorClass="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-amber-900/70 dark:to-amber-950/60 border-yellow-200 dark:border-amber-700"
+              accent="amber"
               renderItem={(item) => (
                 <div className="flex flex-col gap-1.5 w-full">
                   <div className="flex items-start justify-between gap-2">
@@ -562,46 +662,65 @@ export function AnimalModalContent({
               onAdd={() => openCreateModal('animal_field')}
               onViewAll={() => openListModal('animal_field')}
               onView={(item) => openViewModal('animal_field', item)}
+              onItemClick={(item) => openViewModal('animal_field', item)}
               onEdit={(item) => openEditModal('animal_field', item)}
               onDelete={async (item) => {
-                if (!confirm('¿Está seguro de eliminar esta asignación de campo?')) return;
                 const recordId = resolveRecordId(item);
-                if (recordId === null) {
+                if (!recordId) {
                   showToast('No se pudo determinar el ID del registro', 'error');
                   return;
                 }
-                setDeletingItemId(recordId);
-                try {
-                  await animalFieldsService.deleteAnimalField(recordId as any);
-                  // Limpiar cachés
-                  animalFieldsService.clearCache();
-                  if (animal?.id) clearAnimalDependencyCache(animal.id);
+                if (confirmingDeleteId === recordId) {
+                  setConfirmingDeleteId(null);
+                  setDeletingItemId(recordId);
 
-                  showToast('Asignación de campo eliminada correctamente', 'success');
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-                  if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                    showToast('El registro ya eliminado', 'info');
+                  // Optimistic update
+                  const previousItems = [...fields];
+                  setFields(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
+
+                  try {
+                    await animalFieldsService.deleteAnimalField(recordId as any);
+                    animalFieldsService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    setDataRefreshTrigger(prev => prev + 1);
-                  } else {
-                    showToast('Error al eliminar: ' + errorMessage, 'error');
+                    showToast('Asignación de campo eliminada correctamente', 'success');
+
+                    // Delay refresh to ensure backend consistency
+                    setTimeout(() => {
+                      setDataRefreshTrigger(prev => prev + 1);
+                    }, 500);
+                  } catch (error: any) {
+                    // Revert optimistic update
+                    setFields(previousItems);
+
+                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                    if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                      showToast('El registro ya fue eliminado', 'info');
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      setDataRefreshTrigger(prev => prev + 1);
+                    } else {
+                      showToast('Error al eliminar: ' + errorMessage, 'error');
+                    }
+                  } finally {
+                    setDeletingItemId(null);
                   }
-                } finally {
-                  setDeletingItemId(null);
+                } else {
+                  setConfirmingDeleteId(recordId);
+                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
                 }
               }}
+              confirmingDeleteId={confirmingDeleteId}
+              deletingItemId={deletingItemId}
             />
           )}
 
           {/* Vacunaciones - Azul */}
-          {!loading && vaccinations.length > 0 && (
+          {vaccinations.length > 0 && (
             <RelatedDataSection
               title="Vacunaciones"
               icon={<Syringe className="h-5 w-5" />}
               data={vaccinations}
-              colorClass="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-sky-900/70 dark:to-cyan-950/60 border-blue-200 dark:border-sky-700"
+              accent="cyan"
               renderItem={(item) => (
                 <div className="flex flex-col gap-1.5 w-full">
                   <div className="flex items-center justify-between gap-2">
@@ -623,51 +742,70 @@ export function AnimalModalContent({
               onAdd={() => openCreateModal('vaccination')}
               onViewAll={() => openListModal('vaccination')}
               onView={(item) => openViewModal('vaccination', item)}
+              onItemClick={(item) => openViewModal('vaccination', item)}
               onEdit={(item) => openEditModal('vaccination', item)}
               onDelete={async (item) => {
-                if (!confirm('¿Está seguro de eliminar esta vacunación?')) return;
                 const recordId = resolveRecordId(item);
-                if (recordId === null) {
+                if (!recordId) {
                   showToast('No se pudo determinar el ID del registro', 'error');
                   return;
                 }
-                setDeletingItemId(recordId);
-                try {
-                  await vaccinationsService.deleteVaccination(recordId as any);
-                  // Limpiar cachés
-                  vaccinationsService.clearCache();
-                  if (animal?.id) clearAnimalDependencyCache(animal.id);
+                if (confirmingDeleteId === recordId) {
+                  setConfirmingDeleteId(null);
+                  setDeletingItemId(recordId);
 
-                  showToast('Vacunación eliminada correctamente', 'success');
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-                  if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                    showToast('El registro ya eliminado', 'info');
+                  // Optimistic update
+                  const previousItems = [...vaccinations];
+                  setVaccinations(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
+
+                  try {
+                    await vaccinationsService.deleteVaccination(recordId as any);
+                    vaccinationsService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    setDataRefreshTrigger(prev => prev + 1);
-                  } else {
-                    showToast('Error al eliminar: ' + errorMessage, 'error');
+                    showToast('Vacunación eliminada correctamente', 'success');
+
+                    // Delay refresh to ensure backend consistency
+                    setTimeout(() => {
+                      setDataRefreshTrigger(prev => prev + 1);
+                    }, 500);
+                  } catch (error: any) {
+                    // Revert optimistic update
+                    setVaccinations(previousItems);
+
+                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                    if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                      showToast('El registro ya fue eliminado', 'info');
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      setDataRefreshTrigger(prev => prev + 1);
+                    } else {
+                      showToast('Error al eliminar: ' + errorMessage, 'error');
+                    }
+                  } finally {
+                    setDeletingItemId(null);
                   }
-                } finally {
-                  setDeletingItemId(null);
+                } else {
+                  setConfirmingDeleteId(recordId);
+                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
                 }
               }}
+              confirmingDeleteId={confirmingDeleteId}
+              deletingItemId={deletingItemId}
             />
           )}
 
           {/* Tratamientos - Púrpura */}
-          {!loading && treatments.length > 0 && (
+          {treatments.length > 0 && (
             <RelatedDataSection
               title="Tratamientos"
               icon={<Pill className="h-5 w-5" />}
               data={treatments}
-              colorClass="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-violet-900/70 dark:to-purple-950/60 border-purple-200 dark:border-violet-700"
+              accent="purple"
               renderItem={(item) => (
                 <div className="flex flex-col gap-1.5 w-full">
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-[13px] font-bold text-foreground leading-tight">
-                      {item.diagnosis || item.description || `Tratamiento #${item.id}`}
+                      {item.description || `Tratamiento #${item.id}`}
                     </span>
                     <Badge variant="outline" className="text-[9px] h-4 bg-purple-500/10 text-purple-700 border-purple-200 shrink-0">
                       {formatDate(item.treatment_date)}
@@ -688,73 +826,87 @@ export function AnimalModalContent({
               onView={(item) => openViewModal('treatment', item)}
               onItemClick={(item) => openViewModal('treatment', item)}
               onDelete={async (item) => {
-                if (!confirm('¿Está seguro de eliminar este tratamiento?')) return;
                 const recordId = resolveRecordId(item);
-                if (recordId === null) {
+                if (!recordId) {
                   showToast('No se pudo determinar el ID del registro', 'error');
                   return;
                 }
-                setDeletingItemId(recordId);
-                try {
-                  // Verificar dependencias antes de eliminar
-                  const depCheck = await checkTreatmentDependencies(recordId as number);
-                  if (depCheck.hasDependencies) {
-                    // Mostrar mensaje detallado de por qué no se puede eliminar
-                    const depSummary = depCheck.dependencies?.map(d => `${d.count} ${d.entity}`).join(', ') || 'registros asociados';
-                    showToast(
-                      `⚠️ No se puede eliminar este tratamiento porque tiene ${depSummary}. Elimina primero las dependencias.`,
-                      'error'
-                    );
-                    console.warn('[AnimalModalContent] Treatment has dependencies:', depCheck);
-                    setDeletingItemId(null);
-                    return;
-                  }
+                if (confirmingDeleteId === recordId) {
+                  setConfirmingDeleteId(null);
+                  setDeletingItemId(recordId);
+                  try {
+                    // Verificar dependencias antes de eliminar
+                    const depCheck = await checkTreatmentDependencies(recordId as number);
+                    if (depCheck.hasDependencies) {
+                      const depSummary = depCheck.dependencies?.map(d => `${d.count} ${d.entity}`).join(', ') || 'registros asociados';
+                      showToast(
+                        `⚠️ No se puede eliminar este tratamiento porque tiene ${depSummary}. Elimina primero las dependencias.`,
+                        'error'
+                      );
+                      setDeletingItemId(null);
+                      return;
+                    }
 
-                  await treatmentsService.deleteTreatment(recordId as any);
-                  // Limpiar cachés
-                  treatmentsService.clearCache();
-                  if (animal?.id) clearAnimalDependencyCache(animal.id);
+                    // Optimistic update
+                    const previousItems = [...treatments];
+                    setTreatments(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
 
-                  showToast('Tratamiento eliminado correctamente', 'success');
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-
-                  // Detectar errores de integridad referencial del backend
-                  const isIntegrityError =
-                    String(errorMessage).toLowerCase().includes('foreign key') ||
-                    String(errorMessage).toLowerCase().includes('constraint') ||
-                    String(errorMessage).toLowerCase().includes('dependenc') ||
-                    String(errorMessage).toLowerCase().includes('referencia') ||
-                    String(errorMessage).toLowerCase().includes('relacionado') ||
-                    error.status === 409 || error.response?.status === 409;
-
-                  if (isIntegrityError) {
-                    showToast(
-                      '⚠️ No se puede eliminar este tratamiento porque tiene medicamentos o vacunas asociados. Elimina primero esas relaciones.',
-                      'error'
-                    );
-                  } else if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                    showToast('El registro ya eliminado', 'info');
+                    await treatmentsService.deleteTreatment(recordId as any);
+                    treatmentsService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    setDataRefreshTrigger(prev => prev + 1);
-                  } else {
-                    showToast('Error al eliminar: ' + errorMessage, 'error');
+                    showToast('Tratamiento eliminado correctamente', 'success');
+
+                    // Delay refresh to ensure backend consistency
+                    setTimeout(() => {
+                      setDataRefreshTrigger(prev => prev + 1);
+                    }, 500);
+
+                  } catch (error: any) {
+                    // Revert optimistic update
+                    setTreatments(previousItems);
+
+                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                    const isIntegrityError =
+                      String(errorMessage).toLowerCase().includes('foreign key') ||
+                      String(errorMessage).toLowerCase().includes('constraint') ||
+                      String(errorMessage).toLowerCase().includes('dependenc') ||
+                      String(errorMessage).toLowerCase().includes('referencia') ||
+                      String(errorMessage).toLowerCase().includes('relacionado') ||
+                      error.status === 409 || error.response?.status === 409;
+
+                    if (isIntegrityError) {
+                      showToast(
+                        '⚠️ No se puede eliminar este tratamiento porque tiene medicamentos o vacunas asociados. Elimina primero esas relaciones.',
+                        'error'
+                      );
+                    } else if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                      showToast('El registro ya fue eliminado', 'info');
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      setDataRefreshTrigger(prev => prev + 1);
+                    } else {
+                      showToast('Error al eliminar: ' + errorMessage, 'error');
+                    }
+                  } finally {
+                    setDeletingItemId(null);
                   }
-                } finally {
-                  setDeletingItemId(null);
+                } else {
+                  setConfirmingDeleteId(recordId);
+                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
                 }
               }}
+              confirmingDeleteId={confirmingDeleteId}
+              deletingItemId={deletingItemId}
             />
           )}
 
           {/* Controles - Naranja */}
-          {!loading && controls.length > 0 && (
+          {controls.length > 0 && (
             <RelatedDataSection
-              title="Controles"
-              icon={<ClipboardList className="h-5 w-5" />}
+              title="Controles de Crecimiento"
+              icon={<TrendingUp className="h-5 w-5" />}
               data={controls}
-              colorClass="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/30 dark:to-red-950/30 border-orange-200 dark:border-orange-800"
+              accent="amber"
               renderItem={(item) => (
                 <div className="flex flex-col gap-1.5 w-full">
                   <div className="flex items-center justify-between gap-2">
@@ -782,51 +934,71 @@ export function AnimalModalContent({
               onAdd={() => openCreateModal('control')}
               onViewAll={() => openListModal('control')}
               onView={(item) => openViewModal('control', item)}
+              onItemClick={(item) => openViewModal('control', item)}
               onEdit={(item) => openEditModal('control', item)}
               onDelete={async (item) => {
-                if (!confirm('¿Está seguro de eliminar este control?')) return;
                 const recordId = resolveRecordId(item);
-                if (recordId === null) {
+                if (!recordId) {
                   showToast('No se pudo determinar el ID del registro', 'error');
                   return;
                 }
-                setDeletingItemId(recordId);
-                try {
-                  await controlService.deleteControl(recordId as any);
-                  // Limpiar cachés
-                  controlService.clearCache();
-                  if (animal?.id) clearAnimalDependencyCache(animal.id);
+                if (confirmingDeleteId === recordId) {
+                  setConfirmingDeleteId(null);
+                  setDeletingItemId(recordId);
 
-                  showToast('Control eliminado correctamente', 'success');
-                  setDataRefreshTrigger(prev => prev + 1);
-                } catch (error: any) {
-                  const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-                  if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                    showToast('El registro ya eliminado', 'info');
+                  // Optimistic update
+                  const previousItems = [...controls];
+                  setControls(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
+
+                  try {
+                    await controlService.deleteControl(recordId as any);
+                    controlService.clearCache();
                     if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    setDataRefreshTrigger(prev => prev + 1);
-                  } else {
-                    showToast('Error al eliminar: ' + errorMessage, 'error');
+                    showToast('Control eliminado correctamente', 'success');
+
+                    // Delay refresh to ensure backend consistency
+                    setTimeout(() => {
+                      setDataRefreshTrigger(prev => prev + 1);
+                    }, 500);
+                  } catch (error: any) {
+                    // Revert optimistic update
+                    setControls(previousItems);
+
+                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                    if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                      showToast('El registro ya fue eliminado', 'info');
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      setDataRefreshTrigger(prev => prev + 1);
+                    } else {
+                      showToast('Error al eliminar: ' + errorMessage, 'error');
+                    }
+                  } finally {
+                    setDeletingItemId(null);
                   }
-                } finally {
-                  setDeletingItemId(null);
+                } else {
+                  setConfirmingDeleteId(recordId);
+                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
                 }
               }}
+              confirmingDeleteId={confirmingDeleteId}
+              deletingItemId={deletingItemId}
             />
           )}
         </div>
       </div>
 
       {/* Galería e imágenes - Al final */}
-      <div className="bg-gradient-to-br from-accent/50 to-accent/20 rounded-xl p-5 shadow-lg border border-border/50">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/80 mb-4">
-          Galería de Imágenes
-        </h3>
-
+      {/* Galería e imágenes - Al final */}
+      <CollapsibleCard
+        title="Galería de Imágenes"
+        defaultCollapsed={true}
+        accent="slate"
+      >
         {/* Componente unificado de gestión de imágenes */}
         <ImageManager
           animalId={animal.id}
-          title="Imágenes del Animal"
+          title=""
           onGalleryUpdate={() => {
             preserveScroll();
             setRefreshTrigger(prev => prev + 1);
@@ -836,247 +1008,65 @@ export function AnimalModalContent({
           refreshTrigger={refreshTrigger}
           compact={true}
         />
-      </div>
+      </CollapsibleCard>
 
       {/* Modal de detalle para VER */}
-      {actionModalType && selectedItem && actionModalMode === 'view' && (
-        <ItemDetailModal
-          type={actionModalType}
-          item={selectedItem}
-          options={{
-            diseases: diseaseOptions,
-            fields: fieldOptions,
-            vaccines: vaccineOptions,
-            users: userOptions
-          }}
-          onClose={closeActionModal}
-          onEdit={() => setActionModalMode('edit')}
-        />
-      )}
+      {
+        actionModalType && selectedItem && actionModalMode === 'view' && (
+          <ItemDetailModal
+            type={actionModalType}
+            item={selectedItem}
+            options={{
+              diseases: diseaseOptions,
+              fields: fieldOptions,
+              vaccines: vaccineOptions,
+              users: userOptions
+            }}
+            onClose={closeActionModal}
+            onEdit={() => setActionModalMode('edit')}
+            onOpenSupplies={() => {
+              setSelectedTreatmentForSupplies(selectedItem);
+              setSuppliesModalOpen(true);
+            }}
+            zIndex={2000}
+          />
+        )
+      }
 
       {/* AnimalActionsMenu controlado externamente para CREAR/EDITAR/LISTAR */}
-      {actionModalType && (actionModalMode === 'create' || actionModalMode === 'list' || actionModalMode === 'edit') && (
-        <AnimalActionsMenu
-          animal={animal as AnimalResponse}
-          currentUserId={currentUserId}
-          externalOpenModal={actionModalType}
-          externalModalMode={actionModalMode === 'edit' ? 'create' : actionModalMode}
-          externalEditingItem={selectedItem}
-          onRefresh={() => {
-            setDataRefreshTrigger(prev => prev + 1);
-          }}
-          onModalClose={closeActionModal}
-        />
-      )}
-    </div>
+      {
+        actionModalType && (actionModalMode === 'create' || actionModalMode === 'list' || actionModalMode === 'edit') && (
+          <AnimalActionsMenu
+            animal={animal as AnimalResponse}
+            currentUserId={currentUserId}
+            externalOpenModal={actionModalType}
+            externalModalMode={actionModalMode === 'edit' ? 'create' : actionModalMode}
+            externalEditingItem={selectedItem}
+            onRefresh={() => {
+              setDataRefreshTrigger(prev => prev + 1);
+            }}
+            onModalClose={closeActionModal}
+          />
+        )
+      }
+
+      {/* Modal de Insumos del Tratamiento */}
+      <TreatmentSuppliesModal
+        isOpen={suppliesModalOpen}
+        onClose={() => {
+          setSuppliesModalOpen(false);
+          setSelectedTreatmentForSupplies(null);
+          // Opcional: refrescar datos si hubo cambios
+          setDataRefreshTrigger(prev => prev + 1);
+        }}
+        treatment={selectedTreatmentForSupplies}
+        zIndex={2000}
+      />
+    </div >
   );
 }
 
-function ItemDetailModal({
-  type,
-  item,
-  options,
-  onClose,
-  onEdit
-}: {
-  type: string;
-  item: any;
-  options: {
-    diseases: Record<number, string>;
-    fields: Record<number, string>;
-    vaccines: Record<number, string>;
-    users: Record<number, string>;
-  };
-  onClose: () => void;
-  onEdit: () => void;
-}) {
-  const getTitle = () => {
-    switch (type) {
-      case 'genetic_improvement': return 'Detalle de Mejora Genética';
-      case 'animal_disease': return 'Detalle de Enfermedad';
-      case 'animal_field': return 'Detalle de Asignación de Campo';
-      case 'vaccination': return 'Detalle de Vacunación';
-      case 'treatment': return 'Detalle de Tratamiento';
-      case 'control': return 'Detalle de Control';
-      default: return 'Detalle';
-    }
-  };
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '-';
-    try {
-      const [year, month, day] = dateStr.split('T')[0].split('-');
-      return `${day}/${month}/${year}`;
-    } catch (e) {
-      return dateStr;
-    }
-  };
-
-  const formatDateTime = (dateStr: string) => {
-    if (!dateStr) return '-';
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleString('es-ES');
-    } catch (e) {
-      return dateStr;
-    }
-  };
-
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={onClose}>
-      <div className="bg-background rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-border/50 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border/40">
-          <div>
-            <h2 className="text-xl font-bold">{getTitle()}</h2>
-            <p className="text-xs text-muted-foreground mt-1">Información detallada del registro</p>
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="h-8 w-8 p-0 rounded-full"
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-          {/* Renderizar campos según el tipo */}
-          {
-            type === 'genetic_improvement' && (
-              <>
-                <InfoField label="ID Registro" value={item.id} />
-                <InfoField label="Técnica / Tipo" value={item.improvement_type || item.genetic_event_technique || '-'} />
-                <InfoField label="Fecha de Evento" value={formatDate(item.date)} />
-                {item.description && <InfoField label="Descripción" value={item.description} fullWidth />}
-                {item.details && <InfoField label="Detalles" value={item.details} fullWidth />}
-                {item.genetic_material_used && <InfoField label="Material Genético" value={item.genetic_material_used} />}
-                {item.results && <InfoField label="Resultados" value={item.results} fullWidth />}
-                {item.instructor_id && <InfoField label="Instructor" value={options.users[item.instructor_id] || `ID: ${item.instructor_id}`} />}
-                <InfoField label="Creado" value={formatDateTime(item.created_at)} />
-                <InfoField label="Actualizado" value={formatDateTime(item.updated_at)} />
-              </>
-            )
-          }
-
-          {
-            type === 'animal_disease' && (
-              <>
-                <InfoField label="Enfermedad" value={options.diseases[item.disease_id] || `ID: ${item.disease_id}`} fullWidth />
-                <InfoField label="Fecha Diagnóstico" value={formatDate(item.diagnosis_date)} />
-                <InfoField label="Estado Actual" value={item.status || 'Activo'} badge badgeVariant={item.status === 'Activo' ? 'destructive' : item.status === 'Curado' ? 'success' : 'default'} />
-                <InfoField label="Instructor" value={options.users[item.instructor_id] || `ID: ${item.instructor_id}`} />
-                {item.notes && <InfoField label="Notas y Observaciones" value={item.notes} fullWidth />}
-                <InfoField label="Fecha de Registro" value={formatDateTime(item.created_at)} />
-              </>
-            )
-          }
-
-          {
-            type === 'animal_field' && (
-              <>
-                <InfoField label="Potrero / Campo" value={options.fields[item.field_id] || `ID: ${item.field_id}`} fullWidth />
-                <InfoField label="Fecha Asignación" value={formatDate(item.assignment_date)} />
-                <InfoField label="Fecha Retiro" value={item.removal_date ? formatDate(item.removal_date) : 'Activo'} badge badgeVariant={item.removal_date ? 'secondary' : 'success'} />
-                {item.notes && <InfoField label="Notas" value={item.notes} fullWidth />}
-                <InfoField label="Fecha de Registro" value={formatDateTime(item.created_at)} />
-              </>
-            )
-          }
-
-          {
-            type === 'vaccination' && (
-              <>
-                <InfoField label="Vacuna Aplicada" value={options.vaccines[item.vaccine_id] || `ID: ${item.vaccine_id}`} fullWidth />
-                <InfoField label="Fecha Aplicación" value={formatDate(item.vaccination_date)} />
-                <InfoField label="Instructor" value={options.users[item.instructor_id] || `ID: ${item.instructor_id}`} />
-                {item.apprentice_id && <InfoField label="Aprendiz" value={options.users[item.apprentice_id] || `ID: ${item.apprentice_id}`} />}
-                {item.batch_number && <InfoField label="Número de Lote" value={item.batch_number} />}
-                <InfoField label="Fecha de Registro" value={formatDateTime(item.created_at)} />
-              </>
-            )
-          }
-
-          {
-            type === 'treatment' && (
-              <>
-                <InfoField label="Diagnóstico" value={item.diagnosis || item.description || '-'} fullWidth />
-                <InfoField label="Fecha Inicio" value={formatDate(item.treatment_date)} />
-                <InfoField label="Veterinario" value={item.veterinarian || '-'} />
-                <InfoField label="Dosis" value={item.dosis || '-'} />
-                <InfoField label="Frecuencia" value={item.frequency || '-'} />
-                {item.observations && <InfoField label="Observaciones" value={item.observations} fullWidth />}
-                {item.notes && <InfoField label="Notas adicionales" value={item.notes} fullWidth />}
-                <InfoField label="Fecha de Registro" value={formatDateTime(item.created_at)} />
-              </>
-            )
-          }
-
-          {
-            type === 'control' && (
-              <>
-                <InfoField label="Fecha de Control" value={formatDate(item.checkup_date)} />
-                <InfoField label="Estado de Salud" value={item.health_status || item.health_status || '-'} badge badgeVariant={item.health_status === 'Excelente' || item.health_status === 'Bueno' || item.health_status === 'Sano' ? 'success' : item.health_status === 'Regular' ? 'default' : 'destructive'} />
-                {item.weight && <InfoField label="Peso Pesado" value={`${item.weight} kg`} />}
-                {item.height && <InfoField label="Altura Medida" value={`${item.height} m`} />}
-                {item.description && <InfoField label="Descripción de Control" value={item.description} fullWidth />}
-                <InfoField label="Fecha de Registro" value={formatDateTime(item.created_at)} />
-              </>
-            )
-          }
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-border/40 bg-muted/5">
-          <Button variant="outline" onClick={onClose} className="rounded-xl px-6">
-            Cerrar
-          </Button>
-          <Button onClick={onEdit} className="rounded-xl px-6 bg-primary text-white shadow-lg shadow-primary/20 hover:opacity-90 active:scale-95 transition-all">
-            <Edit className="h-4 w-4 mr-2" />
-            Editar Registro
-          </Button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
-
-function InfoField({
-  label,
-  value,
-  fullWidth = false,
-  badge = false,
-  badgeVariant = 'default'
-}: {
-  label: string;
-  value: any;
-  fullWidth?: boolean;
-  badge?: boolean;
-  badgeVariant?: 'default' | 'secondary' | 'destructive' | 'success' | 'outline';
-}) {
-  const displayValue = value !== null && value !== undefined ? String(value) : '-';
-
-  return (
-    <div className={`space-y-1.5 ${fullWidth ? 'col-span-full' : ''}`}>
-      <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      {badge ? (
-        <Badge variant={badgeVariant as any} className={badgeVariant === 'success' ? 'bg-green-600 text-white' : ''}>
-          {displayValue}
-        </Badge>
-      ) : (
-        <div className={`text-sm ${fullWidth ? 'whitespace-pre-wrap' : ''}`}>
-          {displayValue}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function DetailField({
   label,
@@ -1106,161 +1096,219 @@ function RelatedDataSection<T>({
   icon,
   data,
   renderItem,
-  colorClass,
+  accent = 'slate',
   onAdd,
   onViewAll,
   onView,
   onEdit,
   onDelete,
-  onItemClick
+  onItemClick,
+  confirmingDeleteId,
+  deletingItemId
 }: {
   title: string;
   icon: React.ReactNode;
   data: T[];
   renderItem: (item: T) => React.ReactNode;
-  colorClass?: string;
+  accent?: 'blue' | 'cyan' | 'teal' | 'emerald' | 'purple' | 'indigo' | 'red' | 'amber' | 'slate';
   onAdd?: () => void;
   onViewAll?: () => void;
   onView?: (item: T) => void;
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
   onItemClick?: (item: T) => void;
+  confirmingDeleteId?: string | number | null;
+  deletingItemId?: string | number | null;
 }) {
+  const [isCollapsed, setIsCollapsed] = useState(true);
+
+  const accentClasses: Record<string, string> = {
+    blue: "text-blue-700 dark:text-blue-300 before:bg-blue-500 shadow-blue-500/10",
+    cyan: "text-cyan-700 dark:text-cyan-300 before:bg-cyan-500 shadow-cyan-500/10",
+    teal: "text-teal-700 dark:text-teal-300 before:bg-teal-500 shadow-teal-500/10",
+    emerald: "text-emerald-700 dark:text-emerald-300 before:bg-emerald-500 shadow-emerald-500/10",
+    purple: "text-purple-700 dark:text-purple-300 before:bg-purple-500 shadow-purple-500/10",
+    indigo: "text-indigo-700 dark:text-indigo-300 before:bg-indigo-500 shadow-indigo-500/10",
+    red: "text-red-700 dark:text-red-300 before:bg-red-500 shadow-red-500/10",
+    amber: "text-amber-700 dark:text-amber-300 before:bg-amber-500 shadow-amber-500/10",
+    slate: "text-slate-700 dark:text-slate-300 before:bg-slate-500 shadow-slate-500/10",
+  };
+
+  const classes = accentClasses[accent] || accentClasses.slate;
+  const [textClasses, barClasses] = [
+    classes.split(' before:')[0],
+    classes.split(' before:')[1]
+  ];
+
   return (
-    <div className={`rounded-xl p-5 shadow-lg border-2 ${colorClass || 'bg-gradient-to-br from-accent/50 to-accent/20 border-border/50'}`}>
+    <div className={cn(
+      "rounded-xl shadow-lg border overflow-hidden transition-all duration-300 bg-card border-border/60",
+      "hover:shadow-xl"
+    )}>
       {/* Header con título y botones de acción */}
-      <div className="flex items-center justify-between mb-4">
+      <div
+        className={cn(
+          "flex items-center justify-between p-4 cursor-pointer transition-colors border-b border-border/40",
+          "hover:bg-accent/5",
+          isCollapsed ? "bg-card" : "bg-card/50"
+        )}
+        onClick={() => setIsCollapsed(!isCollapsed)}
+      >
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "p-1.5 rounded-full backdrop-blur-sm border shadow-sm bg-background/50",
+            textClasses
+          )}>
+            {icon}
+          </div>
+          <div className="flex flex-col">
+            <h3 className={cn(
+              "text-xs font-bold uppercase tracking-wider flex items-center gap-2",
+              textClasses
+            )}>
+              {title}
+            </h3>
+            <span className="text-[10px] text-muted-foreground font-medium">
+              {data.length} registros
+            </span>
+          </div>
+        </div>
+
+        {/* Botones de acción derecha */}
         <div className="flex items-center gap-2">
-          <div className="text-foreground">{icon}</div>
-          <h3 className="text-sm font-bold uppercase tracking-wider text-foreground/90">
-            {title}
-          </h3>
-          <Badge variant="secondary" className="text-xs">
-            {data.length}
-          </Badge>
-        </div>
-
-        {/* Botones de acción */}
-        <div className="flex items-center gap-1">
-          {onAdd && (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={onAdd}
-              className="h-7 w-7 p-0 hover:bg-foreground/10"
-              title="Agregar nuevo"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-          )}
-          {onViewAll && (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={onViewAll}
-              className="h-7 w-7 p-0 hover:bg-foreground/10"
-              title="Ver todos"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Lista de elementos */}
-      {data.length > 0 ? (
-        <div className="space-y-3">
-          {data.slice(0, 5).map((item: any, index) => (
-            <div
-              key={item.id || index}
-              className={`bg-card/50 backdrop-blur-sm rounded-lg p-3 border border-border/30 hover:border-foreground/30 transition-colors group ${onItemClick ? 'cursor-pointer hover:bg-card/80' : ''}`}
-              onClick={onItemClick ? (e) => { e.stopPropagation(); onItemClick(item); } : undefined}
-              {...(onItemClick && { role: 'button', tabIndex: 0, 'aria-label': 'Ver detalle del registro' })}
-              onKeyDown={onItemClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onItemClick(item); } } : undefined}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  {renderItem(item)}
-                </div>
-
-                {/* Botones de acción por item */}
-                {(onView || onEdit || onDelete) && (
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {onView && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          onView(item);
-                        }}
-                        className="h-6 w-6 p-0 hover:bg-green-500/20 hover:text-green-600"
-                        title="Ver detalle"
-                      >
-                        <Eye className="h-3 w-3" />
-                      </Button>
-                    )}
-                    {onEdit && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          onEdit(item);
-                        }}
-                        className="h-6 w-6 p-0 hover:bg-blue-500/20 hover:text-blue-600"
-                        title="Editar"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </Button>
-                    )}
-                    {onDelete && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          console.log('[RelatedDataSection Delete] Clicked, item:', item);
-                          onDelete(item);
-                        }}
-                        className="h-6 w-6 p-0 hover:bg-red-500/20 hover:text-red-600"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-          {data.length > 5 && (
-            <div className="text-center pt-2">
+          <div className="flex items-center gap-1 mr-1" onClick={(e) => e.stopPropagation()}>
+            {onAdd && (
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                onClick={onViewAll}
-                className="text-xs"
+                variant="ghost"
+                onClick={onAdd}
+                className="h-8 w-8 p-0 rounded-full hover:bg-background/40 hover:scale-105 transition-all text-muted-foreground hover:text-foreground"
+                title="Agregar nuevo"
               >
-                Ver todos ({data.length})
+                <Plus className="h-4 w-4" />
               </Button>
+            )}
+            {onViewAll && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={onViewAll}
+                className="h-8 w-8 p-0 rounded-full hover:bg-background/40 hover:scale-105 transition-all text-muted-foreground hover:text-foreground"
+                title="Ver todos"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 rounded-full hover:bg-background/40"
+          >
+            {isCollapsed ? <ChevronDown className="h-5 w-5 opacity-70" /> : <ChevronUp className="h-5 w-5 opacity-70" />}
+          </Button>
+        </div>
+      </div>
+
+      <div className={cn(
+        "transition-all duration-300 ease-in-out",
+        isCollapsed ? 'max-h-0 opacity-0 overflow-hidden' : 'max-h-[1000px] opacity-100 overflow-visible'
+      )}>
+        <div className="p-4 pt-0">
+          <div className="my-2 h-px bg-current opacity-5" />
+          {data.length > 0 ? (
+            <div className="space-y-2 mt-4">
+              {data.slice(0, 5).map((item: any, index) => (
+                <div
+                  key={item.id || index}
+                  className={cn(
+                    "bg-card/40 backdrop-blur-md rounded-xl p-3 border border-border/10 transition-all hover:shadow-md hover:translate-x-1 group",
+                    onItemClick ? 'cursor-pointer hover:bg-card/60' : ''
+                  )}
+                  onClick={onItemClick ? (e) => { e.stopPropagation(); onItemClick(item); } : undefined}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      {renderItem(item)}
+                    </div>
+
+                    {(onView || onEdit || onDelete) && (
+                      <div className="flex items-center gap-1 opacity-10 sm:opacity-0 group-hover:opacity-100 transition-opacity translate-y-1">
+                        {onView && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onView(item); }}
+                            className="h-7 w-7 p-0 hover:bg-green-500/10 hover:text-green-600 rounded-full"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {onEdit && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onEdit(item); }}
+                            className="h-7 w-7 p-0 hover:bg-blue-500/10 hover:text-blue-600 rounded-full"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        {onDelete && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(item); }}
+                            disabled={deletingItemId !== null && (deletingItemId === resolveRecordId(item))}
+                            className={cn(
+                              "h-7 w-7 p-0 transition-all duration-200 rounded-full disabled:opacity-50",
+                              confirmingDeleteId === resolveRecordId(item)
+                                ? 'bg-red-600 text-white shadow-lg shadow-red-500/50 animate-pulse scale-110'
+                                : 'hover:bg-red-500/10 hover:text-red-600'
+                            )}
+                          >
+                            {deletingItemId !== null && (deletingItemId === resolveRecordId(item)) ? (
+                              <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                            ) : confirmingDeleteId === resolveRecordId(item) ? (
+                              <span className="text-[10px] font-bold">✓</span>
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {data.length > 5 && (
+                <div className="text-center pt-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={onViewAll}
+                    className="text-[10px] font-bold uppercase tracking-widest opacity-60 hover:opacity-100 w-full"
+                  >
+                    Ver todos ({data.length})
+                  </Button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground text-xs italic opacity-60">
+              No hay registros
             </div>
           )}
         </div>
-      ) : (
-        <div className="text-center py-8 text-muted-foreground text-sm">
-          No hay registros
-        </div>
-      )}
+      </div>
     </div>
   );
 }
+

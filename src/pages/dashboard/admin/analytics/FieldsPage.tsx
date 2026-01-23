@@ -54,7 +54,7 @@ const FieldsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="h-full overflow-auto bg-gray-50 p-6" tabIndex={0}>
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Gestión de Potreros</h1>
@@ -161,13 +161,12 @@ const FieldsPage: React.FC = () => {
                 </div>
                 <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full transition-all ${
-                      fieldStat.occupation_rate > 100
+                    className={`h-2 rounded-full transition-all ${fieldStat.occupation_rate > 100
                         ? 'bg-red-500'
                         : fieldStat.occupation_rate > 80
-                        ? 'bg-yellow-500'
-                        : 'bg-green-500'
-                    }`}
+                          ? 'bg-yellow-500'
+                          : 'bg-green-500'
+                      }`}
                     style={{
                       width: `${Math.min(fieldStat.occupation_rate, 100)}%`,
                     }}

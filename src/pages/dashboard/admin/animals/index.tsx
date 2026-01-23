@@ -25,6 +25,7 @@ import { AnimalCard } from '@/widgets/dashboard/animals/AnimalCard';
 import { AnimalModalContent } from '@/widgets/dashboard/animals/AnimalModalContent';
 import { AnimalImagePreUpload } from '@/widgets/dashboard/animals/AnimalImagePreUpload';
 import { animalImageService } from '@/entities/animal/api/animalImage.service';
+import { useToast } from '@/app/providers/ToastContext';
 
 const ANIMAL_STATUS_OPTIONS = [
   { value: 'Vivo', label: 'Vivo' },
@@ -146,6 +147,7 @@ const initialFormData: Partial<AnimalInput> = {
 function AdminAnimalsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [, setFormData] = useState<Partial<AnimalInput>>(initialFormData);
   const [viewMode, setViewMode] = useGlobalViewMode();
 
@@ -221,7 +223,7 @@ function AdminAnimalsPage() {
   const [ancestorSummary, setAncestorSummary] = useState<any | undefined>(undefined);
   const [ancestorEdgeExamples, setAncestorEdgeExamples] = useState<any | undefined>(undefined);
   const [treeRootId, setTreeRootId] = useState<number | null>(null);
-  
+
   const [isDescOpen, setIsDescOpen] = React.useState<boolean>(false);
   const [descAnimal, setDescAnimal] = React.useState<any | null>(null);
   const [descLevels, setDescLevels] = React.useState<any[][]>([]);
@@ -243,12 +245,12 @@ function AdminAnimalsPage() {
       title: 'Información Básica',
       gridCols: 3,
       fields: [
-        { 
-          name: 'record', 
-          label: 'Registro', 
-          type: 'text', 
-          required: true, 
-          placeholder: 'Ej: REC0001' 
+        {
+          name: 'record',
+          label: 'Registro',
+          type: 'text',
+          required: true,
+          placeholder: 'Ej: REC0001'
         },
         {
           name: 'birth_date',
@@ -313,15 +315,15 @@ function AdminAnimalsPage() {
   // Columnas de la tabla
   const columns: CRUDColumn<AnimalResponse & { [k: string]: any }>[] = [
     { key: 'record', label: 'Registro', width: 15 },
-    { 
-      key: 'gender', 
-      label: 'Sexo', 
-      render: (v, record) => v || record.sex || '-' 
+    {
+      key: 'gender',
+      label: 'Sexo',
+      render: (v, record) => v || record.sex || '-'
     },
-    { 
-      key: 'status', 
-      label: 'Estado', 
-      render: (v) => v || '-' 
+    {
+      key: 'status',
+      label: 'Estado',
+      render: (v) => v || '-'
     },
     {
       key: 'breed_id',
@@ -334,25 +336,25 @@ function AdminAnimalsPage() {
         return <BreedLink id={id} label={label} />;
       }
     },
-    { 
-      key: 'birth_date', 
-      label: 'Nacimiento', 
-      render: (v) => v ? new Date(v as string).toLocaleDateString('es-ES') : '-' 
+    {
+      key: 'birth_date',
+      label: 'Nacimiento',
+      render: (v) => v ? new Date(v as string).toLocaleDateString('es-ES') : '-'
     },
-    { 
-      key: 'weight', 
-      label: 'Peso (kg)', 
-      render: (v) => v ?? '-' 
+    {
+      key: 'weight',
+      label: 'Peso (kg)',
+      render: (v) => v ?? '-'
     },
-    { 
-      key: 'age_in_months', 
-      label: 'Edad (meses)', 
-      render: (v) => v ?? '-' 
+    {
+      key: 'age_in_months',
+      label: 'Edad (meses)',
+      render: (v) => v ?? '-'
     },
-    { 
-      key: 'is_adult', 
-      label: 'Adulto', 
-      render: (v) => v === true ? 'Sí' : v === false ? 'No' : '-' 
+    {
+      key: 'is_adult',
+      label: 'Adulto',
+      render: (v) => v === true ? 'Sí' : v === false ? 'No' : '-'
     },
     {
       key: 'father_id',
@@ -382,7 +384,7 @@ function AdminAnimalsPage() {
       render: (v) => v ? new Date(v as string).toLocaleDateString('es-ES') : '-'
     },
   ];
-  
+
   // Funciones para abrir modales
   const openHistoryModal = (record: AnimalResponse & { [k: string]: any }) => {
     const modalAnimal = {
@@ -396,7 +398,7 @@ function AdminAnimalsPage() {
     setHistoryAnimal(modalAnimal);
     setIsHistoryOpen(true);
   };
-  
+
   const openGeneticTreeModal = async (record: AnimalResponse & { [k: string]: any }) => {
     const id = Number(record.id ?? 0);
     if (!id) return;
@@ -525,6 +527,20 @@ function AdminAnimalsPage() {
         onOpenHistory={() => openHistoryModal(item)}
         onOpenAncestorsTree={() => openGeneticTreeModal(item)}
         onOpenDescendantsTree={() => openDescendantsTreeModal(item)}
+        onEdit={() => {
+          const search = new URLSearchParams(window.location.search);
+          search.set('edit', String(item.id));
+          if (search.has('detail')) search.delete('detail'); // Intentar cerrar el detalle limpiando el param
+          navigate(`?${search.toString()}`);
+        }}
+        onReplicate={() => {
+          // Navegar a create=true
+          const search = new URLSearchParams(window.location.search);
+          search.set('create', 'true');
+          if (search.has('detail')) search.delete('detail');
+          navigate(`?${search.toString()}`);
+          showToast('Modo creación iniciado. Ingrese los detalles del nuevo animal.', 'info');
+        }}
       />
     );
   };

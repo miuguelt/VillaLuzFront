@@ -126,7 +126,7 @@ const DashboardExecutive: React.FC = () => {
 
   if (!dashboard) {
     return (
-      <div className="min-h-screen bg-background p-6">
+      <div className="h-full overflow-auto bg-background p-6" tabIndex={0}>
         <div className="text-center py-12">
           <p className="text-muted-foreground text-lg">No hay datos disponibles</p>
         </div>
@@ -154,31 +154,31 @@ const DashboardExecutive: React.FC = () => {
   const statusChartData =
     animalStats?.by_status && Object.keys(animalStats.by_status).length > 0
       ? {
-          labels: Object.keys(animalStats.by_status),
-          datasets: [
-            {
-              label: 'Animales',
-              data: Object.values(animalStats.by_status),
-              backgroundColor: getChartColors(Object.keys(animalStats.by_status).length),
-              borderRadius: 6,
-            },
-          ],
-        }
+        labels: Object.keys(animalStats.by_status),
+        datasets: [
+          {
+            label: 'Animales',
+            data: Object.values(animalStats.by_status),
+            backgroundColor: getChartColors(Object.keys(animalStats.by_status).length),
+            borderRadius: 6,
+          },
+        ],
+      }
       : null;
 
   const ageDistributionData =
     animalStats?.age_distribution && animalStats.age_distribution.length > 0
       ? {
-          labels: animalStats.age_distribution.map((item) => item.age_range),
-          datasets: [
-            {
-              label: 'Cantidad',
-              data: animalStats.age_distribution.map((item) => item.count),
-              backgroundColor: COLORS.charts.secondary,
-              borderRadius: 4,
-            },
-          ],
-        }
+        labels: animalStats.age_distribution.map((item) => item.age_range),
+        datasets: [
+          {
+            label: 'Cantidad',
+            data: animalStats.age_distribution.map((item) => item.count),
+            backgroundColor: COLORS.charts.secondary,
+            borderRadius: 4,
+          },
+        ],
+      }
       : null;
 
   const topBreeds =
@@ -274,7 +274,10 @@ const DashboardExecutive: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6 space-y-8">
+    <div
+      className="h-full overflow-auto bg-background p-6 space-y-8"
+      tabIndex={0}
+    >
       <div>
         <h1 className="text-3xl font-bold text-foreground">Panel integral de analítica</h1>
         <p className="text-muted-foreground mt-2">
@@ -291,34 +294,34 @@ const DashboardExecutive: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpiCards.length > 0
           ? kpiCards.slice(0, 4).map((card) => {
-              const isBadWhenHigher =
-                card.id === 'mortality_rate_30d' ||
-                card.id === 'sales_rate_30d' ||
-                card.id === 'alert_pressure' ||
-                card.id === 'task_load_index';
-              const unit = card.unidad || undefined;
-              const value =
-                typeof card.valor === 'number' && unit === '%'
-                  ? card.valor.toFixed(1)
-                  : card.valor;
-              const iconNode =
-                kpiIconMap[card.id] ||
-                (card.icono ? <span className="text-lg">{card.icono}</span> : null);
+            const isBadWhenHigher =
+              card.id === 'mortality_rate_30d' ||
+              card.id === 'sales_rate_30d' ||
+              card.id === 'alert_pressure' ||
+              card.id === 'task_load_index';
+            const unit = card.unidad || undefined;
+            const value =
+              typeof card.valor === 'number' && unit === '%'
+                ? card.valor.toFixed(1)
+                : card.valor;
+            const iconNode =
+              kpiIconMap[card.id] ||
+              (card.icono ? <span className="text-lg">{card.icono}</span> : null);
 
-              return (
-                <KPICard
-                  key={card.id}
-                  title={card.titulo}
-                  value={value}
-                  unit={unit}
-                  change={card.cambio}
-                  icon={iconNode}
-                  subtitle={card.descripcion}
-                  goodWhenHigher={!isBadWhenHigher}
-                  loading={loadingDashboard}
-                />
-              );
-            })
+            return (
+              <KPICard
+                key={card.id}
+                title={card.titulo}
+                value={value}
+                unit={unit}
+                change={card.cambio}
+                icon={iconNode}
+                subtitle={card.descripcion}
+                goodWhenHigher={!isBadWhenHigher}
+                loading={loadingDashboard}
+              />
+            );
+          })
           : (
             <>
               <KPICard
@@ -337,10 +340,9 @@ const DashboardExecutive: React.FC = () => {
               />
               <KPICard
                 title="Índice de salud"
-                value={`${
-                  (dashboard.distribucion_salud?.excelente || 0) +
+                value={`${(dashboard.distribucion_salud?.excelente || 0) +
                   (dashboard.distribucion_salud?.bueno || 0)
-                }/${dashboard.animales_activos?.valor || 0}`}
+                  }/${dashboard.animales_activos?.valor || 0}`}
                 icon="🏥"
                 loading={loadingDashboard}
                 subtitle="Animales en condición óptima"
@@ -857,7 +859,7 @@ const DashboardExecutive: React.FC = () => {
 };
 
 const LoadingDashboard: React.FC = () => (
-  <div className="min-h-screen bg-background p-6">
+  <div className="h-full overflow-auto bg-background p-6" tabIndex={0}>
     <div className="mb-8 animate-pulse">
       <div className="h-8 bg-muted rounded w-1/4 mb-2"></div>
       <div className="h-4 bg-muted rounded w-1/3"></div>

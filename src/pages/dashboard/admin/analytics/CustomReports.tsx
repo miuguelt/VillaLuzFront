@@ -93,7 +93,7 @@ const CustomReports: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="h-full overflow-auto bg-gray-50 p-6" tabIndex={0}>
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
@@ -125,11 +125,10 @@ const CustomReports: React.FC = () => {
                   <button
                     key={option.value}
                     onClick={() => setConfig({ ...config, period: option.value })}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      config.period === option.value
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${config.period === option.value
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     {option.label}
                   </button>
@@ -146,11 +145,10 @@ const CustomReports: React.FC = () => {
                 {metricsOptions.map((option) => (
                   <label
                     key={option.value}
-                    className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                      config.metrics.includes(option.value)
+                    className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${config.metrics.includes(option.value)
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <input
                       type="checkbox"
@@ -197,11 +195,10 @@ const CustomReports: React.FC = () => {
                         : [...config.groupBy, option.value];
                       setConfig({ ...config, groupBy: newGroupBy });
                     }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      config.groupBy.includes(option.value)
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${config.groupBy.includes(option.value)
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     {option.label}
                   </button>

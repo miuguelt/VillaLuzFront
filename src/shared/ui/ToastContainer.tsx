@@ -22,7 +22,7 @@ export const ToastContainer: React.FC = () => {
   const { toasts, removeToast } = useToast();
 
   return createPortal(
-    <div className="fixed z-[1000] bottom-4 right-4 flex flex-col gap-2 items-end" aria-live="polite" aria-atomic="true">
+    <div className="fixed z-[100000] bottom-4 right-4 flex flex-col gap-2 items-end" aria-live="polite" aria-atomic="true">
       {toasts.map((toast) => (
         <div
           key={toast.id}
