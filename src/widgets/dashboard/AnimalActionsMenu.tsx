@@ -181,6 +181,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
             onKeyDown={(e) => e.stopPropagation()}
             title="Más acciones"
             aria-label="Más acciones"
+            data-testid="animal-actions-trigger"
           >
             <MoreVertical className="h-4 w-4" />
           </button>
@@ -192,6 +193,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
               onOpenHistory?.();
             }}
             className="cursor-pointer"
+            data-testid="menu-item-history"
           >
             <History className="mr-2 h-4 w-4" />
             Historial
@@ -222,7 +224,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
           <DropdownMenuSeparator />
 
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger data-testid="menu-sub-genetic_improvement">
               <Dna className="mr-2 h-4 w-4" />
               Mejora Genética
             </DropdownMenuSubTrigger>
@@ -251,7 +253,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
           </DropdownMenuSub>
 
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger data-testid="menu-sub-animal_disease">
               <Activity className="mr-2 h-4 w-4" />
               Enfermedad
             </DropdownMenuSubTrigger>
@@ -282,7 +284,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
           <DropdownMenuSeparator />
 
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger data-testid="menu-sub-animal_field">
               <MapPin className="mr-2 h-4 w-4" />
               Asignar Campo
             </DropdownMenuSubTrigger>
@@ -311,7 +313,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
           </DropdownMenuSub>
 
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger data-testid="menu-sub-vaccination">
               <Syringe className="mr-2 h-4 w-4" />
               Vacunación
             </DropdownMenuSubTrigger>
@@ -340,7 +342,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
           </DropdownMenuSub>
 
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger data-testid="menu-sub-treatment">
               <Pill className="mr-2 h-4 w-4" />
               Tratamiento
             </DropdownMenuSubTrigger>
@@ -371,7 +373,7 @@ export const AnimalActionsMenu: React.FC<AnimalActionsMenuProps> = ({
           <DropdownMenuSeparator />
 
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger data-testid="menu-sub-control">
               <ClipboardList className="mr-2 h-4 w-4" />
               Control
             </DropdownMenuSubTrigger>
@@ -655,7 +657,7 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
       setTimeout(async () => {
         await loadListData(true);
         onRefreshParent?.(type || undefined);
-      }, 1200);
+      }, 600);
     } catch (err: any) {
       console.error('[AnimalActionModalInstance] Error saving:', err);
       let msg = err?.response?.data?.message || err.message || 'Error al guardar';
@@ -798,7 +800,8 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
       // Programar refresco con delay para consistencia del backend
       setTimeout(() => {
         onRefreshParent?.(type || undefined);
-      }, 300);
+      }, 600);
+
     } catch (err: any) {
       console.error('[AnimalActionsMenu] Error al eliminar:', err);
 

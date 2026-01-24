@@ -182,9 +182,13 @@ export class BaseService<T> {
     // 2. Limpiar IndexedDB en background (ahora awaited para consistencia)
     const prefix = `service:${this.endpoint}`;
     try {
-      await invalidateIndexedDBCacheByPrefix(prefix);
+      // No esperar a IDB para evitar bloqueos en la UI "Processing..."
+      // La invalidación ocurre en background.
+      invalidateIndexedDBCacheByPrefix(prefix).catch((err) => {
+        if (__DEV__) console.warn('[BaseService] Error limpiando cache IndexedDB:', err);
+      });
     } catch (err) {
-      if (__DEV__) console.warn('[BaseService] Error limpiando cache IndexedDB:', err);
+      if (__DEV__) console.warn('[BaseService] Error iniciando limpieza IDB:', err);
     }
 
     if (__DEV__) {

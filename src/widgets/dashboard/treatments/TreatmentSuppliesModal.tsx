@@ -40,7 +40,6 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
     const [medications, setMedications] = useState<TreatmentMedicationResponse[]>([]);
     const [loadingVaccines, setLoadingVaccines] = useState(false);
     const [loadingMedications, setLoadingMedications] = useState(false);
-    const [assocError, setAssocError] = useState<string | null>(null);
 
     // Options State
     const [vaccineOptions, setVaccineOptions] = useState<{ value: number; label: string }[]>([]);
@@ -80,30 +79,18 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
     // List & Filter State
     const [vaccListSearch, setVaccListSearch] = useState('');
     const [medListSearch, setMedListSearch] = useState('');
-    const [vaccSort, setVaccSort] = useState<'recent' | 'oldest' | 'name_asc' | 'name_desc'>('recent');
-    const [medSort, setMedSort] = useState<'recent' | 'oldest' | 'name_asc' | 'name_desc'>('recent');
-    const [selectedVaccIds, setSelectedVaccIds] = useState<number[]>([]);
-    const [selectedMedIds, setSelectedMedIds] = useState<number[]>([]);
-    const [vaccShowOnlySelected, setVaccShowOnlySelected] = useState(false);
-    const [medShowOnlySelected, setMedShowOnlySelected] = useState(false);
-
-    // Bulk Edit State
-    const [savingBulkVacc, setSavingBulkVacc] = useState(false);
-    const [savingBulkMed, setSavingBulkMed] = useState(false);
-    const [bulkVaccForm, setBulkVaccForm] = useState<{ dose?: string; notes?: string } | null>(null);
-    const [bulkMedForm, setBulkMedForm] = useState<{ dosage?: string; frequency?: string; duration_days?: number; administration_route?: string; notes?: string } | null>(null);
-    const [confirmBulkDeleteVaccOpen, setConfirmBulkDeleteVaccOpen] = useState(false);
-    const [confirmBulkDeleteMedOpen, setConfirmBulkDeleteMedOpen] = useState(false);
+    const [vaccSort] = useState<'recent' | 'oldest' | 'name_asc' | 'name_desc'>('recent');
+    const [medSort] = useState<'recent' | 'oldest' | 'name_asc' | 'name_desc'>('recent');
 
     // Single Delete State
     const [pendingDeleteVaccine, setPendingDeleteVaccine] = useState<any | null>(null);
     const [pendingDeleteMedication, setPendingDeleteMedication] = useState<any | null>(null);
 
     // Pagination
-    const [vaccPage, setVaccPage] = useState(1);
-    const [medPage, setMedPage] = useState(1);
-    const [vaccPageSize, setVaccPageSize] = useState(5);
-    const [medPageSize, setMedPageSize] = useState(5);
+    const [vaccPage] = useState(1);
+    const [medPage] = useState(1);
+    const [vaccPageSize] = useState(5);
+    const [medPageSize] = useState(5);
 
     // Refs
     // const associationsLoadingRef = useRef<Promise<void> | null>(null);
@@ -180,13 +167,14 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
     }, []);
 
     // Fetch Associations
-    const refreshAssociations = useCallback(async (treatmentId: number, bypassCache: boolean = false, target: 'all' | 'vaccines' | 'medications' = 'all') => {
+    const refreshAssociations = useCallback(async (treatmentId: number, bypassCache: boolean = false, target: 'all' | 'vaccines' | 'medications' = 'all', silent: boolean = false) => {
         if (!treatmentId) return;
 
-        if (target === 'all' || target === 'vaccines') setLoadingVaccines(true);
-        if (target === 'all' || target === 'medications') setLoadingMedications(true);
+        if (!silent) {
+            if (target === 'all' || target === 'vaccines') setLoadingVaccines(true);
+            if (target === 'all' || target === 'medications') setLoadingMedications(true);
+        }
 
-        setAssocError(null);
         associationsIdRef.current = treatmentId;
 
         // Helper recursivo para garantizar la carga completa de datos
@@ -254,7 +242,7 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
                     } catch (err) {
                         console.error('Error fetching vaccines', err);
                     } finally {
-                        setLoadingVaccines(false);
+                        if (!silent) setLoadingVaccines(false);
                     }
                 })());
             }
@@ -271,7 +259,7 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
                     } catch (err) {
                         console.error('Error fetching medications', err);
                     } finally {
-                        setLoadingMedications(false);
+                        if (!silent) setLoadingMedications(false);
                     }
                 })());
             }
@@ -280,9 +268,10 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
 
         } catch (err) {
             console.error('[TreatmentSuppliesModal] Error refreshing associations:', err);
-            setAssocError('No se pudieron cargar los insumos del tratamiento.');
-            setLoadingVaccines(false);
-            setLoadingMedications(false);
+            if (!silent) {
+                setLoadingVaccines(false);
+                setLoadingMedications(false);
+            }
         }
     }, []);
 
@@ -306,10 +295,6 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
             setNewMedications([]);
             setSelectedVaccineInfo(null);
             setSelectedMedicationInfo(null);
-            setSelectedVaccIds([]);
-            setSelectedMedIds([]);
-            setBulkVaccForm(null);
-            setBulkMedForm(null);
         }
     }, [isOpen]);
 
@@ -440,14 +425,14 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
             await (treatmentVaccinesService as any).deleteTreatmentVaccine(String(itemId));
             // INVALIDAR CACHÉ ANTES DE REFRESCAR
             await treatmentVaccinesService.clearCache();
-            await refreshAssociations(treatment.id, true, 'vaccines');
+            await refreshAssociations(treatment.id, true, 'vaccines', true);
             showToast('Vacuna desvinculada', 'success');
         } catch (e: any) {
             // Manejo de consistencia: Si da 404, es que ya no existe.
             if (e?.response?.status === 404 || e?.status === 404) {
                 console.warn('Item fantasma detectado (404), limpiando caché...');
                 await treatmentVaccinesService.clearCache();
-                await refreshAssociations(treatment.id, true, 'vaccines');
+                await refreshAssociations(treatment.id, true, 'vaccines', true);
             } else {
                 // ROLLBACK: Restaurar item si falla
                 await refreshAssociations(treatment.id, true, 'vaccines');
@@ -483,14 +468,14 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
             await (treatmentMedicationService as any).deleteTreatmentMedication(String(itemId));
             // INVALIDAR CACHÉ ANTES DE REFRESCAR
             await treatmentMedicationService.clearCache();
-            await refreshAssociations(treatment.id, true, 'medications');
+            await refreshAssociations(treatment.id, true, 'medications', true);
             showToast('Medicamento desvinculado', 'success');
         } catch (e: any) {
             // Manejo de consistencia: Si da 404, es que ya no existe.
             if (e?.response?.status === 404 || e?.status === 404) {
                 console.warn('Item fantasma detectado (404), limpiando caché...');
                 await treatmentMedicationService.clearCache();
-                await refreshAssociations(treatment.id, true, 'medications');
+                await refreshAssociations(treatment.id, true, 'medications', true);
             } else {
                 // ROLLBACK: Restaurar item si falla
                 await refreshAssociations(treatment.id, true, 'medications');
@@ -562,48 +547,6 @@ export const TreatmentSuppliesModal: React.FC<TreatmentSuppliesModalProps> = ({
         return arr;
     }, [medications, medListSearch, medSort, medicationLabelById]);
 
-    // Bulk Handlers (Simplified for brevity, assuming existing logic)
-    const submitBulkVaccEdit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!treatment || !bulkVaccForm || selectedVaccIds.length === 0) return;
-        const payload: any = {};
-        if (typeof bulkVaccForm.dose !== 'undefined' && String(bulkVaccForm.dose).trim()) payload.dose = bulkVaccForm.dose;
-        if (typeof bulkVaccForm.notes !== 'undefined' && String(bulkVaccForm.notes).trim()) payload.notes = bulkVaccForm.notes;
-
-        setSavingBulkVacc(true);
-        try {
-            await Promise.all(selectedVaccIds.map((id) => (treatmentVaccinesService as any).patchTreatmentVaccine(String(id), payload)));
-            await refreshAssociations(treatment.id, true, 'vaccines');
-            setBulkVaccForm(null);
-            setSelectedVaccIds([]);
-            showToast(`Vacunas actualizadas`, 'success');
-        } catch (err) {
-            showToast('Error al actualizar vacunas', 'error');
-        } finally {
-            setSavingBulkVacc(false);
-        }
-    };
-
-    const submitBulkMedEdit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!treatment || !bulkMedForm || selectedMedIds.length === 0) return;
-        const payload: any = {};
-        if (bulkMedForm.dosage) payload.dosage = bulkMedForm.dosage;
-        if (bulkMedForm.frequency) payload.frequency = bulkMedForm.frequency;
-
-        setSavingBulkMed(true);
-        try {
-            await Promise.all(selectedMedIds.map((id) => (treatmentMedicationService as any).patchTreatmentMedication(String(id), payload)));
-            await refreshAssociations(treatment.id, true, 'medications');
-            setBulkMedForm(null);
-            setSelectedMedIds([]);
-            showToast(`Medicamentos actualizados`, 'success');
-        } catch (err) {
-            showToast('Error al actualizar medicamentos', 'error');
-        } finally {
-            setSavingBulkMed(false);
-        }
-    };
 
     // Fetch Full Detail - Use cached data first, then fetch if needed
     const handleViewItem = (type: 'vaccine' | 'medication', id: number) => {

@@ -188,58 +188,25 @@ export function ItemDetailModal({
                     {type === 'treatment' && (
                         <>
                             <DetailSection
-                                title="Información del Tratamiento"
+                                title="Plan de Tratamiento"
                                 accent="purple"
                                 icon={<ClipboardList className="w-4 h-4" />}
                                 fullWidth
                             >
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-                                    <InfoField label="Diagnóstico" value={item.diagnosis || '-'} fullWidth />
-                                    <InfoField label="Fecha Inicio" value={formatDate(item.treatment_date)} />
-                                    <InfoField
-                                        label="Estado"
-                                        value={item.status || 'Iniciado'}
-                                        badge
-                                        badgeVariant={
-                                            item.status === 'Completado' ? 'success' :
-                                                item.status === 'Suspendido' ? 'destructive' :
-                                                    item.status === 'En progreso' ? 'secondary' : 'default'
-                                        }
-                                    />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+                                    <div className="space-y-3">
+                                        <InfoField label="Descripción" value={item.description || '-'} fullWidth />
+                                        <InfoField label="Fecha Inicio" value={formatDate(item.treatment_date)} />
+                                    </div>
+                                    <div className="space-y-3">
+                                        <InfoField label="Dosis" value={item.dosis || '-'} />
+                                        <InfoField label="Frecuencia" value={item.frequency || '-'} />
+                                    </div>
                                 </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full pt-2 border-t border-border/40">
-                                    <InfoField label="Veterinario" value={item.veterinarian || '-'} />
-                                    <InfoField label="Tipo" value={item.treatment_type || '-'} />
-                                    <InfoField label="Costo" value={item.cost ? `$${Number(item.cost).toLocaleString()}` : '-'} />
-                                </div>
-
-                                {item.follow_up_date && (
-                                    <div className="pt-2 border-t border-border/40">
-                                        <InfoField label="Próxima Revisión" value={formatDate(item.follow_up_date)} />
-                                    </div>
-                                )}
-
-                                {(item.symptoms) && (
-                                    <div className="pt-2 border-t border-border/40">
-                                        <InfoField label="Síntomas" value={item.symptoms} fullWidth />
-                                    </div>
-                                )}
-
-                                {(item.treatment_plan || item.description) && (
-                                    <div className="pt-2 border-t border-border/40">
-                                        <InfoField label="Plan de Tratamiento" value={item.treatment_plan || item.description || '-'} fullWidth />
-                                    </div>
-                                )}
-
-                                {(item.notes || item.observations) && (
-                                    <div className="pt-2 border-t border-border/40">
-                                        <InfoField label="Notas / Observaciones" value={item.notes || item.observations} fullWidth />
-                                    </div>
-                                )}
+                                {item.observations && <InfoField label="Observaciones" value={item.observations} fullWidth />}
                             </DetailSection>
 
-                            <div className="col-span-full pt-2 mt-2">
+                            <div className="col-span-full pt-2 border-t border-border/50 mt-2">
                                 <TreatmentSuppliesPanel treatment={item} />
                             </div>
                         </>

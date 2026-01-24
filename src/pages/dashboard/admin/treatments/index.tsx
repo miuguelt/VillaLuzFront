@@ -5,6 +5,7 @@ import { animalsService } from '@/entities/animal/api/animal.service';
 import { Button } from '@/shared/ui/button';
 import { TreatmentSuppliesModal } from '@/widgets/dashboard/treatments/TreatmentSuppliesModal';
 import { TreatmentSuppliesPanel } from '@/widgets/dashboard/treatments/TreatmentSuppliesPanel';
+import { DetailSection, InfoField } from '@/widgets/dashboard/animals/ItemDetailModal';
 import type { TreatmentResponse, TreatmentInput } from '@/shared/api/generated/swaggerTypes';
 import { getTodayColombia } from '@/shared/utils/dateUtils';
 import { AnimalLink } from '@/shared/ui/common/ForeignKeyHelpers';
@@ -56,7 +57,32 @@ const AdminTreatmentsPage: React.FC = () => {
 
   const TreatmentAssociationsPanel: React.FC<{ item: TreatmentResponse }> = ({ item }) => {
     return (
-      <div className="pt-2">
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <DetailSection
+            title="Información del Tratamiento"
+            accent="purple"
+            fullWidth
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <InfoField label="Diagnóstico" value={(item as any).diagnosis || '-'} fullWidth />
+              <InfoField label="Fecha Inicio" value={item.treatment_date ? new Date(item.treatment_date).toLocaleDateString('es-ES') : '-'} />
+              <InfoField label="Dosis" value={(item as any).dosis || '-'} />
+              <InfoField label="Frecuencia" value={(item as any).frequency || '-'} />
+            </div>
+            {(item as any).description && (
+              <div className="mt-2 pt-2 border-t border-border/50">
+                <InfoField label="Descripción / Notas" value={(item as any).description} fullWidth />
+              </div>
+            )}
+            {(item as any).observations && (
+              <div className="mt-2">
+                <InfoField label="Observaciones" value={(item as any).observations} fullWidth />
+              </div>
+            )}
+          </DetailSection>
+        </div>
+
         <TreatmentSuppliesPanel treatment={item} />
       </div>
     );

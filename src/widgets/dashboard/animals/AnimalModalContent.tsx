@@ -25,9 +25,10 @@ import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
 import { usersService } from '@/entities/user/api/user.service';
 import analyticsService from '@/features/reporting/api/analytics.service';
 import { resolveRecordId } from '@/shared/utils/recordIdUtils';
-import { TreatmentSuppliesModal } from '@/widgets/dashboard/treatments/TreatmentSuppliesModal';
+
 import { ItemDetailModal } from './ItemDetailModal';
 import { CollapsibleCard } from '@/shared/ui/common/CollapsibleCard';
+import { TreatmentSuppliesModal } from '../treatments/TreatmentSuppliesModal';
 
 interface AnimalModalContentProps {
   animal: AnimalResponse & { [k: string]: any };
@@ -100,6 +101,9 @@ export function AnimalModalContent({
   const [vaccineOptions, setVaccineOptions] = useState<Record<number, string>>({});
   const [userOptions, setUserOptions] = useState<Record<number, string>>({});
 
+  // Estado para gestión de insumos (modal anidado)
+  const [suppliesTreatment, setSuppliesTreatment] = useState<any | null>(null);
+
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '-';
     try {
@@ -117,9 +121,8 @@ export function AnimalModalContent({
   const [actionModalMode, setActionModalMode] = useState<'create' | 'list' | 'view' | 'edit'>('create');
   const [selectedItem, setSelectedItem] = useState<any>(null);
 
-  // Estado para modal de insumos (tratamientos)
-  const [suppliesModalOpen, setSuppliesModalOpen] = useState(false);
-  const [selectedTreatmentForSupplies, setSelectedTreatmentForSupplies] = useState<any>(null);
+  // Estado para modal de insumos (tratamientos) - ELIMINADO por desuso (integrado en ItemDetailModal)
+
 
   // Funciones para abrir modales
   const openCreateModal = (type: typeof actionModalType) => {
@@ -391,757 +394,780 @@ export function AnimalModalContent({
 
 
   return (
-    <div className="space-y-4 pb-6" onKeyDown={(e) => e.stopPropagation()}>
-      {/* Banner de imágenes con carrusel - LO PRIMERO - se oculta si no hay imágenes */}
-      {!imagesLoading && animalImages.length > 0 && (
-        <div className="w-full rounded-xl overflow-hidden shadow-lg -mt-4">
-          <AnimalImageBanner
-            animalId={animal.id}
-            height="clamp(200px, 40vh, 500px)"
-            showControls={true}
-            autoPlayInterval={5000}
-            hideWhenEmpty={true}
-            objectFit="contain"
-            refreshTrigger={refreshTrigger}
-            initialImages={animalImages}
-          />
-        </div>
-      )}
+    <>
+      <div className="space-y-4 pb-6" onKeyDown={(e) => e.stopPropagation()}>
+        {/* Banner de imágenes con carrusel - LO PRIMERO - se oculta si no hay imágenes */}
+        {!imagesLoading && animalImages.length > 0 && (
+          <div className="w-full rounded-xl overflow-hidden shadow-lg -mt-4">
+            <AnimalImageBanner
+              animalId={animal.id}
+              height="clamp(200px, 40vh, 500px)"
+              showControls={true}
+              autoPlayInterval={5000}
+              hideWhenEmpty={true}
+              objectFit="contain"
+              refreshTrigger={refreshTrigger}
+              initialImages={animalImages}
+            />
+          </div>
+        )}
 
-      {/* Header con título y menú de acciones - DEBAJO DEL CARRUSEL */}
-      <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-accent/30 to-accent/10 rounded-xl p-4 shadow-md border border-border/50">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-xl sm:text-2xl font-bold text-foreground truncate">
-            {animal.record || `Animal #${animal.id}`}
-          </h2>
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              ID: {animal.id} • {breedLabel}
-            </p>
-            {hasRecentTreatments && (
-              <Badge className="text-[10px] sm:text-xs bg-amber-500 text-white shadow-sm">
-                Tiene tratamientos recientes (≤ 30 días)
-              </Badge>
+        {/* Header con título y menú de acciones - DEBAJO DEL CARRUSEL */}
+        <div className="flex items-start justify-between gap-4 bg-gradient-to-br from-accent/30 to-accent/10 rounded-xl p-4 shadow-md border border-border/50">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground truncate" data-testid="animal-modal-title">
+              {animal.record || `Animal #${animal.id}`}
+            </h2>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                ID: {animal.id} • {breedLabel}
+              </p>
+              {hasRecentTreatments && (
+                <Badge className="text-[10px] sm:text-xs bg-amber-500 text-white shadow-sm">
+                  Tiene tratamientos recientes (≤ 30 días)
+                </Badge>
+              )}
+            </div>
+          </div>
+          {/* Menú de acciones (tres puntos) y botón de refresco - visible en PC y móvil */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {onReplicate && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-secondary/20 hover:text-secondary transition-colors hidden sm:flex"
+                onClick={onReplicate}
+                title="Replicar Animal"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            )}
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary transition-colors hidden sm:flex"
+                onClick={onEdit}
+                title="Editar Animal"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary transition-colors"
+              onClick={() => {
+                setIsManualRefreshing(true);
+                setDataRefreshTrigger(prev => prev + 1);
+              }}
+              title="Refrescar datos (bypass cache)"
+            >
+              <RefreshCw className={cn("h-4 w-4", (loading || isManualRefreshing) && "animate-spin")} />
+            </Button>
+            <AnimalActionsMenu
+              animal={animal as AnimalResponse}
+              currentUserId={currentUserId}
+              onOpenHistory={onOpenHistory}
+              onOpenAncestorsTree={onOpenAncestorsTree}
+              onOpenDescendantsTree={onOpenDescendantsTree}
+              onRefresh={handleRefresh}
+            />
+          </div>
+        </div>
+
+
+
+        {/* Grid wrapper for collapsible sections */}
+        <div className="space-y-4">
+          {/* Información Básica - Collapsible */}
+          <CollapsibleCard
+            title="Información Básica"
+            defaultCollapsed={true}
+            accent="blue"
+            data-testid="collapsible-section-basic-info"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+              <DetailField label="ID" value={animal.id} />
+              <DetailField label="Registro" value={animal.record || '-'} />
+              <DetailField label="Raza" value={breedLabel} />
+              <DetailField label="Sexo" value={gender || '-'}>
+                <Badge
+                  variant="secondary"
+                  className={`text-xs font-semibold shadow-sm ${gender === 'Macho' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' :
+                    gender === 'Hembra' ? 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300' :
+                      'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
+                    }`}
+                >
+                  {gender || '-'}
+                </Badge>
+              </DetailField>
+              <DetailField label="Estado" value={status}>
+                <Badge
+                  variant="outline"
+                  className={`text-xs font-semibold shadow-sm ${status === 'Sano' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400' :
+                    status === 'Enfermo' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400' :
+                      'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400'
+                    }`}
+                >
+                  {status}
+                </Badge>
+              </DetailField>
+              <DetailField label="Peso" value={`${weight} kg`} />
+              <DetailField label="Fecha de nacimiento" value={birthDate} />
+              <DetailField label="Edad (días)" value={ageDays} />
+              <DetailField label="Edad (meses)" value={ageMonths} />
+              <DetailField label="Adulto" value={isAdult} />
+            </div>
+          </CollapsibleCard>
+
+          {/* Genealogía - Collapsible */}
+          <CollapsibleCard
+            title="Genealogía"
+            defaultCollapsed={true}
+            accent="amber"
+            data-testid="collapsible-section-genealogy"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Padre */}
+              <ParentMiniCard
+                parentId={animal.idFather || animal.father_id}
+                parentLabel={fatherLabel || '-'}
+                gender="Padre"
+                onClick={
+                  onFatherClick && (animal.idFather || animal.father_id)
+                    ? () => onFatherClick(animal.idFather || animal.father_id)
+                    : undefined
+                }
+              />
+
+              {/* Madre */}
+              <ParentMiniCard
+                parentId={animal.idMother || animal.mother_id}
+                parentLabel={motherLabel || '-'}
+                gender="Madre"
+                onClick={
+                  onMotherClick && (animal.idMother || animal.mother_id)
+                    ? () => onMotherClick(animal.idMother || animal.mother_id)
+                    : undefined
+                }
+              />
+            </div>
+          </CollapsibleCard>
+
+          {/* Notas - Collapsible */}
+          {animal.notes && (
+            <CollapsibleCard
+              title="Notas"
+              defaultCollapsed={true}
+              accent="slate"
+            >
+              <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                {animal.notes}
+              </p>
+            </CollapsibleCard>
+          )}
+        </div>
+
+        {/* Información del animal - En el centro (LEGACY WRAPPER REMOVED) */}
+        <div className="space-y-6">
+          {/* Grid responsive: 1 columna en móvil, 2 columnas en pantallas grandes (LEGACY GRID REMOVED - now inside collapsible) */}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Mejoras Genéticas - Verde */}
+            {geneticImprovements.length > 0 && (
+              <RelatedDataSection
+                title="Mejoras Genéticas"
+                icon={<TrendingUp className="h-5 w-5" />}
+                data={geneticImprovements}
+                accent="emerald"
+                data-testid="related-section-genetic_improvement"
+                renderItem={(item) => (
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-[13px] font-bold text-foreground leading-tight">
+                        {item.improvement_type || item.genetic_event_technique || item.genetic_event_techique || 'Evento Genético'}
+                      </span>
+                      <Badge variant="outline" className="text-[9px] h-4 bg-green-500/10 text-green-700 border-green-200 shrink-0">
+                        {formatDate(item.date)}
+                      </Badge>
+                    </div>
+                    {(item.description || item.details) && (
+                      <p className="text-[11px] text-muted-foreground line-clamp-2 italic bg-background/50 p-1.5 rounded border border-green-100 dark:border-emerald-800/50">
+                        {item.description || item.details}
+                      </p>
+                    )}
+                  </div>
+                )}
+                onAdd={() => openCreateModal('genetic_improvement')}
+                onViewAll={() => openListModal('genetic_improvement')}
+                onView={(item) => openViewModal('genetic_improvement', item)}
+                onItemClick={(item) => openViewModal('genetic_improvement', item)}
+                onEdit={(item) => openEditModal('genetic_improvement', item)}
+                onDelete={async (item) => {
+                  const recordId = resolveRecordId(item);
+                  if (!recordId) {
+                    showToast('No se pudo determinar el ID del registro', 'error');
+                    return;
+                  }
+                  if (confirmingDeleteId === recordId) {
+                    setConfirmingDeleteId(null);
+                    setDeletingItemId(recordId);
+
+                    // Optimistic update
+                    const previousItems = [...geneticImprovements];
+                    setGeneticImprovements(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
+
+                    try {
+                      await geneticImprovementsService.deleteGeneticImprovement(recordId as any);
+                      await geneticImprovementsService.clearCache();
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      showToast('Mejora genética eliminada correctamente', 'success');
+
+
+                    } catch (error: any) {
+                      // Revert optimistic update
+                      setGeneticImprovements(previousItems);
+
+                      const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                      if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                        showToast('El registro ya fue eliminado', 'info');
+                        if (animal?.id) clearAnimalDependencyCache(animal.id);
+                        setDataRefreshTrigger(prev => prev + 1);
+                      } else {
+                        showToast('Error al eliminar: ' + errorMessage, 'error');
+                      }
+                    } finally {
+                      setDeletingItemId(null);
+                    }
+                  } else {
+                    setConfirmingDeleteId(recordId);
+                    showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                    setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
+                  }
+                }}
+                confirmingDeleteId={confirmingDeleteId}
+                deletingItemId={deletingItemId}
+              />
+            )}
+
+            {/* Enfermedades - Rojo */}
+            {diseases.length > 0 && (
+              <RelatedDataSection
+                title="Enfermedades"
+                icon={<Activity className="h-5 w-5" />}
+                data={diseases}
+                accent="red"
+                data-testid="related-section-animal_disease"
+                renderItem={(item) => (
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[13px] font-bold text-foreground truncate">
+                        {diseaseOptions[item.disease_id] || `Enfermedad #${item.disease_id}`}
+                      </span>
+                      <Badge
+                        variant={item.status === 'Activo' ? 'destructive' : 'default'}
+                        className={`text-[9px] h-4 ${item.status === 'Curado' ? 'bg-green-600 text-white' : ''}`}
+                      >
+                        {item.status}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <span className="font-semibold">Diagnóstico:</span> {formatDate(item.diagnosis_date)}
+                      </span>
+                      {item.notes && <span className="italic max-w-[120px] truncate">"{item.notes}"</span>}
+                    </div>
+                  </div>
+                )}
+                onAdd={() => openCreateModal('animal_disease')}
+                onViewAll={() => openListModal('animal_disease')}
+                onView={(item) => openViewModal('animal_disease', item)}
+                onItemClick={(item) => openViewModal('animal_disease', item)}
+                onEdit={(item) => openEditModal('animal_disease', item)}
+                onDelete={async (item) => {
+                  const recordId = resolveRecordId(item);
+                  if (!recordId) {
+                    showToast('No se pudo determinar el ID del registro', 'error');
+                    return;
+                  }
+                  if (confirmingDeleteId === recordId) {
+                    setConfirmingDeleteId(null);
+                    setDeletingItemId(recordId);
+
+                    // Optimistic update
+                    const previousItems = [...diseases];
+                    setDiseases(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
+
+                    try {
+                      await animalDiseasesService.deleteAnimalDisease(recordId as any);
+                      await animalDiseasesService.clearCache();
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      showToast('Registro de enfermedad eliminado correctamente', 'success');
+
+
+                    } catch (error: any) {
+                      // Revert optimistic update
+                      setDiseases(previousItems);
+
+                      const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                      if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                        showToast('El registro ya fue eliminado', 'info');
+                        if (animal?.id) clearAnimalDependencyCache(animal.id);
+                        setDataRefreshTrigger(prev => prev + 1);
+                      } else {
+                        showToast('Error al eliminar: ' + errorMessage, 'error');
+                      }
+                    } finally {
+                      setDeletingItemId(null);
+                    }
+                  } else {
+                    setConfirmingDeleteId(recordId);
+                    showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                    setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
+                  }
+                }}
+                confirmingDeleteId={confirmingDeleteId}
+                deletingItemId={deletingItemId}
+              />
+            )}
+
+            {/* Campos Asignados - Amarillo */}
+            {fields.length > 0 && (
+              <RelatedDataSection
+                title="Campos Asignados"
+                icon={<MapPin className="h-5 w-5" />}
+                data={fields}
+                accent="amber"
+                renderItem={(item) => (
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-bold text-foreground">
+                          {fieldOptions[item.field_id] || `Campo #${item.field_id}`}
+                        </span>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                          <Badge variant="outline" className="text-[9px] h-4 bg-amber-500/10 text-amber-700 border-amber-200">
+                            ID: {item.field_id}
+                          </Badge>
+                          <span className="text-[10px] text-muted-foreground">
+                            {formatDate(item.assignment_date)}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant={item.removal_date ? 'secondary' : 'default'} className={`text-[9px] h-4 ${!item.removal_date ? 'bg-green-600 text-white animate-pulse' : ''}`}>
+                        {item.removal_date ? 'Retirado' : 'Activo'}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+                onAdd={() => openCreateModal('animal_field')}
+                onViewAll={() => openListModal('animal_field')}
+                onView={(item) => openViewModal('animal_field', item)}
+                onItemClick={(item) => openViewModal('animal_field', item)}
+                onEdit={(item) => openEditModal('animal_field', item)}
+                onDelete={async (item) => {
+                  const recordId = resolveRecordId(item);
+                  if (!recordId) {
+                    showToast('No se pudo determinar el ID del registro', 'error');
+                    return;
+                  }
+                  if (confirmingDeleteId === recordId) {
+                    setConfirmingDeleteId(null);
+                    setDeletingItemId(recordId);
+
+                    // Optimistic update
+                    const previousItems = [...fields];
+                    setFields(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
+
+                    try {
+                      await animalFieldsService.deleteAnimalField(recordId as any);
+                      await animalFieldsService.clearCache();
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      showToast('Asignación de campo eliminada correctamente', 'success');
+
+
+                    } catch (error: any) {
+                      // Revert optimistic update
+                      setFields(previousItems);
+
+                      const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                      if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                        showToast('El registro ya fue eliminado', 'info');
+                        if (animal?.id) clearAnimalDependencyCache(animal.id);
+                        setDataRefreshTrigger(prev => prev + 1);
+                      } else {
+                        showToast('Error al eliminar: ' + errorMessage, 'error');
+                      }
+                    } finally {
+                      setDeletingItemId(null);
+                    }
+                  } else {
+                    setConfirmingDeleteId(recordId);
+                    showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                    setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
+                  }
+                }}
+                confirmingDeleteId={confirmingDeleteId}
+                deletingItemId={deletingItemId}
+              />
+            )}
+
+            {/* Vacunaciones - Azul */}
+            {vaccinations.length > 0 && (
+              <RelatedDataSection
+                title="Vacunaciones"
+                icon={<Syringe className="h-5 w-5" />}
+                data={vaccinations}
+                accent="cyan"
+                data-testid="related-section-vaccination"
+                renderItem={(item) => (
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[13px] font-bold text-foreground truncate">
+                        {vaccineOptions[item.vaccine_id] || `Vacuna #${item.vaccine_id}`}
+                      </span>
+                      <Badge variant="outline" className="text-[9px] h-4 bg-blue-500/10 text-blue-700 border-blue-200 shrink-0">
+                        {formatDate(item.vaccination_date)}
+                      </Badge>
+                    </div>
+                    {item.next_dose_date && (
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 dark:text-sky-400">
+                        <span className="w-1 h-1 rounded-full bg-blue-500 animate-ping" />
+                        Próxima dosis: {formatDate(item.next_dose_date)}
+                      </div>
+                    )}
+                  </div>
+                )}
+                onAdd={() => openCreateModal('vaccination')}
+                onViewAll={() => openListModal('vaccination')}
+                onView={(item) => openViewModal('vaccination', item)}
+                onItemClick={(item) => openViewModal('vaccination', item)}
+                onEdit={(item) => openEditModal('vaccination', item)}
+                onDelete={async (item) => {
+                  const recordId = resolveRecordId(item);
+                  if (!recordId) {
+                    showToast('No se pudo determinar el ID del registro', 'error');
+                    return;
+                  }
+                  if (confirmingDeleteId === recordId) {
+                    setConfirmingDeleteId(null);
+                    setDeletingItemId(recordId);
+
+                    // Optimistic update
+                    const previousItems = [...vaccinations];
+                    setVaccinations(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
+
+                    try {
+                      await vaccinationsService.deleteVaccination(recordId as any);
+                      await vaccinationsService.clearCache();
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      showToast('Vacunación eliminada correctamente', 'success');
+
+
+                    } catch (error: any) {
+                      // Revert optimistic update
+                      setVaccinations(previousItems);
+
+                      const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                      if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                        showToast('El registro ya fue eliminado', 'info');
+                        if (animal?.id) clearAnimalDependencyCache(animal.id);
+                        setDataRefreshTrigger(prev => prev + 1);
+                      } else {
+                        showToast('Error al eliminar: ' + errorMessage, 'error');
+                      }
+                    } finally {
+                      setDeletingItemId(null);
+                    }
+                  } else {
+                    setConfirmingDeleteId(recordId);
+                    showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                    setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
+                  }
+                }}
+                confirmingDeleteId={confirmingDeleteId}
+                deletingItemId={deletingItemId}
+              />
+            )}
+
+            {/* Tratamientos - Púrpura */}
+            {treatments.length > 0 && (
+              <RelatedDataSection
+                title="Tratamientos"
+                icon={<Pill className="h-5 w-5" />}
+                data={treatments}
+                accent="purple"
+                data-testid="related-section-treatment"
+                renderItem={(item) => (
+                  <>
+                    <div className="flex flex-col gap-1.5 w-full">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-[13px] font-bold text-foreground leading-tight">
+                          {item.diagnosis || item.description || `Tratamiento #${item.id}`}
+                        </span>
+                        <Badge variant="outline" className="text-[9px] h-4 bg-purple-500/10 text-purple-700 border-purple-200 shrink-0">
+                          {formatDate(item.treatment_date || item.treatment_date)}
+                        </Badge>
+                      </div>
+                      {(item.frequency || item.dosis || item.description) && (
+                        <div className="flex flex-col gap-1 text-[10px] text-muted-foreground italic">
+                          <div className="flex items-center gap-2">
+                            {item.dosis && <span>Dosis: {item.dosis}</span>}
+                            {item.dosis && item.frequency && <span>•</span>}
+                            {item.frequency && <span>Freq: {item.frequency}</span>}
+                          </div>
+                          {item.diagnosis && item.description && (
+                            <p className="line-clamp-1 opacity-80">{item.description}</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-end pt-1" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px] text-purple-600 dark:text-purple-400 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900/20 gap-1 border border-purple-100 dark:border-purple-800/30"
+                        onClick={() => setSuppliesTreatment(item)}
+                      >
+                        <Syringe className="h-3 w-3" />
+                        Ver Insumos
+                      </Button>
+                    </div>
+                  </>
+                )}
+                onAdd={() => openCreateModal('treatment')}
+                onViewAll={() => openListModal('treatment')}
+                onEdit={(item) => openEditModal('treatment', item)}
+                onView={(item) => openViewModal('treatment', item)}
+                onItemClick={(item) => openViewModal('treatment', item)}
+                onDelete={async (item) => {
+                  const recordId = resolveRecordId(item);
+                  if (!recordId) {
+                    showToast('No se pudo determinar el ID del registro', 'error');
+                    return;
+                  }
+                  if (confirmingDeleteId === recordId) {
+                    setConfirmingDeleteId(null);
+                    setDeletingItemId(recordId);
+                    try {
+                      // Verificar dependencias antes de eliminar
+                      const depCheck = await checkTreatmentDependencies(recordId as number);
+                      if (depCheck.hasDependencies) {
+                        const depSummary = depCheck.dependencies?.map(d => `${d.count} ${d.entity}`).join(', ') || 'registros asociados';
+                        showToast(
+                          `⚠️ No se puede eliminar este tratamiento porque tiene ${depSummary}. Elimina primero las dependencias.`,
+                          'error'
+                        );
+                        setDeletingItemId(null);
+                        return;
+                      }
+
+                      // Optimistic update
+                      const previousItems = [...treatments];
+                      setTreatments(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
+
+                      await treatmentsService.deleteTreatment(recordId as any);
+                      await treatmentsService.clearCache();
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      showToast('Tratamiento eliminado correctamente', 'success');
+
+
+
+                    } catch (error: any) {
+                      // Revert optimistic update
+                      setTreatments(previousItems);
+
+                      const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                      const isIntegrityError =
+                        String(errorMessage).toLowerCase().includes('foreign key') ||
+                        String(errorMessage).toLowerCase().includes('constraint') ||
+                        String(errorMessage).toLowerCase().includes('dependenc') ||
+                        String(errorMessage).toLowerCase().includes('referencia') ||
+                        String(errorMessage).toLowerCase().includes('relacionado') ||
+                        error.status === 409 || error.response?.status === 409;
+
+                      if (isIntegrityError) {
+                        showToast(
+                          '⚠️ No se puede eliminar este tratamiento porque tiene medicamentos o vacunas asociados. Elimina primero esas relaciones.',
+                          'error'
+                        );
+                      } else if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                        showToast('El registro ya fue eliminado', 'info');
+                        if (animal?.id) clearAnimalDependencyCache(animal.id);
+                        setDataRefreshTrigger(prev => prev + 1);
+                      } else {
+                        showToast('Error al eliminar: ' + errorMessage, 'error');
+                      }
+                    } finally {
+                      setDeletingItemId(null);
+                    }
+                  } else {
+                    setConfirmingDeleteId(recordId);
+                    showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                    setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
+                  }
+                }}
+                confirmingDeleteId={confirmingDeleteId}
+                deletingItemId={deletingItemId}
+              />
+            )}
+
+            {/* Controles - Naranja */}
+            {controls.length > 0 && (
+              <RelatedDataSection
+                title="Controles de Crecimiento"
+                icon={<TrendingUp className="h-5 w-5" />}
+                data={controls}
+                accent="amber"
+                renderItem={(item) => (
+                  <div className="flex flex-col gap-1.5 w-full">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={`text-[13px] font-bold ${item.health_status === 'Excelente' || item.health_status === 'Bueno' || item.health_status === 'Sano' ? 'text-green-600' : item.health_status === 'Regular' ? 'text-amber-600' : 'text-rose-600'}`}>
+                        {item.health_status || item.healt_status || 'Control de Salud'}
+                      </span>
+                      <span className="text-[10px] font-medium text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded border border-orange-100">
+                        {formatDate(item.checkup_date)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-[11px] font-medium">
+                      {item.weight && (
+                        <span className="text-foreground">
+                          Peso: <span className="text-[12px] font-black">{item.weight} kg</span>
+                        </span>
+                      )}
+                      {item.height && (
+                        <span className="text-muted-foreground">
+                          Altura: <span className="text-foreground">{item.height} m</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                onAdd={() => openCreateModal('control')}
+                onViewAll={() => openListModal('control')}
+                onView={(item) => openViewModal('control', item)}
+                onItemClick={(item) => openViewModal('control', item)}
+                onEdit={(item) => openEditModal('control', item)}
+                onDelete={async (item) => {
+                  const recordId = resolveRecordId(item);
+                  if (!recordId) {
+                    showToast('No se pudo determinar el ID del registro', 'error');
+                    return;
+                  }
+                  if (confirmingDeleteId === recordId) {
+                    setConfirmingDeleteId(null);
+                    setDeletingItemId(recordId);
+
+                    // Optimistic update
+                    const previousItems = [...controls];
+                    setControls(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
+
+                    try {
+                      await controlService.deleteControl(recordId as any);
+                      await controlService.clearCache();
+                      if (animal?.id) clearAnimalDependencyCache(animal.id);
+                      showToast('Control eliminado correctamente', 'success');
+
+
+                    } catch (error: any) {
+                      // Revert optimistic update
+                      setControls(previousItems);
+
+                      const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+                      if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+                        showToast('El registro ya fue eliminado', 'info');
+                        if (animal?.id) clearAnimalDependencyCache(animal.id);
+                        setDataRefreshTrigger(prev => prev + 1);
+                      } else {
+                        showToast('Error al eliminar: ' + errorMessage, 'error');
+                      }
+                    } finally {
+                      setDeletingItemId(null);
+                    }
+                  } else {
+                    setConfirmingDeleteId(recordId);
+                    showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
+                    setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
+                  }
+                }}
+                confirmingDeleteId={confirmingDeleteId}
+                deletingItemId={deletingItemId}
+              />
             )}
           </div>
         </div>
-        {/* Menú de acciones (tres puntos) y botón de refresco - visible en PC y móvil */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {onReplicate && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 hover:bg-secondary/20 hover:text-secondary transition-colors hidden sm:flex"
-              onClick={onReplicate}
-              title="Replicar Animal"
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-          )}
-          {onEdit && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary transition-colors hidden sm:flex"
-              onClick={onEdit}
-              title="Editar Animal"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 hover:bg-primary/20 hover:text-primary transition-colors"
-            onClick={() => {
-              setIsManualRefreshing(true);
+
+        {/* Galería e imágenes - Al final */}
+        {/* Galería e imágenes - Al final */}
+        <CollapsibleCard
+          title="Galería de Imágenes"
+          defaultCollapsed={true}
+          accent="slate"
+        >
+          {/* Componente unificado de gestión de imágenes */}
+          <ImageManager
+            animalId={animal.id}
+            title=""
+            onGalleryUpdate={() => {
+              preserveScroll();
+              // Refrescar también el estado local
               setDataRefreshTrigger(prev => prev + 1);
+              setRefreshTrigger(prev => prev + 1);
+              setTimeout(restoreScroll, 0);
             }}
-            title="Refrescar datos (bypass cache)"
-          >
-            <RefreshCw className={cn("h-4 w-4", (loading || isManualRefreshing) && "animate-spin")} />
-          </Button>
-          <AnimalActionsMenu
-            animal={animal as AnimalResponse}
-            currentUserId={currentUserId}
-            onOpenHistory={onOpenHistory}
-            onOpenAncestorsTree={onOpenAncestorsTree}
-            onOpenDescendantsTree={onOpenDescendantsTree}
-            onRefresh={handleRefresh}
+            showControls={true}
+            refreshTrigger={refreshTrigger}
+            compact={true}
+            initialImages={animalImages}
           />
-        </div>
-      </div>
-
-
-
-      {/* Grid wrapper for collapsible sections */}
-      <div className="space-y-4">
-        {/* Información Básica - Collapsible */}
-        <CollapsibleCard
-          title="Información Básica"
-          defaultCollapsed={true}
-          accent="blue"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-            <DetailField label="ID" value={animal.id} />
-            <DetailField label="Registro" value={animal.record || '-'} />
-            <DetailField label="Raza" value={breedLabel} />
-            <DetailField label="Sexo" value={gender || '-'}>
-              <Badge
-                variant="secondary"
-                className={`text-xs font-semibold shadow-sm ${gender === 'Macho' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' :
-                  gender === 'Hembra' ? 'bg-pink-100 text-pink-800 dark:bg-pink-950 dark:text-pink-300' :
-                    'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300'
-                  }`}
-              >
-                {gender || '-'}
-              </Badge>
-            </DetailField>
-            <DetailField label="Estado" value={status}>
-              <Badge
-                variant="outline"
-                className={`text-xs font-semibold shadow-sm ${status === 'Sano' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-400' :
-                  status === 'Enfermo' ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-400' :
-                    'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-400'
-                  }`}
-              >
-                {status}
-              </Badge>
-            </DetailField>
-            <DetailField label="Peso" value={`${weight} kg`} />
-            <DetailField label="Fecha de nacimiento" value={birthDate} />
-            <DetailField label="Edad (días)" value={ageDays} />
-            <DetailField label="Edad (meses)" value={ageMonths} />
-            <DetailField label="Adulto" value={isAdult} />
-          </div>
         </CollapsibleCard>
 
-        {/* Genealogía - Collapsible */}
-        <CollapsibleCard
-          title="Genealogía"
-          defaultCollapsed={true}
-          accent="amber"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Padre */}
-            <ParentMiniCard
-              parentId={animal.idFather || animal.father_id}
-              parentLabel={fatherLabel || '-'}
-              gender="Padre"
-              onClick={
-                onFatherClick && (animal.idFather || animal.father_id)
-                  ? () => onFatherClick(animal.idFather || animal.father_id)
-                  : undefined
-              }
-            />
-
-            {/* Madre */}
-            <ParentMiniCard
-              parentId={animal.idMother || animal.mother_id}
-              parentLabel={motherLabel || '-'}
-              gender="Madre"
-              onClick={
-                onMotherClick && (animal.idMother || animal.mother_id)
-                  ? () => onMotherClick(animal.idMother || animal.mother_id)
-                  : undefined
-              }
-            />
-          </div>
-        </CollapsibleCard>
-
-        {/* Notas - Collapsible */}
-        {animal.notes && (
-          <CollapsibleCard
-            title="Notas"
-            defaultCollapsed={true}
-            accent="slate"
-          >
-            <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
-              {animal.notes}
-            </p>
-          </CollapsibleCard>
-        )}
-      </div>
-
-      {/* Información del animal - En el centro (LEGACY WRAPPER REMOVED) */}
-      <div className="space-y-6">
-        {/* Grid responsive: 1 columna en móvil, 2 columnas en pantallas grandes (LEGACY GRID REMOVED - now inside collapsible) */}
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Mejoras Genéticas - Verde */}
-          {geneticImprovements.length > 0 && (
-            <RelatedDataSection
-              title="Mejoras Genéticas"
-              icon={<TrendingUp className="h-5 w-5" />}
-              data={geneticImprovements}
-              accent="emerald"
-              renderItem={(item) => (
-                <div className="flex flex-col gap-1.5 w-full">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-[13px] font-bold text-foreground leading-tight">
-                      {item.improvement_type || item.genetic_event_technique || item.genetic_event_techique || 'Evento Genético'}
-                    </span>
-                    <Badge variant="outline" className="text-[9px] h-4 bg-green-500/10 text-green-700 border-green-200 shrink-0">
-                      {formatDate(item.date)}
-                    </Badge>
-                  </div>
-                  {(item.description || item.details) && (
-                    <p className="text-[11px] text-muted-foreground line-clamp-2 italic bg-background/50 p-1.5 rounded border border-green-100 dark:border-emerald-800/50">
-                      {item.description || item.details}
-                    </p>
-                  )}
-                </div>
-              )}
-              onAdd={() => openCreateModal('genetic_improvement')}
-              onViewAll={() => openListModal('genetic_improvement')}
-              onView={(item) => openViewModal('genetic_improvement', item)}
-              onItemClick={(item) => openViewModal('genetic_improvement', item)}
-              onEdit={(item) => openEditModal('genetic_improvement', item)}
-              onDelete={async (item) => {
-                const recordId = resolveRecordId(item);
-                if (!recordId) {
-                  showToast('No se pudo determinar el ID del registro', 'error');
-                  return;
-                }
-                if (confirmingDeleteId === recordId) {
-                  setConfirmingDeleteId(null);
-                  setDeletingItemId(recordId);
-
-                  // Optimistic update
-                  const previousItems = [...geneticImprovements];
-                  setGeneticImprovements(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
-
-                  try {
-                    await geneticImprovementsService.deleteGeneticImprovement(recordId as any);
-                    await geneticImprovementsService.clearCache();
-                    if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    showToast('Mejora genética eliminada correctamente', 'success');
-
-
-                  } catch (error: any) {
-                    // Revert optimistic update
-                    setGeneticImprovements(previousItems);
-
-                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-                    if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                      showToast('El registro ya fue eliminado', 'info');
-                      if (animal?.id) clearAnimalDependencyCache(animal.id);
-                      setDataRefreshTrigger(prev => prev + 1);
-                    } else {
-                      showToast('Error al eliminar: ' + errorMessage, 'error');
-                    }
-                  } finally {
-                    setDeletingItemId(null);
-                  }
-                } else {
-                  setConfirmingDeleteId(recordId);
-                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
-                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
-                }
+        {/* Modal de detalle para VER */}
+        {
+          actionModalType && selectedItem && actionModalMode === 'view' && (
+            <ItemDetailModal
+              type={actionModalType}
+              item={selectedItem}
+              options={{
+                diseases: diseaseOptions,
+                fields: fieldOptions,
+                vaccines: vaccineOptions,
+                users: userOptions
               }}
-              confirmingDeleteId={confirmingDeleteId}
-              deletingItemId={deletingItemId}
+              onClose={closeActionModal}
+              onEdit={() => setActionModalMode('edit')}
+              zIndex={2000}
             />
-          )}
+          )
+        }
 
-          {/* Enfermedades - Rojo */}
-          {diseases.length > 0 && (
-            <RelatedDataSection
-              title="Enfermedades"
-              icon={<Activity className="h-5 w-5" />}
-              data={diseases}
-              accent="red"
-              renderItem={(item) => (
-                <div className="flex flex-col gap-1.5 w-full">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[13px] font-bold text-foreground truncate">
-                      {diseaseOptions[item.disease_id] || `Enfermedad #${item.disease_id}`}
-                    </span>
-                    <Badge
-                      variant={item.status === 'Activo' ? 'destructive' : 'default'}
-                      className={`text-[9px] h-4 ${item.status === 'Curado' ? 'bg-green-600 text-white' : ''}`}
-                    >
-                      {item.status}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className="font-semibold">Diagnóstico:</span> {formatDate(item.diagnosis_date)}
-                    </span>
-                    {item.notes && <span className="italic max-w-[120px] truncate">"{item.notes}"</span>}
-                  </div>
-                </div>
-              )}
-              onAdd={() => openCreateModal('animal_disease')}
-              onViewAll={() => openListModal('animal_disease')}
-              onView={(item) => openViewModal('animal_disease', item)}
-              onItemClick={(item) => openViewModal('animal_disease', item)}
-              onEdit={(item) => openEditModal('animal_disease', item)}
-              onDelete={async (item) => {
-                const recordId = resolveRecordId(item);
-                if (!recordId) {
-                  showToast('No se pudo determinar el ID del registro', 'error');
-                  return;
-                }
-                if (confirmingDeleteId === recordId) {
-                  setConfirmingDeleteId(null);
-                  setDeletingItemId(recordId);
-
-                  // Optimistic update
-                  const previousItems = [...diseases];
-                  setDiseases(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
-
-                  try {
-                    await animalDiseasesService.deleteAnimalDisease(recordId as any);
-                    await animalDiseasesService.clearCache();
-                    if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    showToast('Registro de enfermedad eliminado correctamente', 'success');
-
-
-                  } catch (error: any) {
-                    // Revert optimistic update
-                    setDiseases(previousItems);
-
-                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-                    if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                      showToast('El registro ya fue eliminado', 'info');
-                      if (animal?.id) clearAnimalDependencyCache(animal.id);
-                      setDataRefreshTrigger(prev => prev + 1);
-                    } else {
-                      showToast('Error al eliminar: ' + errorMessage, 'error');
-                    }
-                  } finally {
-                    setDeletingItemId(null);
-                  }
-                } else {
-                  setConfirmingDeleteId(recordId);
-                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
-                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
-                }
-              }}
-              confirmingDeleteId={confirmingDeleteId}
-              deletingItemId={deletingItemId}
+        {/* AnimalActionsMenu controlado externamente para CREAR/EDITAR/LISTAR */}
+        {
+          actionModalType && (actionModalMode === 'create' || actionModalMode === 'list' || actionModalMode === 'edit') && (
+            <AnimalActionsMenu
+              animal={animal as AnimalResponse}
+              currentUserId={currentUserId}
+              externalOpenModal={actionModalType}
+              externalModalMode={actionModalMode === 'edit' ? 'create' : actionModalMode}
+              externalEditingItem={selectedItem}
+              onRefresh={handleRefresh}
+              onModalClose={closeActionModal}
             />
-          )}
-
-          {/* Campos Asignados - Amarillo */}
-          {fields.length > 0 && (
-            <RelatedDataSection
-              title="Campos Asignados"
-              icon={<MapPin className="h-5 w-5" />}
-              data={fields}
-              accent="amber"
-              renderItem={(item) => (
-                <div className="flex flex-col gap-1.5 w-full">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-col">
-                      <span className="text-[13px] font-bold text-foreground">
-                        {fieldOptions[item.field_id] || `Campo #${item.field_id}`}
-                      </span>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
-                        <Badge variant="outline" className="text-[9px] h-4 bg-amber-500/10 text-amber-700 border-amber-200">
-                          ID: {item.field_id}
-                        </Badge>
-                        <span className="text-[10px] text-muted-foreground">
-                          {formatDate(item.assignment_date)}
-                        </span>
-                      </div>
-                    </div>
-                    <Badge variant={item.removal_date ? 'secondary' : 'default'} className={`text-[9px] h-4 ${!item.removal_date ? 'bg-green-600 text-white animate-pulse' : ''}`}>
-                      {item.removal_date ? 'Retirado' : 'Activo'}
-                    </Badge>
-                  </div>
-                </div>
-              )}
-              onAdd={() => openCreateModal('animal_field')}
-              onViewAll={() => openListModal('animal_field')}
-              onView={(item) => openViewModal('animal_field', item)}
-              onItemClick={(item) => openViewModal('animal_field', item)}
-              onEdit={(item) => openEditModal('animal_field', item)}
-              onDelete={async (item) => {
-                const recordId = resolveRecordId(item);
-                if (!recordId) {
-                  showToast('No se pudo determinar el ID del registro', 'error');
-                  return;
-                }
-                if (confirmingDeleteId === recordId) {
-                  setConfirmingDeleteId(null);
-                  setDeletingItemId(recordId);
-
-                  // Optimistic update
-                  const previousItems = [...fields];
-                  setFields(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
-
-                  try {
-                    await animalFieldsService.deleteAnimalField(recordId as any);
-                    await animalFieldsService.clearCache();
-                    if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    showToast('Asignación de campo eliminada correctamente', 'success');
+          )
+        }
 
 
-                  } catch (error: any) {
-                    // Revert optimistic update
-                    setFields(previousItems);
+      </div >
 
-                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-                    if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                      showToast('El registro ya fue eliminado', 'info');
-                      if (animal?.id) clearAnimalDependencyCache(animal.id);
-                      setDataRefreshTrigger(prev => prev + 1);
-                    } else {
-                      showToast('Error al eliminar: ' + errorMessage, 'error');
-                    }
-                  } finally {
-                    setDeletingItemId(null);
-                  }
-                } else {
-                  setConfirmingDeleteId(recordId);
-                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
-                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
-                }
-              }}
-              confirmingDeleteId={confirmingDeleteId}
-              deletingItemId={deletingItemId}
-            />
-          )}
-
-          {/* Vacunaciones - Azul */}
-          {vaccinations.length > 0 && (
-            <RelatedDataSection
-              title="Vacunaciones"
-              icon={<Syringe className="h-5 w-5" />}
-              data={vaccinations}
-              accent="cyan"
-              renderItem={(item) => (
-                <div className="flex flex-col gap-1.5 w-full">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[13px] font-bold text-foreground truncate">
-                      {vaccineOptions[item.vaccine_id] || `Vacuna #${item.vaccine_id}`}
-                    </span>
-                    <Badge variant="outline" className="text-[9px] h-4 bg-blue-500/10 text-blue-700 border-blue-200 shrink-0">
-                      {formatDate(item.vaccination_date)}
-                    </Badge>
-                  </div>
-                  {item.next_dose_date && (
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 dark:text-sky-400">
-                      <span className="w-1 h-1 rounded-full bg-blue-500 animate-ping" />
-                      Próxima dosis: {formatDate(item.next_dose_date)}
-                    </div>
-                  )}
-                </div>
-              )}
-              onAdd={() => openCreateModal('vaccination')}
-              onViewAll={() => openListModal('vaccination')}
-              onView={(item) => openViewModal('vaccination', item)}
-              onItemClick={(item) => openViewModal('vaccination', item)}
-              onEdit={(item) => openEditModal('vaccination', item)}
-              onDelete={async (item) => {
-                const recordId = resolveRecordId(item);
-                if (!recordId) {
-                  showToast('No se pudo determinar el ID del registro', 'error');
-                  return;
-                }
-                if (confirmingDeleteId === recordId) {
-                  setConfirmingDeleteId(null);
-                  setDeletingItemId(recordId);
-
-                  // Optimistic update
-                  const previousItems = [...vaccinations];
-                  setVaccinations(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
-
-                  try {
-                    await vaccinationsService.deleteVaccination(recordId as any);
-                    await vaccinationsService.clearCache();
-                    if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    showToast('Vacunación eliminada correctamente', 'success');
-
-
-                  } catch (error: any) {
-                    // Revert optimistic update
-                    setVaccinations(previousItems);
-
-                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-                    if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                      showToast('El registro ya fue eliminado', 'info');
-                      if (animal?.id) clearAnimalDependencyCache(animal.id);
-                      setDataRefreshTrigger(prev => prev + 1);
-                    } else {
-                      showToast('Error al eliminar: ' + errorMessage, 'error');
-                    }
-                  } finally {
-                    setDeletingItemId(null);
-                  }
-                } else {
-                  setConfirmingDeleteId(recordId);
-                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
-                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
-                }
-              }}
-              confirmingDeleteId={confirmingDeleteId}
-              deletingItemId={deletingItemId}
-            />
-          )}
-
-          {/* Tratamientos - Púrpura */}
-          {treatments.length > 0 && (
-            <RelatedDataSection
-              title="Tratamientos"
-              icon={<Pill className="h-5 w-5" />}
-              data={treatments}
-              accent="purple"
-              renderItem={(item) => (
-                <div className="flex flex-col gap-1.5 w-full">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-[13px] font-bold text-foreground leading-tight">
-                      {item.description || `Tratamiento #${item.id}`}
-                    </span>
-                    <Badge variant="outline" className="text-[9px] h-4 bg-purple-500/10 text-purple-700 border-purple-200 shrink-0">
-                      {formatDate(item.treatment_date)}
-                    </Badge>
-                  </div>
-                  {(item.frequency || item.dosis) && (
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground italic">
-                      {item.dosis && <span>Dosis: {item.dosis}</span>}
-                      {item.dosis && item.frequency && <span>•</span>}
-                      {item.frequency && <span>Freq: {item.frequency}</span>}
-                    </div>
-                  )}
-                </div>
-              )}
-              onAdd={() => openCreateModal('treatment')}
-              onViewAll={() => openListModal('treatment')}
-              onEdit={(item) => openEditModal('treatment', item)}
-              onView={(item) => openViewModal('treatment', item)}
-              onItemClick={(item) => openViewModal('treatment', item)}
-              onDelete={async (item) => {
-                const recordId = resolveRecordId(item);
-                if (!recordId) {
-                  showToast('No se pudo determinar el ID del registro', 'error');
-                  return;
-                }
-                if (confirmingDeleteId === recordId) {
-                  setConfirmingDeleteId(null);
-                  setDeletingItemId(recordId);
-                  try {
-                    // Verificar dependencias antes de eliminar
-                    const depCheck = await checkTreatmentDependencies(recordId as number);
-                    if (depCheck.hasDependencies) {
-                      const depSummary = depCheck.dependencies?.map(d => `${d.count} ${d.entity}`).join(', ') || 'registros asociados';
-                      showToast(
-                        `⚠️ No se puede eliminar este tratamiento porque tiene ${depSummary}. Elimina primero las dependencias.`,
-                        'error'
-                      );
-                      setDeletingItemId(null);
-                      return;
-                    }
-
-                    // Optimistic update
-                    const previousItems = [...treatments];
-                    setTreatments(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
-
-                    await treatmentsService.deleteTreatment(recordId as any);
-                    await treatmentsService.clearCache();
-                    if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    showToast('Tratamiento eliminado correctamente', 'success');
-
-
-
-                  } catch (error: any) {
-                    // Revert optimistic update
-                    setTreatments(previousItems);
-
-                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-                    const isIntegrityError =
-                      String(errorMessage).toLowerCase().includes('foreign key') ||
-                      String(errorMessage).toLowerCase().includes('constraint') ||
-                      String(errorMessage).toLowerCase().includes('dependenc') ||
-                      String(errorMessage).toLowerCase().includes('referencia') ||
-                      String(errorMessage).toLowerCase().includes('relacionado') ||
-                      error.status === 409 || error.response?.status === 409;
-
-                    if (isIntegrityError) {
-                      showToast(
-                        '⚠️ No se puede eliminar este tratamiento porque tiene medicamentos o vacunas asociados. Elimina primero esas relaciones.',
-                        'error'
-                      );
-                    } else if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                      showToast('El registro ya fue eliminado', 'info');
-                      if (animal?.id) clearAnimalDependencyCache(animal.id);
-                      setDataRefreshTrigger(prev => prev + 1);
-                    } else {
-                      showToast('Error al eliminar: ' + errorMessage, 'error');
-                    }
-                  } finally {
-                    setDeletingItemId(null);
-                  }
-                } else {
-                  setConfirmingDeleteId(recordId);
-                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
-                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
-                }
-              }}
-              confirmingDeleteId={confirmingDeleteId}
-              deletingItemId={deletingItemId}
-            />
-          )}
-
-          {/* Controles - Naranja */}
-          {controls.length > 0 && (
-            <RelatedDataSection
-              title="Controles de Crecimiento"
-              icon={<TrendingUp className="h-5 w-5" />}
-              data={controls}
-              accent="amber"
-              renderItem={(item) => (
-                <div className="flex flex-col gap-1.5 w-full">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`text-[13px] font-bold ${item.health_status === 'Excelente' || item.health_status === 'Bueno' || item.health_status === 'Sano' ? 'text-green-600' : item.health_status === 'Regular' ? 'text-amber-600' : 'text-rose-600'}`}>
-                      {item.health_status || item.healt_status || 'Control de Salud'}
-                    </span>
-                    <span className="text-[10px] font-medium text-muted-foreground bg-background/50 px-1.5 py-0.5 rounded border border-orange-100">
-                      {formatDate(item.checkup_date)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 text-[11px] font-medium">
-                    {item.weight && (
-                      <span className="text-foreground">
-                        Peso: <span className="text-[12px] font-black">{item.weight} kg</span>
-                      </span>
-                    )}
-                    {item.height && (
-                      <span className="text-muted-foreground">
-                        Altura: <span className="text-foreground">{item.height} m</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-              onAdd={() => openCreateModal('control')}
-              onViewAll={() => openListModal('control')}
-              onView={(item) => openViewModal('control', item)}
-              onItemClick={(item) => openViewModal('control', item)}
-              onEdit={(item) => openEditModal('control', item)}
-              onDelete={async (item) => {
-                const recordId = resolveRecordId(item);
-                if (!recordId) {
-                  showToast('No se pudo determinar el ID del registro', 'error');
-                  return;
-                }
-                if (confirmingDeleteId === recordId) {
-                  setConfirmingDeleteId(null);
-                  setDeletingItemId(recordId);
-
-                  // Optimistic update
-                  const previousItems = [...controls];
-                  setControls(prev => prev.filter((i: any) => String(resolveRecordId(i)) !== String(recordId)));
-
-                  try {
-                    await controlService.deleteControl(recordId as any);
-                    await controlService.clearCache();
-                    if (animal?.id) clearAnimalDependencyCache(animal.id);
-                    showToast('Control eliminado correctamente', 'success');
-
-
-                  } catch (error: any) {
-                    // Revert optimistic update
-                    setControls(previousItems);
-
-                    const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
-                    if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
-                      showToast('El registro ya fue eliminado', 'info');
-                      if (animal?.id) clearAnimalDependencyCache(animal.id);
-                      setDataRefreshTrigger(prev => prev + 1);
-                    } else {
-                      showToast('Error al eliminar: ' + errorMessage, 'error');
-                    }
-                  } finally {
-                    setDeletingItemId(null);
-                  }
-                } else {
-                  setConfirmingDeleteId(recordId);
-                  showToast('Haz clic de nuevo para confirmar la eliminación', 'warning');
-                  setTimeout(() => setConfirmingDeleteId(prev => prev === recordId ? null : prev), 3000);
-                }
-              }}
-              confirmingDeleteId={confirmingDeleteId}
-              deletingItemId={deletingItemId}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Galería e imágenes - Al final */}
-      {/* Galería e imágenes - Al final */}
-      <CollapsibleCard
-        title="Galería de Imágenes"
-        defaultCollapsed={true}
-        accent="slate"
-      >
-        {/* Componente unificado de gestión de imágenes */}
-        <ImageManager
-          animalId={animal.id}
-          title=""
-          onGalleryUpdate={() => {
-            preserveScroll();
-            // Refrescar también el estado local
-            setDataRefreshTrigger(prev => prev + 1);
-            setRefreshTrigger(prev => prev + 1);
-            setTimeout(restoreScroll, 0);
-          }}
-          showControls={true}
-          refreshTrigger={refreshTrigger}
-          compact={true}
-          initialImages={animalImages}
-        />
-      </CollapsibleCard>
-
-      {/* Modal de detalle para VER */}
-      {
-        actionModalType && selectedItem && actionModalMode === 'view' && (
-          <ItemDetailModal
-            type={actionModalType}
-            item={selectedItem}
-            options={{
-              diseases: diseaseOptions,
-              fields: fieldOptions,
-              vaccines: vaccineOptions,
-              users: userOptions
-            }}
-            onClose={closeActionModal}
-            onEdit={() => setActionModalMode('edit')}
-            zIndex={2000}
-          />
-        )
-      }
-
-      {/* AnimalActionsMenu controlado externamente para CREAR/EDITAR/LISTAR */}
-      {
-        actionModalType && (actionModalMode === 'create' || actionModalMode === 'list' || actionModalMode === 'edit') && (
-          <AnimalActionsMenu
-            animal={animal as AnimalResponse}
-            currentUserId={currentUserId}
-            externalOpenModal={actionModalType}
-            externalModalMode={actionModalMode === 'edit' ? 'create' : actionModalMode}
-            externalEditingItem={selectedItem}
-            onRefresh={handleRefresh}
-            onModalClose={closeActionModal}
-          />
-        )
-      }
-
-      {/* Modal de Insumos del Tratamiento */}
+      {/* Modal de insumos de tratamiento (Nivel superior) */}
       <TreatmentSuppliesModal
-        isOpen={suppliesModalOpen}
-        onClose={() => {
-          setSuppliesModalOpen(false);
-          setSelectedTreatmentForSupplies(null);
-          // Opcional: refrescar datos si hubo cambios
-          setDataRefreshTrigger(prev => prev + 1);
-        }}
-        treatment={selectedTreatmentForSupplies}
-        zIndex={2000}
+        isOpen={!!suppliesTreatment}
+        onClose={() => setSuppliesTreatment(null)}
+        treatment={suppliesTreatment}
+        zIndex={2100}
       />
-    </div >
+    </>
   );
 }
 
@@ -1323,6 +1349,7 @@ function RelatedDataSection<T>({
                             variant="ghost"
                             onClick={(e) => { e.stopPropagation(); e.preventDefault(); onView(item); }}
                             className="h-7 w-7 p-0 hover:bg-green-500/10 hover:text-green-600 rounded-full"
+                            data-testid={`view-item-btn-${resolveRecordId(item)}`}
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
@@ -1334,6 +1361,7 @@ function RelatedDataSection<T>({
                             variant="ghost"
                             onClick={(e) => { e.stopPropagation(); e.preventDefault(); onEdit(item); }}
                             className="h-7 w-7 p-0 hover:bg-blue-500/10 hover:text-blue-600 rounded-full"
+                            data-testid={`edit-item-btn-${resolveRecordId(item)}`}
                           >
                             <Edit className="h-3.5 w-3.5" />
                           </Button>
@@ -1345,6 +1373,7 @@ function RelatedDataSection<T>({
                             variant="ghost"
                             onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDelete(item); }}
                             disabled={deletingItemId !== null && (deletingItemId === resolveRecordId(item))}
+                            data-testid={`delete-item-btn-${resolveRecordId(item)}`}
                             className={cn(
                               "h-7 w-7 p-0 transition-all duration-200 rounded-full disabled:opacity-50",
                               confirmingDeleteId === resolveRecordId(item)

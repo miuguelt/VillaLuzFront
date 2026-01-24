@@ -1480,15 +1480,31 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         const pageFromURL = parseInt((searchParams.get('page') || '').toString(), 10);
         const currentPage = Number.isFinite(pageFromURL) && pageFromURL > 0 ? pageFromURL : (meta?.page || 1);
 
-        // Si la página actual quedará vacía y no es la primera página, ir a la página anterior
+        // Si la página actual quedará vacía y no es la primera página, ir a la página anterior y SALIR para evitar race condition
         if (willBeEmpty && currentPage > 1 && setPage) {
+          console.log('[AdminCRUDPage] 📄 Página vacía tras eliminación - Navegando a página anterior:', currentPage - 1);
           setPage(currentPage - 1);
+
+          // IMPORTANTE: Al cambiar de página, useResource disparará un refetch automático por el cambio en query params.
+          // SI hacemos un refetch manual aquí (await refetch()), capturará los query params actuales (página vieja)
+          // antes de que se actualicen, cancelando el refetch de la nueva página.
+          // POR ESO: Salimos aquí y dejamos que el efecto de cambio de página maneje la recarga.
+
+          // Limpiar estado de borrado
+          setDeletingItems(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(String(idToDelete));
+            return newSet;
+          });
+
+          setTimeout(() => setIsProcessing(false), 200);
+          return;
         }
 
         // Dar tiempo adicional a la animación y al backend para sincronizar
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Refrescar después del delay
+        // Refrescar después del delay (SOLO si no se cambió de página)
         try {
           const freshData = await refetch();
 

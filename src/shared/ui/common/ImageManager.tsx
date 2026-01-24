@@ -604,7 +604,7 @@ export function ImageManager({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => document.querySelector('input[type="file"]')?.click()}
+                  onClick={() => (document.querySelector('input[type="file"]') as HTMLElement)?.click()}
                   disabled={uploading}
                 >
                   <ImageIcon className="w-4 h-4 mr-2" />
@@ -1003,11 +1003,82 @@ export function ImageManager({
                 </div>
               </div>
 
-              {/* Indicador de cierre - aparece solo en hover */}
-              <div className="absolute top-4 right-4 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                <div className="bg-black/80 backdrop-blur-md text-white/70 px-4 py-2 rounded-full text-xs font-medium shadow-2xl border border-white/10">
-                  ESC para cerrar
+              {/* Controles de acción - barra inferior */}
+              <div className="absolute bottom-4 left-0 right-0 flex justify-center z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className="flex items-center gap-2 bg-black/80 backdrop-blur-md px-4 py-2 rounded-full shadow-2xl border border-white/10">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 text-white hover:bg-white/20 hover:text-white rounded-full"
+                    onClick={() => handleDownload(selectedImage)}
+                    title="Descargar"
+                  >
+                    <Download className="h-5 w-5" />
+                  </Button>
+
+                  {showControls && !selectedImage.is_primary && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 text-white hover:bg-white/20 hover:text-yellow-400 rounded-full"
+                      onClick={() => {
+                        if (selectedImageId !== null) {
+                          handleSetPrimary(selectedImageId);
+                        }
+                      }}
+                      disabled={selectedImageId !== null && settingPrimaryId === selectedImageId}
+                      title="Establecer como principal"
+                    >
+                      {selectedImageId !== null && settingPrimaryId === selectedImageId ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Star className="h-5 w-5" />
+                      )}
+                    </Button>
+                  )}
+
+                  {showControls && <div className="w-px h-6 bg-white/20 mx-1" />}
+
+                  {showControls && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 text-white hover:bg-red-500/20 hover:text-red-400 rounded-full"
+                      onClick={() => {
+                        // Confirmación adicional para seguridad en pantalla completa
+                        handleDelete(selectedImage);
+                        // Cerrar modal si se elimina (esto ocurrirá automáticamnete si la imagen desaparece de la lista, pero por UX es mejor cerrarlo explícitamente o manejarlo)
+                        // Nota: handleDelete actualiza el estado 'images' filtrando la eliminada. 
+                        // Si la imagen seleccionada ya no está en 'images', el modal debería cerrarse o mostrar error.
+                        // Vamos a dejar que el effect o la UI reactiva maneje el cierre, o forzarlo si es necesario.
+                        // Dado que 'selectedImage' es un objeto independiente, si la eliminamos de 'images', 
+                        // 'selectedImage' seguiría existiendo en el estado local del modal a menos que lo limpiemos.
+                        // Sin embargo, handleDelete es async.
+                      }}
+                      disabled={selectedImageId !== null && deletingId === selectedImageId}
+                      title="Eliminar imagen"
+                    >
+                      {selectedImageId !== null && deletingId === selectedImageId ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-5 w-5" />
+                      )}
+                    </Button>
+                  )}
                 </div>
+              </div>
+
+              {/* Botón Cerrar (X) - Superior derecha */}
+              <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full bg-black/50 text-white hover:bg-red-500 hover:text-white backdrop-blur-sm border border-white/10"
+                  onClick={() => setSelectedImage(null)}
+                  title="Cerrar (ESC)"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
               </div>
             </div>
           )}

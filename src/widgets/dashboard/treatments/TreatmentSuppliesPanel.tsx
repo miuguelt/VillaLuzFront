@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { cn } from '@/shared/ui/cn';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/ui/button';
-import { TreatmentResponse, VaccineResponse, MedicationResponse, TreatmentVaccineResponse, TreatmentMedicationResponse } from '@/shared/api/generated/swaggerTypes';
+import { TreatmentResponse, TreatmentVaccineResponse, TreatmentMedicationResponse } from '@/shared/api/generated/swaggerTypes';
 import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
 import { medicationsService } from '@/entities/medication/api/medications.service';
 import { treatmentVaccinesService } from '@/entities/treatment-vaccine/api/treatmentVaccines.service';
@@ -27,7 +27,6 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
     const [medications, setMedications] = useState<TreatmentMedicationResponse[]>([]);
     const [loadingVaccines, setLoadingVaccines] = useState(false);
     const [loadingMedications, setLoadingMedications] = useState(false);
-    const [assocError, setAssocError] = useState<string | null>(null);
 
     // Options State
     const [vaccineOptions, setVaccineOptions] = useState<{ value: number; label: string }[]>([]);
@@ -133,13 +132,14 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
     }, []);
 
     // Fetch Associations
-    const refreshAssociations = useCallback(async (treatmentId: number, bypassCache: boolean = false, target: 'all' | 'vaccines' | 'medications' = 'all') => {
+    const refreshAssociations = useCallback(async (treatmentId: number, bypassCache: boolean = false, target: 'all' | 'vaccines' | 'medications' = 'all', silent: boolean = false) => {
         if (!treatmentId) return;
 
-        if (target === 'all' || target === 'vaccines') setLoadingVaccines(true);
-        if (target === 'all' || target === 'medications') setLoadingMedications(true);
+        if (!silent) {
+            if (target === 'all' || target === 'vaccines') setLoadingVaccines(true);
+            if (target === 'all' || target === 'medications') setLoadingMedications(true);
+        }
 
-        setAssocError(null);
         associationsIdRef.current = treatmentId;
 
         // Helper recursivo para garantizar la carga completa de datos
@@ -199,7 +199,7 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
                     } catch (err) {
                         console.error('Error fetching vaccines', err);
                     } finally {
-                        setLoadingVaccines(false);
+                        if (!silent) setLoadingVaccines(false);
                     }
                 })());
             }
@@ -216,7 +216,7 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
                     } catch (err) {
                         console.error('Error fetching medications', err);
                     } finally {
-                        setLoadingMedications(false);
+                        if (!silent) setLoadingMedications(false);
                     }
                 })());
             }
@@ -225,9 +225,10 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
 
         } catch (err) {
             console.error('[TreatmentSuppliesPanel] Error refreshing associations:', err);
-            setAssocError('No se pudieron cargar los insumos del tratamiento.');
-            setLoadingVaccines(false);
-            setLoadingMedications(false);
+            if (!silent) {
+                setLoadingVaccines(false);
+                setLoadingMedications(false);
+            }
         }
     }, []);
 
@@ -358,12 +359,12 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
         try {
             await (treatmentVaccinesService as any).deleteTreatmentVaccine(String(itemId));
             await treatmentVaccinesService.clearCache();
-            await refreshAssociations(treatment.id, true, 'vaccines');
+            await refreshAssociations(treatment.id, true, 'vaccines', true);
             showToast('Vacuna desvinculada', 'success');
         } catch (e: any) {
             if (e?.response?.status === 404 || e?.status === 404) {
                 await treatmentVaccinesService.clearCache();
-                await refreshAssociations(treatment.id, true, 'vaccines');
+                await refreshAssociations(treatment.id, true, 'vaccines', true);
             } else {
                 await refreshAssociations(treatment.id, true, 'vaccines');
                 showToast('Error al desvincular vacuna', 'error');
@@ -394,12 +395,12 @@ export const TreatmentSuppliesPanel: React.FC<TreatmentSuppliesPanelProps> = ({
         try {
             await (treatmentMedicationService as any).deleteTreatmentMedication(String(itemId));
             await treatmentMedicationService.clearCache();
-            await refreshAssociations(treatment.id, true, 'medications');
+            await refreshAssociations(treatment.id, true, 'medications', true);
             showToast('Medicamento desvinculado', 'success');
         } catch (e: any) {
             if (e?.response?.status === 404 || e?.status === 404) {
                 await treatmentMedicationService.clearCache();
-                await refreshAssociations(treatment.id, true, 'medications');
+                await refreshAssociations(treatment.id, true, 'medications', true);
             } else {
                 await refreshAssociations(treatment.id, true, 'medications');
                 showToast('Error al desvincular medicamento', 'error');
