@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Syringe, MapPin, Pill, ClipboardList, TrendingUp, Edit, Activity, GitBranch, Calendar, Copy } from 'lucide-react';
+import { X, Syringe, MapPin, Pill, ClipboardList, TrendingUp, Edit, Activity, GitBranch, Calendar, Copy, Trash2 } from 'lucide-react';
 import { TreatmentSuppliesPanel } from '@/widgets/dashboard/treatments/TreatmentSuppliesPanel';
 import { cn } from '@/shared/ui/cn';
 import { Badge } from '@/shared/ui/badge';
@@ -20,6 +20,7 @@ interface ItemDetailModalProps {
     onClose: () => void;
     onEdit?: () => void;
     onReplicate?: () => void;
+    onDelete?: () => Promise<void> | void;
     zIndex?: number;
 }
 
@@ -30,8 +31,33 @@ export function ItemDetailModal({
     onClose,
     onEdit,
     onReplicate,
+    onDelete,
     zIndex = 1000
 }: ItemDetailModalProps) {
+    const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+    const [isDeleting, setIsDeleting] = React.useState(false);
+
+    const handleDeleteClick = async () => {
+        if (!onDelete) return;
+
+        if (showDeleteConfirm) {
+            // Confirmado
+            setIsDeleting(true);
+            await onDelete();
+            setIsDeleting(false);
+            setShowDeleteConfirm(false);
+        } else {
+            // Primer click
+            setShowDeleteConfirm(true);
+            // Auto reset timer
+            setTimeout(() => {
+                setShowDeleteConfirm(current => {
+                    // Solo resetear si sigue siendo true (no se ha eliminado ya)
+                    return current ? false : current;
+                });
+            }, 3000);
+        }
+    };
     // onOpenSupplies removed/unused
     if (!item) return null;
 
@@ -303,6 +329,35 @@ export function ItemDetailModal({
 
             {/* Footer */}
             <div className="flex items-center justify-end gap-3 pt-6 mt-4 border-t border-border/40">
+                {onDelete && (
+                    <Button
+                        variant={showDeleteConfirm ? "destructive" : "outline"}
+                        onClick={handleDeleteClick}
+                        className={cn(
+                            "rounded-xl px-4 mr-auto",
+                            showDeleteConfirm ? "bg-red-600 text-white hover:bg-red-700" : "text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900/30 dark:hover:bg-red-900/10"
+                        )}
+                        disabled={isDeleting}
+                    >
+                        {isDeleting ? (
+                            <>
+                                <div className="w-3 h-3 border-2 border-white/50 border-t-white rounded-full animate-spin mr-2" />
+                                Eliminando...
+                            </>
+                        ) : showDeleteConfirm ? (
+                            <>
+                                <X className="h-4 w-4 mr-2" />
+                                ¿Seguro?
+                            </>
+                        ) : (
+                            <>
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Eliminar
+                            </>
+                        )}
+                    </Button>
+                )}
+
                 <Button variant="outline" onClick={onClose} className="rounded-xl px-6">
                     Cerrar
                 </Button>

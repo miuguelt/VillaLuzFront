@@ -313,13 +313,17 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
   //  - Cambiar de página
   //  - Volver a la vista después de navegar
   useEffect(() => {
+    // Si ha terminado de cargar por primera vez (con o sin datos)
+    if (!loading && isFirstLoad) {
+      console.log('[AdminCRUDPage] Initial load completed - Clearing isFirstLoad');
+      setIsFirstLoad(false);
+    }
+
     if (items && items.length > 0) {
       if (isFirstLoad) {
-        // Primera carga: mostrar datos inmediatamente SIN efectos de color
-        console.log('[AdminCRUDPage] Primera carga - SIN efectos verdes');
+        // Primera carga con datos
         setDisplayItems(items);
         previousDisplayItemsRef.current = items;
-        setIsFirstLoad(false);
       } else {
         // Solo detectar items nuevos si fue una inserción manual del usuario (createItem)
         if (isUserInsertedRef.current && justCreatedItemIdRef.current) {
@@ -351,12 +355,7 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
             // Resetear la flag SOLO después de aplicar el efecto exitosamente
             isUserInsertedRef.current = false;
             console.log('[AdminCRUDPage] ✅ Efecto verde aplicado - Flag reseteada');
-          } else {
-            console.log('[AdminCRUDPage] ⚠️ Item creado aún no aparece en la lista - Manteniendo flag activa para próximo refetch');
-            // NO resetear isUserInsertedRef para que se intente de nuevo en el próximo refetch
           }
-        } else {
-          console.log('[AdminCRUDPage] Actualización normal - SIN efecto verde');
         }
 
         // Actualizar displayItems inmediatamente sin demora
@@ -369,8 +368,6 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
       setDisplayItems([]);
       previousDisplayItemsRef.current = [];
     }
-    // IMPORTANTE: NO incluir displayItems en las dependencias para evitar loop infinito
-
   }, [items, loading, error, isFirstLoad]);
 
   // Mantener datos anteriores durante refresco para evitar parpadeo

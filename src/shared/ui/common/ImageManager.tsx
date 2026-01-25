@@ -157,6 +157,14 @@ export function ImageManager({
     fetchImages();
   }, [fetchImages, refreshTrigger, initialImages]);
 
+  // Sync initialImages when they change
+  useEffect(() => {
+    if (initialImages) {
+      setImages(initialImages);
+      setLoading(false);
+    }
+  }, [initialImages]);
+
   // Escuchar evento global de actualización de imágenes
   useEffect(() => {
     const handler = (e: Event) => {
@@ -823,15 +831,42 @@ export function ImageManager({
                   className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center cursor-pointer"
                   onClick={() => setSelectedImage(image)}
                 >
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Ver en grande"
-                  >
-                    <ZoomIn className="w-5 h-5" />
-                  </Button>
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon"
+                      className="h-9 w-9 bg-white/90 hover:bg-white text-black rounded-full shadow-lg"
+                      title="Ver en grande"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedImage(image);
+                      }}
+                    >
+                      <ZoomIn className="w-5 h-5" />
+                    </Button>
+
+                    {showControls && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="h-9 w-9 bg-red-500/90 hover:bg-red-600 text-white rounded-full shadow-lg"
+                        title="Eliminar imagen"
+                        disabled={isDeleting}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(image);
+                        }}
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-5 h-5" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Menú desplegable de acciones */}

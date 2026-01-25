@@ -3,127 +3,31 @@ import { AdminCRUDPage, CRUDColumn, CRUDFormSection, CRUDConfig } from '@/shared
 import { animalFieldsService } from '@/entities/animal-field/api/animalFields.service';
 import { animalsService } from '@/entities/animal/api/animal.service';
 import { fieldService } from '@/entities/field/api/field.service';
-import { GenericModal } from '@/shared/ui/common/GenericModal';
-import { Button } from '@/shared/ui/button';
-import { Input } from '@/shared/ui/input';
-import { Label } from '@/shared/ui/label';
-import { Textarea } from '@/shared/ui/textarea';
-import { PlusCircle } from 'lucide-react';
-import { FIELD_STATES } from '@/shared/constants/enums';
-import type { AnimalFieldResponse, AnimalFieldInput, FieldInput } from '@/shared/api/generated/swaggerTypes';
+import type { AnimalFieldResponse, AnimalFieldInput } from '@/shared/api/generated/swaggerTypes';
 import { getTodayColombia } from '@/shared/utils/dateUtils';
 import { AnimalLink, FieldLink } from '@/shared/ui/common/ForeignKeyHelpers';
+import { useForeignKeySelect } from '@/shared/hooks/useForeignKeySelect';
 
 function AdminAnimalFieldsPage() {
-  const [animalOptions, setAnimalOptions] = React.useState<Array<{ value: number; label: string }>>([]);
-  const [fieldOptions, setFieldOptions] = React.useState<Array<{ value: number; label: string }>>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [isNewFieldModalOpen, setIsNewFieldModalOpen] = React.useState(false);
-  const [newFieldData, setNewFieldData] = React.useState<FieldInput>({
-    name: '',
-    area: '',
-    state: 'Disponible',
-    location: '',
-    capacity: '',
-    management: '',
-    measurements: '',
-  });
+  const { options: animalOptions, loading: animalLoading } = useForeignKeySelect(
+    (p) => animalsService.getAnimals(p),
+    (a) => ({ value: a.id, label: a.record || `Animal ${a.id}` })
+  );
 
-  // Carga paralela optimizada de opciones
-  React.useEffect(() => {
-    const loadOptions = async () => {
-      setLoading(true);
-      try {
-        const [animalsResult, fieldsResult] = await Promise.all([
-          animalsService.getAnimals({ page: 1, limit: 1000 }).catch((e) => {
-            console.warn('[animal-fields] No se pudieron cargar animales', e);
-            return null;
-          }),
-          fieldService.getFields({ page: 1, limit: 1000 }).catch((e) => {
-            console.warn('[animal-fields] No se pudieron cargar campos', e);
-            return null;
-          })
-        ]);
-
-        // Procesar animales
-        if (animalsResult) {
-          setAnimalOptions((animalsResult || []).map((a: any) => ({
-            value: a.id,
-            label: a.record || `Animal ${a.id}`
-          })));
-        }
-
-        // Procesar campos
-        if (fieldsResult) {
-          const items = (fieldsResult as any)?.data || fieldsResult || [];
-          setFieldOptions((items || []).map((f: any) => ({
-            value: f.id,
-            label: f.name || `Campo ${f.id}`
-          })));
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadOptions();
-  }, []);
-
-  // Función para recargar solo los campos
-  const reloadFields = async () => {
-    try {
-      const fieldsResult = await fieldService.getFields({ page: 1, limit: 1000 });
-      const items = (fieldsResult as any)?.data || fieldsResult || [];
-      setFieldOptions((items || []).map((f: any) => ({
-        value: f.id,
-        label: f.name || `Campo ${f.id}`
-      })));
-    } catch (e) {
-      console.warn('[animal-fields] Error al recargar campos', e);
-    }
-  };
-
-  // Función para crear un nuevo campo
-  const handleCreateField = async () => {
-    try {
-      if (!newFieldData.name || !newFieldData.area) {
-        alert('El nombre y el área son obligatorios');
-        return;
-      }
-
-      await fieldService.createField(newFieldData);
-
-      // Recargar la lista de campos
-      await reloadFields();
-
-      // Resetear el formulario y cerrar modal
-      setNewFieldData({
-        name: '',
-        area: '',
-        state: 'Disponible',
-        location: '',
-        capacity: '',
-        management: '',
-        measurements: '',
-      });
-      setIsNewFieldModalOpen(false);
-
-      alert('Campo creado exitosamente');
-    } catch (error: any) {
-      console.error('Error al crear campo:', error);
-      alert(`Error al crear campo: ${error?.response?.data?.message || error.message || 'Error desconocido'}`);
-    }
-  };
+  const { options: fieldOptions, loading: fieldLoading } = useForeignKeySelect(
+    (p) => fieldService.getFields(p),
+    (f) => ({ value: f.id, label: f.name || `Campo ${f.id}` })
+  );
 
   // Crear mapas de búsqueda optimizados
   const animalMap = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<number | string, string>();
     animalOptions.forEach(opt => map.set(opt.value, opt.label));
     return map;
   }, [animalOptions]);
 
   const fieldMap = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<number | string, string>();
     fieldOptions.forEach(opt => map.set(opt.value, opt.label));
     return map;
   }, [fieldOptions]);
@@ -188,7 +92,8 @@ function AdminAnimalFieldsPage() {
           type: 'select',
           required: true,
           options: animalOptions,
-          placeholder: 'Seleccionar animal'
+          placeholder: 'Seleccionar animal',
+          loading: animalLoading
         },
         {
           name: 'field_id' as any,
@@ -196,7 +101,8 @@ function AdminAnimalFieldsPage() {
           type: 'select',
           required: true,
           options: fieldOptions,
-          placeholder: 'Seleccionar campo'
+          placeholder: 'Seleccionar campo',
+          loading: fieldLoading
         },
         {
           name: 'assignment_date' as any,
@@ -233,30 +139,9 @@ function AdminAnimalFieldsPage() {
     enableCreateModal: true,
     enableEditModal: true,
     enableDelete: true,
-    customToolbar: (
-      <Button
-        onClick={() => setIsNewFieldModalOpen(true)}
-        variant="outline"
-        size="sm"
-        className="flex items-center gap-2"
-      >
-        <PlusCircle className="h-4 w-4" />
-        Crear Nuevo Campo
-      </Button>
-    ),
   };
 
-  // No renderizar hasta que las opciones estén cargadas
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando asignaciones de animales...</p>
-        </div>
-      </div>
-    );
-  }
+  // No renderizar full-page loader para evitar bloqueos
 
   return (
     <>
@@ -275,105 +160,6 @@ function AdminAnimalFieldsPage() {
         enhancedHover={true}
       />
 
-      {/* Modal para crear nuevo campo */}
-      <GenericModal
-        isOpen={isNewFieldModalOpen}
-        onOpenChange={setIsNewFieldModalOpen}
-        title="Crear Nuevo Campo"
-        size="2xl"
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="name">Nombre del Campo *</Label>
-              <Input
-                id="name"
-                value={newFieldData.name}
-                onChange={(e) => setNewFieldData({ ...newFieldData, name: e.target.value })}
-                placeholder="Ej: Campo A"
-              />
-            </div>
-            <div>
-              <Label htmlFor="location">Ubicación</Label>
-              <Input
-                id="location"
-                value={newFieldData.location}
-                onChange={(e) => setNewFieldData({ ...newFieldData, location: e.target.value })}
-                placeholder="Ej: Zona Norte"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="area">Área *</Label>
-              <Input
-                id="area"
-                value={newFieldData.area}
-                onChange={(e) => setNewFieldData({ ...newFieldData, area: e.target.value })}
-                placeholder="Ej: 5 hectáreas"
-              />
-            </div>
-            <div>
-              <Label htmlFor="capacity">Capacidad</Label>
-              <Input
-                id="capacity"
-                value={newFieldData.capacity}
-                onChange={(e) => setNewFieldData({ ...newFieldData, capacity: e.target.value })}
-                placeholder="Ej: 50 animales"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="state">Estado *</Label>
-              <select
-                id="state"
-                value={newFieldData.state}
-                onChange={(e) => setNewFieldData({ ...newFieldData, state: e.target.value as any })}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {FIELD_STATES.map(state => (
-                  <option key={state.value} value={state.value}>{state.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="management">Gestión</Label>
-              <Input
-                id="management"
-                value={newFieldData.management}
-                onChange={(e) => setNewFieldData({ ...newFieldData, management: e.target.value })}
-                placeholder="Ej: Rotacional"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="measurements">Medidas</Label>
-            <Textarea
-              id="measurements"
-              value={newFieldData.measurements}
-              onChange={(e) => setNewFieldData({ ...newFieldData, measurements: e.target.value })}
-              placeholder="Dimensiones y características"
-              rows={3}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setIsNewFieldModalOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handleCreateField}>
-              Crear Campo
-            </Button>
-          </div>
-        </div>
-      </GenericModal>
     </>
   );
 }

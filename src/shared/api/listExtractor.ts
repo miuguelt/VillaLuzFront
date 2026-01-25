@@ -40,7 +40,8 @@ export function extractListFromResponse(resp: any, preferredKeys: string[] = [])
   // Intentar con claves preferidas en orden: primero usuario, luego genéricas
   const candidateKeys = [
     ...preferredKeys,
-    'items','data','list','results','animals','users','species','breeds','medications','vaccines',
+    'items', 'data', 'list', 'results', 'animals', 'users', 'species', 'breeds', 'medications', 'vaccines',
+    'animal_diseases', 'animal_fields', 'fields',
     // Añadido para soportar respuestas con clave específica de tratamientos
     'treatments'
   ];
@@ -65,7 +66,7 @@ export function extractPaginatedList(resp: any, preferredKeys: string[] = [], li
   const list = extractListFromResponse(resp, preferredKeys);
 
   // Metadatos comunes
-  const metaKeys = ['total','page','per_page','pages','total_pages','has_next','has_prev','has_next_page','has_previous_page','pagination'];
+  const metaKeys = ['total', 'page', 'per_page', 'pages', 'total_pages', 'has_next', 'has_prev', 'has_next_page', 'has_previous_page', 'pagination'];
   const metadata: Record<string, any> = {};
   for (const k of metaKeys) {
     if (data && data[k] !== undefined) {

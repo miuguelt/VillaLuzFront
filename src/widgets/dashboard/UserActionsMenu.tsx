@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MoreVertical, Activity, Syringe, Eye, Plus } from 'lucide-react';
+import { MoreVertical, Activity, Syringe, Eye, Plus, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,6 +20,7 @@ import { vaccinationsService } from '@/entities/vaccination/api/vaccinations.ser
 import { diseaseService } from '@/entities/disease/api/disease.service';
 import { animalsService } from '@/entities/animal/api/animal.service';
 import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
+import { getAnimalLabel } from '@/entities/animal/lib/animalHelpers';
 
 interface UserActionsMenuProps {
   user: UserResponse;
@@ -36,6 +37,8 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
   const [error, setError] = useState<string | null>(null);
   const [listData, setListData] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | string | null>(null);
+  const [animalLabelById, setAnimalLabelById] = useState<Map<number, string>>(new Map());
 
   // Opciones para los selects
   const [animalOptions, setAnimalOptions] = useState<Array<{ value: number; label: string }>>([]);
@@ -78,29 +81,100 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
     setLoadingList(true);
     try {
       let data: any[] = [];
+      const userIdentity = String(user?.identification ?? user?.id ?? '');
+      const userId = Number(user?.id ?? 0);
+
+      const animalsList = await animalsService.getAnimals({ page: 1, limit: 1000 }).catch(() => []);
+      const safeAnimals = Array.isArray(animalsList) ? animalsList : [];
+
+      const userAnimalRecords = safeAnimals.filter((animal: any) => {
+        const nestedId = animal?.user?.id;
+        const nestedIdentification = animal?.user?.identification;
+        const directId = animal?.user_id ?? animal?.userId;
+        if (nestedId != null && Number(nestedId) === userId) return true;
+        if (directId != null && Number(directId) === userId) return true;
+        return String(nestedIdentification ?? '') === userIdentity;
+      });
+
+      const userAnimalIds = new Set(
+        userAnimalRecords
+          .map((animal: any) => Number(animal?.id))
+          .filter((id: number) => Number.isFinite(id) && id > 0)
+      );
+
+      const labelMap = new Map(
+        userAnimalRecords.map((animal: any) => [
+          Number(animal?.id),
+          getAnimalLabel(animal) || animal.code || animal.record || `Animal ${animal?.id}`,
+        ])
+      );
+      setAnimalLabelById(labelMap);
+
+      const getAnimalIdFromRecord = (record: any): number | null => {
+        const candidates = [
+          record?.animal_id,
+          record?.animalId,
+          record?.animals?.id,
+          record?.animal?.id,
+          record?.animals_id,
+        ];
+        const candidate = candidates.find((value) => value != null && value !== '');
+        const num = Number(candidate);
+        return Number.isFinite(num) ? num : null;
+      };
+
+      const isUserFkRecord = (record: any): boolean => {
+        if (!record) return false;
+
+        const animalId = getAnimalIdFromRecord(record);
+        if (animalId != null && userAnimalIds.has(animalId)) {
+          return true;
+        }
+
+        const directIdCandidates = [
+          record?.user_id,
+          record?.userId,
+          record?.apprentice_id,
+          record?.apprenticeId,
+          record?.instructor_id,
+          record?.instructorId,
+          record?.owner_id,
+          record?.ownerId,
+        ];
+
+        if (userId && directIdCandidates.some((value) => Number(value) === userId)) {
+          return true;
+        }
+
+        const nestedUsers = [
+          record?.user,
+          record?.apprentice,
+          record?.instructor,
+          record?.owner,
+        ].filter(Boolean);
+
+        for (const nested of nestedUsers) {
+          if (nested?.id != null && Number(nested.id) === userId) return true;
+          if (nested?.identification != null && String(nested.identification) === userIdentity) return true;
+        }
+
+        return false;
+      };
 
       switch (openModal) {
         case 'animal_disease':
           {
-            const adResult = await (animalDiseasesService as any).getAll?.({
-              instructor_id: user.id,
-              limit: 100
-            });
-            data = Array.isArray(adResult) ? adResult : (adResult?.data || adResult?.items || []);
-            data = data.filter((item: any) => item.instructor_id === user.id);
+            const adResult = await animalDiseasesService.getAll({ page: 1, limit: 1000 }).catch(() => []);
+            const allDiseases = Array.isArray(adResult) ? adResult : (adResult as any)?.data || (adResult as any)?.items || [];
+            data = allDiseases.filter((item: any) => isUserFkRecord(item));
             break;
           }
 
         case 'vaccination':
           {
-            const vResult = await (vaccinationsService as any).getAll?.({
-              limit: 100
-            });
-            const allVaccinations = Array.isArray(vResult) ? vResult : (vResult?.data || vResult?.items || []);
-            // Filtrar por instructor_id o apprentice_id
-            data = allVaccinations.filter((item: any) =>
-              item.instructor_id === user.id || item.apprentice_id === user.id
-            );
+            const vResult = await vaccinationsService.getAll({ page: 1, limit: 1000 }).catch(() => []);
+            const allVaccinations = Array.isArray(vResult) ? vResult : (vResult as any)?.data || (vResult as any)?.items || [];
+            data = allVaccinations.filter((item: any) => isUserFkRecord(item));
             break;
           }
       }
@@ -112,7 +186,7 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
     } finally {
       setLoadingList(false);
     }
-  }, [openModal, user.id]);
+  }, [openModal, user?.id, user?.identification]);
 
   // Cargar opciones cuando se abre un modal de creación
   useEffect(() => {
@@ -126,7 +200,7 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
     if (openModal && modalMode === 'list') {
       loadListData();
     }
-  }, [openModal, modalMode, user.id, loadListData]);
+  }, [openModal, modalMode, user?.id, user?.identification, loadListData]);
 
   const handleOpenModal = (type: ModalType, mode: ModalMode) => {
     setOpenModal(type);
@@ -165,6 +239,41 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
     setFormData({});
     setError(null);
     setListData([]);
+  };
+
+  const getAnimalLabelForId = (animalId: number | null | undefined): string => {
+    if (!animalId) return '-';
+    return animalLabelById.get(Number(animalId)) || `Animal ${animalId}`;
+  };
+
+  const handleDeleteRecord = async (item: any) => {
+    const rawId = item?.id;
+    if (rawId == null) return;
+    const idValue = typeof rawId === 'number' ? rawId : Number(rawId);
+    const idForDelete = Number.isFinite(idValue) ? idValue : String(rawId);
+
+    const confirmText = 'Eliminar este registro relacionado?';
+    if (!window.confirm(confirmText)) return;
+
+    setDeletingId(rawId);
+    setError(null);
+
+    try {
+      switch (openModal) {
+        case 'animal_disease':
+          await animalDiseasesService.deleteAnimalDisease(String(idForDelete));
+          break;
+        case 'vaccination':
+          await vaccinationsService.deleteVaccination(String(idForDelete));
+          break;
+      }
+
+      setListData((prev) => prev.filter((row) => row?.id !== rawId));
+    } catch (err: any) {
+      setError(err?.response?.data?.message || err?.message || 'Error al eliminar el registro');
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleSubmit = async () => {
@@ -207,20 +316,61 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
 
     if (listData.length === 0) {
       return (
-        <div className="py-10 text-center">
-          <p className="text-muted-foreground">No hay registros para este usuario</p>
+        <div className="space-y-4">
+          <div className="flex justify-end p-4 pb-0">
+            <button
+              onClick={() => handleOpenModal(openModal, 'create')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Nuevo...
+            </button>
+          </div>
+          <div className="pb-10 text-center">
+            {error ? (
+              <p className="text-destructive">{error}</p>
+            ) : (
+              <p className="text-muted-foreground">No hay registros para este usuario</p>
+            )}
+          </div>
         </div>
       );
     }
 
     return (
       <div className="space-y-3 max-h-[500px] overflow-y-auto">
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={() => handleOpenModal(openModal, 'create')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Nuevo...
+          </button>
+        </div>
+        {error && (
+          <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md text-sm text-destructive">
+            {error}
+          </div>
+        )}
         {listData.map((item, index) => (
           <div
             key={item.id || index}
             className="border border-border rounded-lg p-4 bg-card hover:bg-accent/50 transition-colors"
           >
-            {renderListItem(item)}
+            <div className="flex flex-col gap-3">
+              {renderListItem(item)}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => handleDeleteRecord(item)}
+                  className="inline-flex items-center gap-1.5 text-sm text-destructive hover:text-destructive/80"
+                  disabled={deletingId === item?.id}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deletingId === item?.id ? 'Eliminando...' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
           </div>
         ))}
       </div>
@@ -228,22 +378,17 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
   };
 
   const renderListItem = (item: any) => {
-    const getAnimalLabel = (animalId: number) => {
-      const animal = animalOptions.find(a => a.value === animalId);
-      return animal?.label || `Animal ${animalId}`;
-    };
-
     switch (openModal) {
       case 'animal_disease':
         return (
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="font-medium text-foreground">Animal:</span>
-              <span className="text-muted-foreground">{item.animal_id ? getAnimalLabel(item.animal_id) : '-'}</span>
+              <span className="text-muted-foreground">{item.animal_id ? getAnimalLabelForId(item.animal_id) : '-'}</span>
             </div>
             <div className="flex justify-between">
-              <span className="font-medium text-foreground">Enfermedad ID:</span>
-              <span className="text-muted-foreground">{item.disease_id || '-'}</span>
+              <span className="font-medium text-foreground">Enfermedad:</span>
+              <span className="text-muted-foreground">{item?.disease?.name || item?.disease_name || item?.disease_id || '-'}</span>
             </div>
             <div className="flex justify-between">
               <span className="font-medium text-foreground">Estado:</span>
@@ -273,16 +418,16 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="font-medium text-foreground">Animal:</span>
-                <span className="text-muted-foreground">{item.animal_id ? getAnimalLabel(item.animal_id) : '-'}</span>
+                <span className="text-muted-foreground">{item.animal_id ? getAnimalLabelForId(item.animal_id) : '-'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="font-medium text-foreground">Vacuna ID:</span>
-                <span className="text-muted-foreground">{item.vaccine_id || '-'}</span>
+                <span className="font-medium text-foreground">Vacuna:</span>
+                <span className="text-muted-foreground">{item?.vaccine?.name || item?.vaccines?.name || item.vaccine_id || '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="font-medium text-foreground">Fecha:</span>
                 <span className="text-muted-foreground">
-                  {item.vaccination_date ? new Date(item.vaccination_date).toLocaleDateString('es-ES') : '-'}
+                  {item.application_date || item.vaccination_date ? new Date(item.application_date || item.vaccination_date).toLocaleDateString('es-ES') : '-'}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -442,10 +587,6 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
     }
   };
 
-  // Todos los usuarios pueden ver y registrar enfermedades y vacunaciones
-  const showDiseaseOption = true;
-  const showVaccinationOption = true;
-
   return (
     <>
       <DropdownMenu>
@@ -460,70 +601,65 @@ export const UserActionsMenu: React.FC<UserActionsMenuProps> = ({ user }) => {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          {showDiseaseOption && (
-            <>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Activity className="mr-2 h-4 w-4" />
-                  Enfermedades
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenModal('animal_disease', 'create');
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Insertar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenModal('animal_disease', 'list');
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <Eye className="mr-2 h-4 w-4" />
-                    Ver Lista
-                  </DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              {showVaccinationOption && <DropdownMenuSeparator />}
-            </>
-          )}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Activity className="mr-2 h-4 w-4" />
+              Enfermedades
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenModal('animal_disease', 'create');
+                }}
+                className="cursor-pointer"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Insertar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenModal('animal_disease', 'list');
+                }}
+                className="cursor-pointer"
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Ver Lista
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
 
-          {showVaccinationOption && (
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <Syringe className="mr-2 h-4 w-4" />
-                Vacunaciones
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenModal('vaccination', 'create');
-                  }}
-                  className="cursor-pointer"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Insertar
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenModal('vaccination', 'list');
-                  }}
-                  className="cursor-pointer"
-                >
-                  <Eye className="mr-2 h-4 w-4" />
-                  Ver Lista
-                </DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          )}
+          <DropdownMenuSeparator />
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Syringe className="mr-2 h-4 w-4" />
+              Vacunaciones
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenModal('vaccination', 'create');
+                }}
+                className="cursor-pointer"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Insertar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenModal('vaccination', 'list');
+                }}
+                className="cursor-pointer"
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Ver Lista
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         </DropdownMenuContent>
       </DropdownMenu>
 

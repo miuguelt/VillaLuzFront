@@ -9,85 +9,42 @@ import { ANIMAL_DISEASE_STATUSES } from '@/shared/constants/enums';
 import type { AnimalDiseaseResponse, AnimalDiseaseInput } from '@/shared/api/generated/swaggerTypes';
 import { getTodayColombia } from '@/shared/utils/dateUtils';
 import { AnimalLink, DiseaseLink, UserLink } from '@/shared/ui/common/ForeignKeyHelpers';
+import { useForeignKeySelect } from '@/shared/hooks/useForeignKeySelect';
 
 function AdminAnimalDiseasesPage() {
   const [searchParams] = useSearchParams();
   const preselectedUserId = searchParams.get('user_id');
 
-  const [animalOptions, setAnimalOptions] = React.useState<Array<{ value: number; label: string }>>([]);
-  const [diseaseOptions, setDiseaseOptions] = React.useState<Array<{ value: number; label: string }>>([]);
-  const [instructorOptions, setInstructorOptions] = React.useState<Array<{ value: number; label: string }>>([]);
-  const [loading, setLoading] = React.useState(true);
+  const { options: animalOptions, loading: animalLoading } = useForeignKeySelect(
+    (p) => animalsService.getAnimals(p),
+    (a) => ({ value: a.id, label: a.record || `ID ${a.id}` })
+  );
 
-  // Carga paralela optimizada de opciones
-  React.useEffect(() => {
-    const loadOptions = async () => {
-      setLoading(true);
-      try {
-        // Cargar los tres recursos en paralelo para mejor rendimiento
-        const [animalsResult, diseasesResult, instructorsResult] = await Promise.all([
-          animalsService.getAnimals({ page: 1, limit: 1000 }).catch((e) => {
-            console.warn('[animal-diseases] No se pudieron cargar animales', e);
-            return null;
-          }),
-          diseaseService.getDiseases({ page: 1, limit: 1000 }).catch((e) => {
-            console.warn('[animal-diseases] No se pudieron cargar enfermedades', e);
-            return null;
-          }),
-          usersService.getUsers({ page: 1, limit: 1000 }).catch((e: any) => {
-            console.warn('[animal-diseases] No se pudieron cargar instructores', e);
-            return null;
-          })
-        ]);
+  const { options: diseaseOptions, loading: diseaseLoading } = useForeignKeySelect(
+    (p) => diseaseService.getDiseases(p),
+    (d) => ({ value: d.id, label: d.disease || d.name || `Enfermedad ${d.id}` })
+  );
 
-        // Procesar animales
-        if (animalsResult) {
-          setAnimalOptions((animalsResult || []).map((a: any) => ({
-            value: a.id,
-            label: a.record || `ID ${a.id}`
-          })));
-        }
-
-        // Procesar enfermedades
-        if (diseasesResult) {
-          const items = (diseasesResult as any)?.data || diseasesResult || [];
-          setDiseaseOptions((items || []).map((d: any) => ({
-            value: d.id,
-            label: d.disease || d.name || `Enfermedad ${d.id}`
-          })));
-        }
-
-        // Procesar instructores/usuarios
-        if (instructorsResult) {
-          const users = (instructorsResult as any)?.data || instructorsResult || [];
-          setInstructorOptions((users || []).map((u: any) => ({
-            value: u.id,
-            label: u.fullname || u.name || `Usuario ${u.id}`
-          })));
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadOptions();
-  }, []);
+  const { options: instructorOptions, loading: instructorLoading } = useForeignKeySelect(
+    (p) => usersService.getUsers(p),
+    (u) => ({ value: u.id, label: u.fullname || u.name || `Usuario ${u.id}` })
+  );
 
   // Crear mapas de búsqueda optimizados
   const animalMap = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<number | string, string>();
     animalOptions.forEach(opt => map.set(opt.value, opt.label));
     return map;
   }, [animalOptions]);
 
   const diseaseMap = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<number | string, string>();
     diseaseOptions.forEach(opt => map.set(opt.value, opt.label));
     return map;
   }, [diseaseOptions]);
 
   const instructorMap = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<number | string, string>();
     instructorOptions.forEach(opt => map.set(opt.value, opt.label));
     return map;
   }, [instructorOptions]);
@@ -138,9 +95,9 @@ function AdminAnimalDiseasesPage() {
       title: 'Información Básica',
       gridCols: 2,
       fields: [
-        { name: 'animal_id' as any, label: 'Animal', type: 'select', required: true, options: animalOptions, placeholder: 'Seleccionar animal' },
-        { name: 'disease_id' as any, label: 'Enfermedad', type: 'select', required: true, options: diseaseOptions, placeholder: 'Seleccionar enfermedad' },
-        { name: 'instructor_id' as any, label: 'Instructor', type: 'select', required: true, options: instructorOptions, placeholder: 'Seleccionar instructor' },
+        { name: 'animal_id' as any, label: 'Animal', type: 'select', required: true, options: animalOptions, placeholder: 'Seleccionar animal', loading: animalLoading },
+        { name: 'disease_id' as any, label: 'Enfermedad', type: 'select', required: true, options: diseaseOptions, placeholder: 'Seleccionar enfermedad', loading: diseaseLoading },
+        { name: 'instructor_id' as any, label: 'Instructor', type: 'select', required: true, options: instructorOptions, placeholder: 'Seleccionar instructor', loading: instructorLoading },
         { name: 'diagnosis_date' as any, label: 'Fecha de Diagnóstico', type: 'date', required: true },
         { name: 'status' as any, label: 'Estado', type: 'select', options: ANIMAL_DISEASE_STATUSES as any, placeholder: 'Seleccionar estado', colSpan: 2 },
         { name: 'notes' as any, label: 'Notas', type: 'textarea', placeholder: 'Observaciones', colSpan: 2 },
@@ -168,17 +125,7 @@ function AdminAnimalDiseasesPage() {
     instructor_id: preselectedUserId ? Number(preselectedUserId) : undefined as any,
   }), [preselectedUserId]);
 
-  // No renderizar hasta que las opciones estén cargadas
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Cargando enfermedades de animales...</p>
-        </div>
-      </div>
-    );
-  }
+  // Opciones de configuración de AdminCRUDPage
 
   return (
     <AdminCRUDPage

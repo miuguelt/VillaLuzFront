@@ -393,9 +393,91 @@ export function AnimalModalContent({
 
 
 
+  // Función centralizada para eliminar registros desde el modal de detalle
+  const handleDeleteRecord = async (type: string | null, item: any) => {
+    if (!type || !item) return;
+    const recordId = resolveRecordId(item);
+    if (!recordId) {
+      showToast('No se pudo determinar el ID del registro', 'error');
+      return;
+    }
+
+    try {
+      // 1. Verificar dependencias para tratamientos
+      if (type === 'treatment') {
+        const depCheck = await checkTreatmentDependencies(recordId as number);
+        if (depCheck.hasDependencies) {
+          const depSummary = depCheck.dependencies?.map(d => `${d.count} ${d.entity}`).join(', ') || 'registros asociados';
+          showToast(`⚠️ No se puede eliminar este tratamiento porque tiene ${depSummary}. Elimina primero las dependencias.`, 'error');
+          throw new Error("Dependency check failed");
+        }
+      }
+
+      // 2. Ejecutar eliminación según tipo
+      switch (type) {
+        case 'genetic_improvement': await geneticImprovementsService.deleteGeneticImprovement(recordId as any); break;
+        case 'animal_disease': await animalDiseasesService.deleteAnimalDisease(recordId as any); break;
+        case 'animal_field': await animalFieldsService.deleteAnimalField(recordId as any); break;
+        case 'vaccination': await vaccinationsService.deleteVaccination(recordId as any); break;
+        case 'treatment': await treatmentsService.deleteTreatment(recordId as any); break;
+        case 'control': await controlService.deleteControl(recordId as any); break;
+        default: throw new Error("Tipo de registro no soportado para eliminación");
+      }
+
+      // 3. Actualización Optimista del Estado Local
+      const idStr = String(recordId);
+      switch (type) {
+        case 'genetic_improvement': setGeneticImprovements(prev => prev.filter(i => String(resolveRecordId(i)) !== idStr)); break;
+        case 'animal_disease': setDiseases(prev => prev.filter(i => String(resolveRecordId(i)) !== idStr)); break;
+        case 'animal_field': setFields(prev => prev.filter(i => String(resolveRecordId(i)) !== idStr)); break;
+        case 'vaccination': setVaccinations(prev => prev.filter(i => String(resolveRecordId(i)) !== idStr)); break;
+        case 'treatment': setTreatments(prev => prev.filter(i => String(resolveRecordId(i)) !== idStr)); break;
+        case 'control': setControls(prev => prev.filter(i => String(resolveRecordId(i)) !== idStr)); break;
+      }
+
+      // 4. Limpiar Cachés
+      switch (type) {
+        case 'genetic_improvement': geneticImprovementsService.clearCache(); break;
+        case 'animal_disease': animalDiseasesService.clearCache(); break;
+        case 'animal_field': animalFieldsService.clearCache(); break;
+        case 'vaccination': vaccinationsService.clearCache(); break;
+        case 'treatment': treatmentsService.clearCache(); break;
+        case 'control': controlService.clearCache(); break;
+      }
+      if (animal?.id) clearAnimalDependencyCache(animal.id);
+
+      showToast('Registro eliminado correctamente', 'success');
+      closeActionModal(); // Cerrar el modal de detalle
+
+      // 5. Trigger refresh global por si acaso
+      setDataRefreshTrigger(prev => prev + 1);
+
+    } catch (error: any) {
+      if (error.message === "Dependency check failed") return;
+
+      const errorMessage = error.message || error.response?.data?.message || 'Error desconocido';
+      const isIntegrityError =
+        String(errorMessage).toLowerCase().includes('foreign key') ||
+        String(errorMessage).toLowerCase().includes('constraint') ||
+        String(errorMessage).toLowerCase().includes('dependenc') ||
+        String(errorMessage).toLowerCase().includes('relacionado') ||
+        error.status === 409 || error.response?.status === 409;
+
+      if (isIntegrityError) {
+        showToast('⚠️ No se puede eliminar este registro porque tiene datos dependientes.', 'error');
+      } else if (error.status === 404 || error.response?.status === 404 || String(errorMessage).toLowerCase().includes('no encontrado')) {
+        showToast('El registro ya no existe o fue eliminado.', 'info');
+        closeActionModal();
+        setDataRefreshTrigger(prev => prev + 1);
+      } else {
+        showToast('Error al eliminar: ' + errorMessage, 'error');
+      }
+    }
+  };
+
   return (
     <>
-      <div className="space-y-4 pb-6" onKeyDown={(e) => e.stopPropagation()}>
+      <div ref={scrollContainerRef} className="space-y-4 pb-6 h-full overflow-y-auto pr-2" onKeyDown={(e) => e.stopPropagation()}>
         {/* Banner de imágenes con carrusel - LO PRIMERO - se oculta si no hay imágenes */}
         {!imagesLoading && animalImages.length > 0 && (
           <div className="w-full rounded-xl overflow-hidden shadow-lg -mt-4">
@@ -577,6 +659,7 @@ export function AnimalModalContent({
             {/* Mejoras Genéticas - Verde */}
             {geneticImprovements.length > 0 && (
               <RelatedDataSection
+                key="genetic_improvement"
                 title="Mejoras Genéticas"
                 icon={<TrendingUp className="h-5 w-5" />}
                 data={geneticImprovements}
@@ -654,6 +737,7 @@ export function AnimalModalContent({
             {/* Enfermedades - Rojo */}
             {diseases.length > 0 && (
               <RelatedDataSection
+                key="animal_disease"
                 title="Enfermedades"
                 icon={<Activity className="h-5 w-5" />}
                 data={diseases}
@@ -735,6 +819,7 @@ export function AnimalModalContent({
             {/* Campos Asignados - Amarillo */}
             {fields.length > 0 && (
               <RelatedDataSection
+                key="animal_field"
                 title="Campos Asignados"
                 icon={<MapPin className="h-5 w-5" />}
                 data={fields}
@@ -816,6 +901,7 @@ export function AnimalModalContent({
             {/* Vacunaciones - Azul */}
             {vaccinations.length > 0 && (
               <RelatedDataSection
+                key="vaccination"
                 title="Vacunaciones"
                 icon={<Syringe className="h-5 w-5" />}
                 data={vaccinations}
@@ -894,6 +980,7 @@ export function AnimalModalContent({
             {/* Tratamientos - Púrpura */}
             {treatments.length > 0 && (
               <RelatedDataSection
+                key="treatment"
                 title="Tratamientos"
                 icon={<Pill className="h-5 w-5" />}
                 data={treatments}
@@ -1016,6 +1103,7 @@ export function AnimalModalContent({
             {/* Controles - Naranja */}
             {controls.length > 0 && (
               <RelatedDataSection
+                key="control"
                 title="Controles de Crecimiento"
                 icon={<TrendingUp className="h-5 w-5" />}
                 data={controls}
@@ -1137,6 +1225,7 @@ export function AnimalModalContent({
               }}
               onClose={closeActionModal}
               onEdit={() => setActionModalMode('edit')}
+              onDelete={() => handleDeleteRecord(actionModalType, selectedItem)}
               zIndex={2000}
             />
           )

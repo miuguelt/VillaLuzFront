@@ -39,7 +39,7 @@ class AnimalsService extends BaseService<AnimalResponse> {
     if (/^\d{4}$/.test(s)) return true;
     // Formatos comunes de fecha: YYYY-MM-DD, DD/MM/YYYY, DD-MM-YYYY, YYYY/MM/DD, YYYY-MM-DD
     if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(s)) return true;
-    if(/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(s)) return true;
+    if (/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(s)) return true;
     return false;
   }
 
@@ -163,7 +163,7 @@ class AnimalsService extends BaseService<AnimalResponse> {
     const age_in_days = item?.age_in_days ?? this.computeAgeDays(birth_date);
     const age_in_months = item?.age_in_months ?? (typeof age_in_days === 'number' ? Math.floor(age_in_days / 30) : undefined);
     const gender = this.normalizeSex(item?.gender ?? item?.sex ?? item?.sexo ?? item?.genero);
-    
+
     // Asegurar que breeds_id se mapee correctamente a breed_id para compatibilidad con la UI
     const breedsId = item?.breeds_id;
     const breedId = item?.breed_id ?? item?.breedId ?? item?.raza_id;
@@ -202,7 +202,8 @@ class AnimalsService extends BaseService<AnimalResponse> {
 
   async getAnimals(params?: Record<string, any>): Promise<AnimalResponse[]> {
     const list = await this.getAll(params);
-    return (Array.isArray(list) ? list.map((it: any) => this.normalizeAnimal(it)) : list) as any;
+    const safeList = Array.isArray(list) ? list : [];
+    return safeList.map((it: any) => this.normalizeAnimal(it));
   }
 
   async getAnimalsPaginated(params?: Record<string, any>): Promise<PaginatedResponse<AnimalResponse>> {
@@ -264,17 +265,17 @@ class AnimalsService extends BaseService<AnimalResponse> {
 
   async deleteAnimal(id: number): Promise<boolean> {
     console.log(`[AnimalsService.deleteAnimal] Iniciando eliminación para animal ID: ${id}`);
-    
+
     try {
       // Verificar dependencias usando el servicio optimizado
       const dependencyCheck = await checkAnimalDependencies(id);
-      
+
       if (dependencyCheck.hasDependencies) {
         console.log(`[AnimalsService.deleteAnimal] ❌ Eliminación bloqueada por dependencias`, {
           animalId: id,
           dependencies: dependencyCheck.dependencies
         });
-        
+
         // Lanzar error con mensaje detallado para que la UI lo muestre
         const error = new Error(dependencyCheck.message || 'No se puede eliminar el animal por dependencias');
         (error as any).detailedMessage = dependencyCheck.detailedMessage;
@@ -282,18 +283,18 @@ class AnimalsService extends BaseService<AnimalResponse> {
         (error as any).isDependencyError = true;
         throw error;
       }
-      
+
       console.log(`[AnimalsService.deleteAnimal] ✅ Sin dependencias, procediendo con eliminación`);
-      
+
       // Proceder con la eliminación evitando recursión: usar método del BaseService
       const success = await super.delete(id);
-      
+
       if (success) {
         console.log(`[AnimalsService.deleteAnimal] ✅ Animal eliminado exitosamente`, { animalId: id });
         // Limpiar caché de dependencias para este animal
         clearAnimalDependencyCache(id);
       }
-      
+
       return success;
     } catch (error: any) {
       console.error(`[AnimalsService.deleteAnimal] ❌ Error en eliminación`, {
@@ -301,7 +302,7 @@ class AnimalsService extends BaseService<AnimalResponse> {
         error: error.message,
         isDependencyError: error.isDependencyError
       });
-      
+
       // Re-lanzar el error para que la UI lo maneje
       throw error;
     }
@@ -313,7 +314,7 @@ class AnimalsService extends BaseService<AnimalResponse> {
     if (typeof id === 'number') {
       return this.deleteAnimal(id);
     }
-    
+
     // Para otros casos, delegar al método base
     return super.delete(id);
   }
@@ -332,7 +333,7 @@ class AnimalsService extends BaseService<AnimalResponse> {
     // /animals/stats no existe; delegar a endpoint analítico consolidado
     return analyticsService.getAnimalStatistics();
   }
-  
+
   async getAnimalStatusStats(): Promise<AnimalStatusStats> {
     return this.customRequest<AnimalStatusStats>('status', 'GET');
   }

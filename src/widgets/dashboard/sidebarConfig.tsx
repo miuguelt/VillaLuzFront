@@ -71,12 +71,6 @@ export const sidebarItems: SidebarItemConfig[] = [
         roles: ['Administrador', 'Instructor', 'Aprendiz']
       },
       {
-        title: 'Especies',
-        icon: <Dna className="h-4 w-4" />,
-        path: 'species',
-        roles: ['Administrador', 'Instructor', 'Aprendiz']
-      },
-      {
         title: 'Razas',
         icon: <TestTube className="h-4 w-4" />,
         path: 'breeds',

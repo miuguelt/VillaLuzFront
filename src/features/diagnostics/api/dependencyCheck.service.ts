@@ -957,11 +957,26 @@ export async function checkUserDependencies(userId: number): Promise<DependencyC
     let totalDeps = 0;
     const detailParts: string[] = [];
 
+    console.log(`[checkUserDependencies] Verificando dependencias para usuario ID: ${userId}`);
+
     // 1. Verificar tratamientos como instructor
-    // 1. Verificar tratamientos como instructor
-    const treatmentsResp = await treatmentsService.getPaginated({ instructor_id: userId, limit: 5, page: 1, fields: 'id,treatment_date', cache_bust: Date.now() });
-    const treatments = Array.isArray(treatmentsResp?.data) ? treatmentsResp.data : [];
-    const treatmentsCount = treatmentsResp?.total || treatments.length;
+    const treatmentsResp = await treatmentsService.getPaginated({
+      instructor_id: userId,
+      limit: 100, // Aumentamos límite para client-side filtering
+      page: 1,
+      fields: 'id,treatment_date,instructor_id',
+      cache_bust: Date.now()
+    });
+    const allTreatments = Array.isArray(treatmentsResp?.data) ? treatmentsResp.data : [];
+
+    // Filtrado client-side robusto
+    const treatments = validateAndFilterDependencies(
+      allTreatments,
+      'instructor_id',
+      userId,
+      'checkUserDependencies.treatments'
+    );
+    const treatmentsCount = treatments.length;
 
     if (treatmentsCount > 0) {
       const treatmentDates = treatments.slice(0, 3).map((t: any) => {
@@ -975,10 +990,22 @@ export async function checkUserDependencies(userId: number): Promise<DependencyC
     }
 
     // 2. Verificar vacunaciones como instructor
-    // 2. Verificar vacunaciones como instructor
-    const vaccinationsResp = await vaccinationsService.getPaginated({ instructor_id: userId, limit: 5, page: 1, fields: 'id,vaccination_date', cache_bust: Date.now() });
-    const vaccinations = Array.isArray(vaccinationsResp?.data) ? vaccinationsResp.data : [];
-    const vaccinationsCount = vaccinationsResp?.total || vaccinations.length;
+    const vaccinationsResp = await vaccinationsService.getPaginated({
+      instructor_id: userId,
+      limit: 100,
+      page: 1,
+      fields: 'id,vaccination_date,instructor_id',
+      cache_bust: Date.now()
+    });
+    const allVaccinations = Array.isArray(vaccinationsResp?.data) ? vaccinationsResp.data : [];
+
+    const vaccinations = validateAndFilterDependencies(
+      allVaccinations,
+      'instructor_id',
+      userId,
+      'checkUserDependencies.vaccinations'
+    );
+    const vaccinationsCount = vaccinations.length;
 
     if (vaccinationsCount > 0) {
       const vaccinationDates = vaccinations.slice(0, 3).map((v: any) => {
@@ -992,10 +1019,22 @@ export async function checkUserDependencies(userId: number): Promise<DependencyC
     }
 
     // 3. Verificar diagnósticos como instructor
-    // 3. Verificar diagnósticos como instructor
-    const diseasesResp = await animalDiseasesService.getPaginated({ instructor_id: userId, limit: 5, page: 1, fields: 'id,diagnosis_date', cache_bust: Date.now() });
-    const diseases = Array.isArray(diseasesResp?.data) ? diseasesResp.data : [];
-    const diseasesCount = diseasesResp?.total || diseases.length;
+    const diseasesResp = await animalDiseasesService.getPaginated({
+      instructor_id: userId,
+      limit: 100,
+      page: 1,
+      fields: 'id,diagnosis_date,instructor_id',
+      cache_bust: Date.now()
+    });
+    const allDiseases = Array.isArray(diseasesResp?.data) ? diseasesResp.data : [];
+
+    const diseases = validateAndFilterDependencies(
+      allDiseases,
+      'instructor_id',
+      userId,
+      'checkUserDependencies.diseases'
+    );
+    const diseasesCount = diseases.length;
 
     if (diseasesCount > 0) {
       const diseaseDates = diseases.slice(0, 3).map((d: any) => {
