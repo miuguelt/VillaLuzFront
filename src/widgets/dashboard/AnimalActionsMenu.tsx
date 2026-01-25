@@ -648,14 +648,16 @@ const AnimalActionModalInstance: React.FC<AnimalActionModalInstanceProps> = ({
         }
         showToast('Registro guardado exitosamente. Puede continuar agregando.', 'success');
       } else {
-        setModalMode('list');
-        setEditingItem(null);
+        // Cambio realizado para cumplir requerimiento: "que no se cierren todos los modales... se cierren en orden"
+        // Al guardar y cerrar, cerramos ESTE modal de acción, regresando al modal de detalle del animal.
+        onClose();
         showToast(isEditing ? 'Registro actualizado correctamente' : 'Registro creado correctamente', 'success');
       }
 
       // Programar refresco con delay para consistencia del backend
       setTimeout(async () => {
-        await loadListData(true);
+        // No necesitamos cargar la lista si ya cerramos el modal, pero si el usuario re-abre, mejor que esté fresca?
+        // De todos modos, lo vital es refrescar el padre.
         onRefreshParent?.(type || undefined);
       }, 600);
     } catch (err: any) {

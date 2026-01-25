@@ -366,8 +366,8 @@
     }
   }
 
-  /* Transiciones globales suaves para todos los elementos */
-  * {
+  /* Transiciones globales suaves para todos los elementos, EXCEPTO skeletons */
+  *:not(.skeleton-loading) {
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
@@ -537,6 +537,31 @@
       image-rendering: high-quality;
     }
   }
+
+  /* Clases de utilidad para animaciones */
+  .animate-shimmer {
+    animation: shimmer 2s infinite linear;
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.4) 50%,
+        rgba(255, 255, 255, 0) 100%);
+    background-size: 200% 100%;
+  }
+
+  .dark .animate-shimmer {
+    background: linear-gradient(90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0) 100%);
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .animate-skeleton-pulse {
+    animation: skeletonPulse 1.5s ease-in-out infinite;
+  }
 }
 
 /* Animaciones de loading mejoradas con colores */
@@ -641,6 +666,41 @@
   50% {
     background-color: hsl(var(--success-ghost-strong));
     border-color: hsl(var(--color-success));
+  }
+}
+
+/* Efecto Shimmer para skeletons modernos */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes skeletonPulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: .7;
   }
 }
 

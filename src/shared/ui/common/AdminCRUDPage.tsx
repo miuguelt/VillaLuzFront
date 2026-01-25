@@ -1916,7 +1916,12 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/60 bg-card">
+                <tbody
+                  className={cn(
+                    "divide-y divide-border/60 bg-card",
+                    !refreshing && !loading ? "animate-fade-in-up" : ""
+                  )}
+                >
                   {visibleItems.map((item, index: number) => {
                     // Determinar qué efectos visuales aplicar a este item
                     const isDeleting = deletingItems.has(String(item.id!));  // 🔴 Rojo al eliminar

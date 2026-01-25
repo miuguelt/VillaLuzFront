@@ -44,7 +44,13 @@ export const SkeletonTable: React.FC<SkeletonTableProps> = ({
               w ? `w-${w}` : '',
             ].join(' ')}
           >
-            <div className="h-4 w-full max-w-[240px] rounded bg-blue-100 dark:bg-blue-950/30 animate-pulse transition-colors duration-300" />
+            {/* Contenedor del skeleton con efecto shimmer mejorado */}
+            <div
+              className="h-4 w-full rounded relative overflow-hidden bg-muted/40"
+              style={{ maxWidth: Math.floor(Math.random() * (100 - 60) + 60) + '%' }}
+            >
+              <div className="absolute inset-0 animate-shimmer" />
+            </div>
           </td>
         );
       })}
