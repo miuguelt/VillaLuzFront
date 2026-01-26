@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { X, Activity, Syringe, MapPin, Pill, ClipboardList, TrendingUp, Plus, List, Eye, Edit, Trash2, RefreshCw, ChevronDown, ChevronUp, ImageIcon, Copy } from 'lucide-react';
+import { X, Activity, Syringe, MapPin, Pill, ClipboardList, TrendingUp, Plus, List, Eye, Edit, Trash2, RefreshCw, ChevronDown, ChevronUp, ImageIcon, Copy, AlertTriangle } from 'lucide-react';
 import { cn } from '@/shared/ui/cn';
 import { useToast } from '@/app/providers/ToastContext';
 import { Badge } from '@/shared/ui/badge';
@@ -25,6 +25,8 @@ import { vaccinesService } from '@/entities/vaccine/api/vaccines.service';
 import { usersService } from '@/entities/user/api/user.service';
 import analyticsService from '@/features/reporting/api/analytics.service';
 import { resolveRecordId } from '@/shared/utils/recordIdUtils';
+import { AnimalMetricsCharts } from './AnimalMetricsCharts';
+import { analyzeGrowthTrends } from '@/shared/utils/animalMetrics';
 
 import { ItemDetailModal } from './ItemDetailModal';
 import { CollapsibleCard } from '@/shared/ui/common/CollapsibleCard';
@@ -437,12 +439,12 @@ export function AnimalModalContent({
 
       // 4. Limpiar Cachés
       switch (type) {
-        case 'genetic_improvement': geneticImprovementsService.clearCache(); break;
-        case 'animal_disease': animalDiseasesService.clearCache(); break;
-        case 'animal_field': animalFieldsService.clearCache(); break;
-        case 'vaccination': vaccinationsService.clearCache(); break;
-        case 'treatment': treatmentsService.clearCache(); break;
-        case 'control': controlService.clearCache(); break;
+        case 'genetic_improvement': await geneticImprovementsService.clearCache(); break;
+        case 'animal_disease': await animalDiseasesService.clearCache(); break;
+        case 'animal_field': await animalFieldsService.clearCache(); break;
+        case 'vaccination': await vaccinationsService.clearCache(); break;
+        case 'treatment': await treatmentsService.clearCache(); break;
+        case 'control': await controlService.clearCache(); break;
       }
       if (animal?.id) clearAnimalDependencyCache(animal.id);
 
@@ -558,7 +560,21 @@ export function AnimalModalContent({
           </div>
         </div>
 
-
+        {/* Alertas de Salud Basadas en Controles */}
+        {controls.length >= 2 && (
+          <div className="space-y-2">
+            {analyzeGrowthTrends(controls.map(c => ({
+              date: c.checkup_date,
+              weight: c.weight,
+              height: c.height
+            }))).map((alert, idx) => (
+              <div key={idx} className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200 text-xs font-medium animate-in fade-in slide-in-from-top-1">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {alert}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Grid wrapper for collapsible sections */}
         <div className="space-y-4">
@@ -972,7 +988,6 @@ export function AnimalModalContent({
               confirmingDeleteId={confirmingDeleteId}
               deletingItemId={deletingItemId}
             />
-            )}
 
             {/* Tratamientos - Púrpura */}
             <RelatedDataSection
@@ -1178,6 +1193,18 @@ export function AnimalModalContent({
               confirmingDeleteId={confirmingDeleteId}
               deletingItemId={deletingItemId}
             />
+
+            {/* Análisis de Crecimiento y Gráficos - Sección Nueva */}
+            <CollapsibleCard
+              title="Análisis de Crecimiento (Gráficos)"
+              accent="blue"
+              defaultCollapsed={false}
+              data-testid="collapsible-section-growth-analysis"
+            >
+              <div className="p-2">
+                <AnimalMetricsCharts controls={controls} />
+              </div>
+            </CollapsibleCard>
           </div>
         </div>
 

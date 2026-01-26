@@ -1,4 +1,5 @@
 import React from 'react';
+import { TrendingUp } from 'lucide-react';
 import { ForeignKeyLink } from './ForeignKeyLink';
 import { animalsService } from '@/entities/animal/api/animal.service';
 import { breedsService } from '@/entities/breed/api/breeds.service';
@@ -17,9 +18,10 @@ import { AnimalHistoryModal } from '@/widgets/dashboard/AnimalHistoryModal';
 import GeneticTreeModal from '@/widgets/dashboard/GeneticTreeModal';
 import DescendantsTreeModal from '@/widgets/dashboard/DescendantsTreeModal';
 import { useAnimalTreeApi, graphToAncestorLevels, graphToDescendantLevels } from '@/entities/animal/model/useAnimalTreeApi';
+import { Button } from '@/shared/ui/button';
 
 // Helper para Animal con renderizado personalizado
-export const AnimalLink: React.FC<{ id: number | string; label: string }> = ({ id, label }) => {
+export const AnimalLink: React.FC<{ id: number | string; label: string; children?: React.ReactNode }> = ({ id, label, children }) => {
   const renderAnimalContent = (initialAnimal: any) => {
     const Wrapper: React.FC<{ initial: any }> = ({ initial }) => {
       const [animal, setAnimal] = React.useState<any>(initial);
@@ -225,7 +227,25 @@ export const AnimalLink: React.FC<{ id: number | string; label: string }> = ({ i
       renderContent={renderAnimalContent}
       size="full"
       enableFullScreenToggle
-    />
+    >
+      {children}
+    </ForeignKeyLink>
+  );
+};
+
+// Helper para acceder DIRECTAMENTE al Análisis de Crecimiento (Gráfico)
+export const AnimalGrowthLink: React.FC<{ id: number | string; label: string; className?: string }> = ({ id, label, className = '' }) => {
+  return (
+    <AnimalLink id={id} label={label}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className={`h-9 w-9 p-0 flex-shrink-0 rounded-lg border border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 dark:hover:border-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all duration-200 ${className}`}
+        title={`Ver Análisis de Crecimiento de ${label}`}
+      >
+        <TrendingUp className="h-4 w-4" />
+      </Button>
+    </AnimalLink>
   );
 };
 

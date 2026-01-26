@@ -43,6 +43,11 @@ export function AnimalCard({
   const weight = animal.weight ? `${animal.weight} kg` : '-';
   const status = animal.status || '-';
   const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
+  const initialImages = Array.isArray((animal as any)?.images)
+    ? (animal as any).images
+    : Array.isArray((animal as any)?.photos)
+      ? (animal as any).photos
+      : undefined;
 
   const handleCardClick = () => {
     if (onCardClick) {
@@ -64,6 +69,8 @@ export function AnimalCard({
           autoPlayInterval={0}
           hideWhenEmpty={false}
           objectFit="cover"
+          deferLoad
+          initialImages={initialImages}
         />
 
         {/* Overlay de gradiente sutil al fondo */}

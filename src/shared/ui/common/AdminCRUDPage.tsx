@@ -85,20 +85,9 @@ import { validateFormSections, type FieldErrors } from '@/shared/utils/formValid
 import { formatValidationToastMessage, mapBackendFieldErrorsToLabels, buildConflictMessage } from '@/shared/utils/validationMessages';
 import { treatmentMedicationService } from '@/entities/treatment-medication/api/treatmentMedication.service';
 import { treatmentVaccinesService } from '@/entities/treatment-vaccine/api/treatmentVaccines.service';
+import { isDevMode } from '@/shared/utils/viteEnv';
 
-const isDevEnv = (() => {
-  try {
-    if (typeof import.meta !== 'undefined') {
-      return Boolean(import.meta.env?.DEV);
-    }
-  } catch {
-    // ignore
-  }
-  if (typeof process !== 'undefined' && process.env?.NODE_ENV) {
-    return process.env.NODE_ENV !== 'production';
-  }
-  return false;
-})();
+const isDevEnv = isDevMode();
 
 // Interfaces para configuración del componente
 export interface CRUDColumn<T> {
@@ -1188,7 +1177,11 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
     }
   };
 
-  const empty = (visibleItems?.length || 0) === 0;
+  const totalFromMeta = typeof meta?.total === 'number' ? meta.total : null;
+  const hasServerData = (typeof totalFromMeta === 'number' ? totalFromMeta > 0 : false) || ((items?.length || 0) > 0);
+  const empty = !hasServerData && (visibleItems?.length || 0) === 0;
+  const isSearchActive = Boolean(((searchParams.get('search') || searchQuery) || '').toString().trim());
+  const noResults = hasServerData && (visibleItems?.length || 0) === 0;
 
   // Mapa de etiquetas para llaves foráneas basado en opciones de selects de formulario
   const fkLabelMap = useMemo(() => {
@@ -1641,17 +1634,18 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
         // Si ya tenemos un mensaje específico (del backend), lo usamos. Si es genérico, ponemos el explicativo.
         errorMessage = (error?.message && error?.message !== 'Error al eliminar')
           ? error.message
-          : `⚠️ No se puede eliminar este ${config.entityName.toLowerCase()} porque tiene registros relacionados. Elimine primero los registros dependientes.`;
+          : `⚠️ No se puede eliminar este ${config.entityName.toLowerCase()} porque tiene registros relacionados.\n\nSugerencia: Considere cambiar su estado a "Inactivo" en lugar de eliminarlo para mantener la trazabilidad histórica.`;
       }
       // Error de integridad típico: "Column 'breeds_id' cannot be null" (MySQL 1048 / SQLAlchemy)
       else if (
         (status === 400 || status === 422 || status === 500) &&
         (
           errorMessage.toLowerCase().includes("cannot be null") ||
-          errorMessage.toLowerCase().includes("breeds_id")
+          errorMessage.toLowerCase().includes("breeds_id") ||
+          errorMessage.toLowerCase().includes("foreign key constraint")
         )
       ) {
-        errorMessage = `⚠️ No se puede eliminar esta raza porque hay animales asociados y la columna 'breeds_id' no puede ser nula. Reasigna la raza de los animales dependientes antes de eliminarla.`;
+        errorMessage = `⚠️ No se puede eliminar este registro porque otros elementos dependen de él (Integridad).\n\nRecomendación: Reasigne los registros hijos o simplemente desactive este elemento.`;
       }
       // Manejo de errores de red o servidor
       else if (status === 500) {
@@ -1775,7 +1769,31 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
           >
             {config.viewMode === 'cards' ? (
               <div className="p-3 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 xl:gap-5">
-                {visibleItems.map((item) => {
+                {noResults ? (
+                  <div className="col-span-full rounded-xl border border-dashed border-border/70 bg-muted/20 p-6 text-center">
+                    <div className="text-sm font-semibold text-foreground">
+                      {isSearchActive ? 'Sin resultados para tu búsqueda.' : 'No hay resultados para la página actual.'}
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {isSearchActive ? 'Prueba con otros términos o limpia la búsqueda.' : 'Intenta volver a la página 1 o ajustar filtros.'}
+                    </div>
+                    {isSearchActive && (
+                      <div className="mt-3">
+                        <Button variant="outline" size="sm" onClick={() => setSearchQuery('')}>
+                          Limpiar búsqueda
+                        </Button>
+                      </div>
+                    )}
+                    {!isSearchActive && setPage && (
+                      <div className="mt-3">
+                        <Button variant="outline" size="sm" onClick={() => setPage(1)}>
+                          Ir a página 1
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  visibleItems.map((item) => {
                   const isDeleting = deletingItems.has(String(item.id!));
                   const isNew = newItems.has(item.id!);
                   const isUpdated = updatedItems.has(item.id!);
@@ -1874,7 +1892,8 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                       </CardContent>
                     </Card>
                   );
-                })}
+                  })
+                )}
               </div>
             ) : (
               <table
@@ -1922,7 +1941,36 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                     !refreshing && !loading ? "animate-fade-in-up" : ""
                   )}
                 >
-                  {visibleItems.map((item, index: number) => {
+                  {noResults ? (
+                    <tr>
+                      <td
+                        colSpan={tableColumns.length + ((config.enableDelete || config.customActions) ? 1 : 0)}
+                        className="px-3 py-8 text-center text-sm text-muted-foreground"
+                      >
+                        <div className="text-foreground font-semibold">
+                          {isSearchActive ? 'Sin resultados para tu búsqueda.' : 'No hay resultados para la página actual.'}
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {isSearchActive ? 'Prueba con otros términos o limpia la búsqueda.' : 'Intenta volver a la página 1 o ajustar filtros.'}
+                        </div>
+                        {isSearchActive && (
+                          <div className="mt-3">
+                            <Button variant="outline" size="sm" onClick={() => setSearchQuery('')}>
+                              Limpiar búsqueda
+                            </Button>
+                          </div>
+                        )}
+                        {!isSearchActive && setPage && (
+                          <div className="mt-3">
+                            <Button variant="outline" size="sm" onClick={() => setPage(1)}>
+                              Ir a página 1
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ) : (
+                    visibleItems.map((item, index: number) => {
                     // Determinar qué efectos visuales aplicar a este item
                     const isDeleting = deletingItems.has(String(item.id!));  // 🔴 Rojo al eliminar
                     const isNew = newItems.has(item.id!);                    // 🟢 Verde al insertar (SOLO si isUserInsertedRef.current fue true)
@@ -2070,7 +2118,8 @@ export function AdminCRUDPage<T extends { id: number }, TInput extends Record<st
                         )}
                       </tr>
                     );
-                  })}
+                    })
+                  )}
                 </tbody>
               </table>
             )}

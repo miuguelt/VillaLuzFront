@@ -2,15 +2,16 @@ import React, { StrictMode, Fragment, useEffect, useRef } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom';
 import AppRoutes from './routes/AppRoutes'
-import { AuthProvider } from './providers/AuthenticationContext'
+import { AuthProvider } from '@/app/providers/AuthenticationContext'
+import { Toaster } from '@/shared/ui/toaster'
 // Removed setupApiInterceptors import; interceptors are configured within services/api on module load
-import { CacheProvider } from './providers/CacheContext'
-import { SidebarProvider } from './providers/SidebarContext'
-import { ThemeProvider } from './providers/ThemeContext'
-import { ToastProvider } from './providers/ToastContext'
+import { CacheProvider } from '@/app/providers/CacheContext'
+import { SidebarProvider } from '@/app/providers/SidebarContext'
+import { ThemeProvider } from '@/app/providers/ThemeContext'
+import { ToastProvider } from '@/app/providers/ToastContext'
 import { I18nProvider } from '@/shared/i18n'
-import { useToast } from './providers/ToastContext'
-import { useCache } from './providers/CacheContext'
+import { useToast } from '@/app/providers/ToastContext'
+import { useCache } from '@/app/providers/CacheContext'
 import { useAuth } from '@/features/auth/model/useAuth'
 import { hasSessionCookies } from '@/shared/utils/cookieUtils'
 import { refetchAllResources } from '@/shared/hooks/useResource'
@@ -75,11 +76,11 @@ const queryClient = new QueryClient({
       // Limpiar caches del Service Worker y desregistrarlo
       if ('caches' in window) {
         const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k).catch(() => {})));
+        await Promise.all(keys.map((k) => caches.delete(k).catch(() => { })));
       }
       if ('serviceWorker' in navigator) {
         const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister().catch(() => {})));
+        await Promise.all(regs.map((r) => r.unregister().catch(() => { })));
       }
     } catch (err) {
       console.warn('[Recovery] Error limpiando caches/SW tras fallo de chunk', err);
@@ -221,16 +222,16 @@ if (ENABLE_PWA && 'serviceWorker' in navigator) {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations?.().then((registrations) => {
       for (const registration of registrations) {
-        registration.unregister().catch(() => {});
+        registration.unregister().catch(() => { });
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }
   if (window.caches?.keys) {
     window.caches.keys().then((keys) => {
       keys.forEach((key) => {
-        window.caches.delete(key).catch(() => {});
+        window.caches.delete(key).catch(() => { });
       });
-    }).catch(() => {});
+    }).catch(() => { });
   }
 }
 
@@ -462,10 +463,11 @@ createRoot(document.getElementById('root')!).render(
                     <AppRoutes />
                     <OnlineStatusIndicator />
                     <PWAUpdateHandler />
+                    <Toaster />
                   </AuthProvider>
                 </ToastProvider>
               </I18nProvider>
-              </ThemeProvider>
+            </ThemeProvider>
           </SidebarProvider>
         </CacheProvider>
       </BrowserRouter>

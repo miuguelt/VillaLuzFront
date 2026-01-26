@@ -1,11 +1,13 @@
-import { createContext, useState, useEffect, ReactNode, useCallback, useRef, useMemo } from "react"
+import { useState, useEffect, ReactNode, useCallback, useRef, useMemo } from "react"
+import { AuthContext } from "./AuthContext"
+export { AuthContext }
 import { useNavigate } from "react-router-dom"
 import { User, AuthContextType, Role, role as RoleType } from "@/entities/user/model/types"
 import { getUserProfile, normalizeRole, authServiceLogout } from "@/features/auth/api/auth.service"
 import sse from "@/lib/events"
 import { isDevelopment } from "@/shared/utils/envConfig"
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined)
+// AuthContext imported from separate file
 
 // Avoid dynamic imports during Jest tests to prevent ESM/vite-specific syntax from breaking
 const isTestEnv = typeof (globalThis as any).process !== 'undefined' && !!(((globalThis as any).process as any).env?.JEST_WORKER_ID)
@@ -178,8 +180,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const navigate = useNavigate()
 
- // Hacer que el role switch sea SOLO para entorno de desarrollo (ignorar flags en producción)
- const enableRoleSwitch = isDevelopment()
+  // Hacer que el role switch sea SOLO para entorno de desarrollo (ignorar flags en producción)
+  const enableRoleSwitch = isDevelopment()
 
   const clearAuthState = useCallback(() => {
     setUser(null)
@@ -385,7 +387,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     }
-  
+
     const isSessionActive = ssGet(AUTH_SESSION_ACTIVE_KEY) === '1'
     if (!isSessionActive) {
       clearAuthState()

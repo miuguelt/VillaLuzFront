@@ -11,6 +11,10 @@ const resolveImportMetaEnv = (): Record<string, any> | undefined => {
   } catch {
     // __VITE_IMPORT_META_ENV__ no disponible (entornos Node/jest)
   }
+
+  const fromGlobal = (globalThis as any)?.__VITE_IMPORT_META_ENV__ as Record<string, any> | undefined;
+  if (fromGlobal) return fromGlobal;
+
   return undefined;
 };
 

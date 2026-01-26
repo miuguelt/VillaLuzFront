@@ -8,9 +8,10 @@ import { animalsService } from '@/entities/animal/api/animal.service';
 import type { ControlResponse } from '@/shared/api/generated/swaggerTypes';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
-import { Activity, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
+
 import { getTodayColombia } from '@/shared/utils/dateUtils';
-import { AnimalLink } from '@/shared/ui/common/ForeignKeyHelpers';
+import { AnimalLink, AnimalGrowthLink } from '@/shared/ui/common/ForeignKeyHelpers';
 import { SectionCard, InfoField, modalStyles } from '@/shared/ui/common/ModalStyles';
 
 // Tipo de formulario simplificado alineado al JSON solicitado
@@ -27,92 +28,109 @@ type ControlForm = {
 const formSectionsLocal = (
   animalOptions: { value: number; label: string }[]
 ): CRUDFormSection<ControlForm>[] => [
-  {
-    title: 'Información Básica',
-    gridCols: 2,
-    fields: [
-      { name: 'animal_id', label: 'Animal', type: 'select', required: true, options: animalOptions, placeholder: 'Seleccionar animal' },
-      { name: 'checkup_date', label: 'Fecha de Chequeo', type: 'date', required: true, placeholder: 'YYYY-MM-DD' },
-    ],
-  },
-  {
-    title: 'Métricas Básicas',
-    gridCols: 2,
-    fields: [
-      { name: 'weight', label: 'Peso (kg)', type: 'number', validation: { min: 0 }, placeholder: 'Peso en kg' },
-      { name: 'height', label: 'Altura (m)', type: 'number', validation: { min: 0 }, placeholder: 'Altura en metros' },
-      {
-        name: 'health_status',
-        label: 'Estado de Salud',
-        type: 'select',
-        required: true,
-        options: [
-          { value: 'Excelente', label: 'Excelente' },
-          { value: 'Bueno', label: 'Bueno' },
-          { value: 'Regular', label: 'Regular' },
-          { value: 'Malo', label: 'Malo' },
-          { value: 'Sano', label: 'Sano' }
-        ],
-        placeholder: 'Seleccionar estado'
-      },
-    ],
-  },
-  {
-    title: 'Descripción',
-    fields: [
-      { name: 'description', label: 'Descripción', type: 'textarea', placeholder: 'Descripción...', colSpan: 2 },
-    ],
-  },
-];
+    {
+      title: 'Información Básica',
+      gridCols: 2,
+      fields: [
+        { name: 'animal_id', label: 'Animal', type: 'select', required: true, options: animalOptions, placeholder: 'Seleccionar animal' },
+        { name: 'checkup_date', label: 'Fecha de Chequeo', type: 'date', required: true, placeholder: 'YYYY-MM-DD' },
+      ],
+    },
+    {
+      title: 'Métricas Básicas',
+      gridCols: 2,
+      fields: [
+        { name: 'weight', label: 'Peso (kg)', type: 'number', validation: { min: 0 }, placeholder: 'Peso en kg' },
+        { name: 'height', label: 'Altura (m)', type: 'number', validation: { min: 0 }, placeholder: 'Altura en metros' },
+        {
+          name: 'health_status',
+          label: 'Estado de Salud',
+          type: 'select',
+          required: true,
+          options: [
+            { value: 'Excelente', label: 'Excelente' },
+            { value: 'Bueno', label: 'Bueno' },
+            { value: 'Regular', label: 'Regular' },
+            { value: 'Malo', label: 'Malo' },
+            { value: 'Sano', label: 'Sano' }
+          ],
+          placeholder: 'Seleccionar estado'
+        },
+      ],
+    },
+    {
+      title: 'Descripción',
+      fields: [
+        { name: 'description', label: 'Descripción', type: 'textarea', placeholder: 'Descripción...', colSpan: 2 },
+      ],
+    },
+  ];
 
 // Función para renderizar tarjetas de controles
 const renderControlCard = (animalOptions: { value: number; label: string }[]) => (item: ControlResponse & { [k: string]: any }) => {
   const animalLabel = animalOptions.find(opt => opt.value === item.animal_id)?.label || `Animal ${item.animal_id}`;
   const checkupDate = (item as any)?.checkup_date ?? (item as any)?.control_date;
-  const formattedDate = checkupDate ? new Date(checkupDate as string).toLocaleDateString('es-ES') : '-';
+  const formattedDate = checkupDate ? new Date(checkupDate as string).toLocaleDateString('es-ES', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  }) : '-';
   const healthStatus = (item as any)?.health_status ?? (item as any)?.healt_status ?? '-';
   const description = (item as any)?.description ?? (item as any)?.observations;
 
   const getBadgeColor = (status: string) => {
-    switch(status) {
-      case 'Excelente': return 'bg-green-500/90 hover:bg-green-600 text-white';
-      case 'Bueno': case 'Sano': return 'bg-blue-500/90 hover:bg-blue-600 text-white';
-      case 'Regular': return 'bg-yellow-500/90 hover:bg-yellow-600 text-white';
-      case 'Malo': return 'bg-red-500/90 hover:bg-red-600 text-white';
-      default: return 'bg-gray-500/90 hover:bg-gray-600 text-white';
+    switch (status) {
+      case 'Excelente': return 'bg-green-500/90 hover:bg-green-600 text-white border-transparent';
+      case 'Bueno': case 'Sano': return 'bg-blue-500/90 hover:bg-blue-600 text-white border-transparent';
+      case 'Regular': return 'bg-yellow-500/90 hover:bg-yellow-600 text-white border-transparent';
+      case 'Malo': return 'bg-red-500/90 hover:bg-red-600 text-white border-transparent';
+      default: return 'bg-gray-500/90 hover:bg-gray-600 text-white border-transparent';
     }
   };
 
   return (
-    <div className={modalStyles.spacing.section}>
-      <SectionCard title="Estado de Salud">
-        <Badge className={`text-xs px-3 py-1 ${getBadgeColor(healthStatus)}`}>
+    <div className="p-4 flex flex-col gap-4 h-full relative">
+      {/* Header with Status and Date */}
+      <div className="flex justify-between items-start">
+        <Badge className={`text-xs px-2.5 py-0.5 shadow-sm ${getBadgeColor(healthStatus)}`}>
           {healthStatus}
         </Badge>
-      </SectionCard>
+        <span className="text-xs text-muted-foreground font-medium bg-muted/30 px-2 py-1 rounded-md">
+          {formattedDate}
+        </span>
+      </div>
 
-      <SectionCard title="Información del Control">
-        <InfoField
-          label="Animal"
-          value={item.animal_id ? <AnimalLink id={item.animal_id} label={animalLabel} /> : '-'}
-          valueSize="large"
-        />
-        <InfoField label="Fecha" value={formattedDate} />
-      </SectionCard>
-
-      <SectionCard title="Métricas">
-        <div className={modalStyles.fieldsGrid}>
-          <InfoField label="Peso" value={item.weight ? `${item.weight} kg` : '-'} valueSize="large" />
-          <InfoField label="Altura" value={item.height ? `${item.height} m` : '-'} valueSize="large" />
+      {/* Main Info */}
+      <div className="space-y-1">
+        <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Animal</div>
+        <div className="text-lg font-bold text-foreground leading-none">
+          {item.animal_id ? <AnimalLink id={item.animal_id} label={animalLabel} /> : '-'}
         </div>
-      </SectionCard>
+      </div>
 
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-2 gap-3 bg-muted/20 rounded-lg p-3 border border-border/40">
+        <div className="space-y-1">
+          <span className="text-[10px] uppercase text-muted-foreground font-semibold">Peso</span>
+          <div className="text-sm font-bold text-foreground">
+            {item.weight ? `${item.weight} kg` : '-'}
+          </div>
+        </div>
+        <div className="space-y-1">
+          <span className="text-[10px] uppercase text-muted-foreground font-semibold">Altura</span>
+          <div className="text-sm font-bold text-foreground">
+            {item.height ? `${item.height} m` : '-'}
+          </div>
+        </div>
+      </div>
+
+      {/* Description */}
       {description && (
-        <SectionCard title="Descripción">
-          <p className="text-xs text-foreground line-clamp-2">
-            {description}
+        <div className="mt-auto pt-2">
+          <p className="text-xs text-muted-foreground line-clamp-2 italic">
+            "{description}"
           </p>
-        </SectionCard>
+        </div>
       )}
     </div>
   );
@@ -163,33 +181,8 @@ const crudConfigLocal = (
       </Button>
     </div>
   ),
-  customActions: (record) => (
-    <>
-      <button
-        className="icon-btn"
-        onClick={(e) => {
-          e.stopPropagation();
-          // Aquí podrías abrir un modal de análisis detallado
-          console.log('Análisis detallado del control:', record);
-        }}
-        title="Ver análisis detallado del control"
-        aria-label="Ver análisis"
-      >
-        <Activity />
-      </button>
-      <button
-        className="icon-btn"
-        onClick={(e) => {
-          e.stopPropagation();
-          // Aquí podrías abrir un modal de tendencias
-          console.log('Ver tendencias del animal:', record);
-        }}
-        title="Ver tendencias y evolución"
-        aria-label="Ver tendencias"
-      >
-        <TrendingUp />
-      </button>
-    </>
+  customActions: (item) => (
+    <AnimalGrowthLink id={item.animal_id} label="" />
   ),
 });
 
@@ -232,7 +225,7 @@ const makeCustomDetailContent = (animalOptions: { value: number; label: string }
   const description = (item as any)?.description ?? (item as any)?.observations;
 
   const getBadgeColor = (status: string) => {
-    switch(status) {
+    switch (status) {
       case 'Excelente': return 'bg-green-500/90 hover:bg-green-600 text-white';
       case 'Bueno': case 'Sano': return 'bg-blue-500/90 hover:bg-blue-600 text-white';
       case 'Regular': return 'bg-yellow-500/90 hover:bg-yellow-600 text-white';
@@ -243,34 +236,7 @@ const makeCustomDetailContent = (animalOptions: { value: number; label: string }
 
   return (
     <div className={modalStyles.spacing.section}>
-      {/* Menú de Acciones */}
-      <div className="flex items-center justify-end gap-2 px-1 pb-3">
-        <div className="text-xs text-muted-foreground font-medium">Acciones rápidas:</div>
-        <div className="flex items-center gap-2">
-          <button
-            className="inline-flex items-center justify-center rounded-lg p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-            onClick={(e) => {
-              e.stopPropagation();
-              console.log('Análisis detallado del control:', item);
-            }}
-            title="Ver análisis detallado del control"
-            aria-label="Ver análisis"
-          >
-            <Activity className="h-4 w-4" />
-          </button>
-          <button
-            className="inline-flex items-center justify-center rounded-lg p-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-            onClick={(e) => {
-              e.stopPropagation();
-              console.log('Ver tendencias del animal:', item);
-            }}
-            title="Ver tendencias y evolución"
-            aria-label="Ver tendencias"
-          >
-            <TrendingUp className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+
 
       <div className={modalStyles.twoColGrid}>
         {/* Columna izquierda */}

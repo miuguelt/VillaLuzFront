@@ -1047,17 +1047,42 @@ export async function checkUserDependencies(userId: number): Promise<DependencyC
       totalDeps += diseasesCount;
     }
 
+    // 4. Verificar animales a cargo (algunos modelos pueden tener owner_id o similar)
+    // Buscamos animales donde el usuario sea el "encargado" o "propietario"
+    const animalsResp = await animalsService.getAnimalsPaginated({
+      user_id: userId,
+      limit: 100,
+      page: 1,
+      fields: 'id,record,user_id',
+      cache_bust: Date.now()
+    });
+    const allAnimals = Array.isArray(animalsResp?.data) ? animalsResp.data : [];
+    const animals = validateAndFilterDependencies(
+      allAnimals,
+      'user_id',
+      userId,
+      'checkUserDependencies.animals'
+    );
+    const animalsCount = animals.length;
+
+    if (animalsCount > 0) {
+      const animalRecords = animals.slice(0, 3).map((a: any) => a.record || `ID ${a.id}`);
+      const moreText = animalsCount > 3 ? ` y ${animalsCount - 3} más` : '';
+      dependencies.push({ entity: 'Animales a Cargo', count: animalsCount, samples: animalRecords });
+      detailParts.push(`🐄 **Animales a Cargo (${animalsCount})**: ${animalRecords.join(', ')}${moreText}`);
+      totalDeps += animalsCount;
+    }
+
     if (totalDeps > 0) {
       return {
         hasDependencies: true,
-        message: `⚠️ No se puede eliminar este usuario porque tiene ${totalDeps} registro(s) médico(s) asociado(s).`,
-        detailedMessage: `Este usuario (instructor) tiene las siguientes dependencias que deben ser reasignadas primero:\n\n` +
+        message: `⚠️ No se puede eliminar este usuario porque tiene ${totalDeps} registro(s) asociado(s).`,
+        detailedMessage: `Este usuario tiene dependencias activas o históricas que impiden su eliminación directa:\n\n` +
           detailParts.join('\n\n') + '\n\n' +
           `**Acciones sugeridas:**\n` +
-          `1. Reasignar todos los registros médicos a otro instructor\n` +
-          `2. Los registros históricos son importantes para trazabilidad\n` +
-          `3. NO se recomienda eliminar, considere desactivar el usuario\n` +
-          `4. Si debe eliminar, reasigne todos los registros primero`,
+          `1. **Recomendado:** Cambie el estado del usuario a **Inactivo** en lugar de eliminarlo para preservar la trazabilidad histórica.\n` +
+          `2. Si es estrictamente necesario eliminar, debe reasignar todos los registros médicos y animales a otro usuario primero.\n` +
+          `3. Verifique que no queden registros que vinculen a este usuario.`,
         dependencies
       };
     }

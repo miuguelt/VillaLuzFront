@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { AuthContext } from '@/app/providers/AuthenticationContext';
+import { AuthContext } from '@/app/providers/AuthContext';
 
 /**
  * Hook personalizado para acceder al estado de autenticación y metadatos NO sensibles
@@ -8,7 +8,7 @@ import { AuthContext } from '@/app/providers/AuthenticationContext';
  */
 export const useJWT = () => {
   const context = useContext(AuthContext);
-  
+
   if (!context) {
     throw new Error('useJWT must be used within an AuthProvider');
   }
@@ -17,7 +17,7 @@ export const useJWT = () => {
   const tokenExpiryDate = (context as any).tokenExpiry as Date | null | undefined;
   const timeToExpiry = tokenExpiryDate instanceof Date ? Math.max(0, tokenExpiryDate.getTime() - Date.now()) : 0;
   const isTokenExpiringSoon = timeToExpiry > 0 && timeToExpiry < 10 * 60 * 1000; // < 10 minutos
-  
+
   return {
     ...context,
     tokenExpiry: tokenExpiryDate ?? null,
@@ -31,20 +31,20 @@ export const useJWT = () => {
  */
 export const usePermissions = () => {
   const { role, isAuthenticated } = useJWT();
-  
+
   return {
     isAdmin: role === 'Administrador',
-    isInstructor: role === 'Instructor', 
+    isInstructor: role === 'Instructor',
     isApprentice: role === 'Aprendiz',
     hasPermission: (requiredRole: string) => {
       if (!isAuthenticated) return false;
-      
+
       const roleHierarchy = {
         'Administrador': 3,
         'Instructor': 2,
         'Aprendiz': 1
       };
-      
+
       return (roleHierarchy[role as keyof typeof roleHierarchy] || 0) >= (roleHierarchy[requiredRole as keyof typeof roleHierarchy] || 0);
     }
   };

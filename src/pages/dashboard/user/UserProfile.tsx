@@ -27,10 +27,7 @@ import { getAnimalLabel } from '@/entities/animal/lib/animalHelpers';
 import { usersService } from '@/entities/user/api/user.service';
 import { changePassword } from '@/features/auth/api/auth.service';
 import { User, Mail, Phone, MapPin, UserCircle, Activity, Shield, Lock, Save, CheckCircle2, Info, AlertTriangle, ClipboardList, CalendarClock, ExternalLink } from 'lucide-react';
-import { useActivityFeed } from '@/features/activity/model/useActivityFeed';
-import { fetchMyActivity } from '@/features/activity/api/activity.service';
-import type { ActivityItem, ActivityEntity as ApiActivityEntity, ActivitySeverity as ApiActivitySeverity, ActivityAction as ApiActivityAction } from '@/features/activity/api/activity.service';
-import { useMyActivitySummary } from '@/features/activity/model/useMyActivitySummary';
+import { useDerivedActivity, ActivityEntity, ActivityAction, ActivitySeverity, ActivityItem } from '@/features/activity/model/useDerivedActivity';
 import { CollapsibleCard } from '@/shared/ui/common/CollapsibleCard';
 
 const profileSchema = z.object({
@@ -98,9 +95,9 @@ type PasswordStatus = {
     message: string;
 };
 
-type ActivityEntityFilter = ApiActivityEntity | 'all';
-type ActivityActionFilter = ApiActivityAction | 'all';
-type ActivitySeverityFilter = ApiActivitySeverity | 'all';
+type ActivityEntityFilter = ActivityEntity | 'all';
+type ActivityActionFilter = ActivityAction | 'all';
+type ActivitySeverityFilter = ActivitySeverity | 'all';
 
 const PasswordLiveRequirements = ({ newPassword, confirmPassword }: { newPassword: string; confirmPassword: string }) => {
     const lengthOk = newPassword.length >= 8;
@@ -944,6 +941,17 @@ const UserProfile = () => {
     }, [activityEvents, userAnimals.length, userTreatments]);
     */
 
+    // --- INTEGRACIÓN DE ACTIVIDAD DERIVADA ---
+    const { items: allActivityItems } = useDerivedActivity({
+        animals: userAnimals,
+        treatments: userTreatments,
+        vaccinations: userVaccinations,
+        controls: userControls,
+        fields: userAnimalFields,
+        genetics: userGenetics,
+        diseases: userAnimalDiseases
+    });
+
     const [activityPage, setActivityPage] = useState(1);
     const [activityLimit, setActivityLimit] = useState(20);
     const [activityEntity, setActivityEntity] = useState<ActivityEntityFilter>('all');
@@ -953,38 +961,86 @@ const UserProfile = () => {
     const [activityTo, setActivityTo] = useState('');
     const [activityAnimalId, setActivityAnimalId] = useState('');
 
-    const activityQuery = useMemo(
-        () => ({
-            page: activityPage,
-            limit: activityLimit,
-            entity: activityEntity === 'all' ? undefined : activityEntity,
-            action: activityAction === 'all' ? undefined : activityAction,
-            severity: activitySeverity === 'all' ? undefined : activitySeverity,
-            from: activityFrom || undefined,
-            to: activityTo || undefined,
-            animalId: activityAnimalId || undefined,
-            // Optimización: pedir solo campos necesarios
-            fields: ['id', 'entity', 'action', 'severity', 'title', 'summary', 'timestamp', 'links', 'animal_id', 'entity_id'],
-            include: ['actor'], // Omitir relations pesadas si no se usan
-        }),
-        [activityAction, activityAnimalId, activityEntity, activityFrom, activityLimit, activityPage, activitySeverity, activityTo]
-    );
 
-    const {
-        items: activityItems,
-        meta: activityMeta,
-        loading: activityLoading,
-        error: activityError,
-        refetch: refetchActivity,
-    } = useActivityFeed(activityQuery, { enableCache: true, enabled: !!user?.id, fetcher: fetchMyActivity });
+    // Filtrado y Paginación LOCAL
+    const filteredAndPaginatedActivity = useMemo(() => {
+        let filtered = allActivityItems;
 
-    const { data: myActivitySummary, loading: summaryLoading } = useMyActivitySummary({ enabled: !!user?.id });
-    const actions7 = myActivitySummary?.window_7d?.totals?.events ?? 0;
-    const actions30 = myActivitySummary?.window_30d?.totals?.events ?? 0;
-    const distinctAnimals30 = myActivitySummary?.window_30d?.totals?.distinct_animals ?? 0;
-    const lastActivityAt = myActivitySummary?.last_activity_at ?? null;
+        if (activityEntity !== 'all') {
+            filtered = filtered.filter(item => item.entity === activityEntity);
+        }
 
-    const activeTreatments = useMemo(() => {
+        if (activityAction !== 'all') {
+            filtered = filtered.filter(item => item.action === activityAction);
+        }
+
+        if (activitySeverity !== 'all') {
+            filtered = filtered.filter(item => item.severity === activitySeverity);
+        }
+
+        if (activityAnimalId) {
+            filtered = filtered.filter(item => String(item.animal_id) === String(activityAnimalId));
+        }
+
+        if (activityFrom) {
+            const fromTime = new Date(activityFrom).getTime();
+            filtered = filtered.filter(item => item.ts >= fromTime);
+        }
+
+        if (activityTo) {
+            const toTime = new Date(activityTo).getTime();
+            // Final del día
+            filtered = filtered.filter(item => item.ts <= toTime + 24 * 60 * 60 * 1000);
+        }
+
+        const total = filtered.length;
+        const totalPages = Math.ceil(total / activityLimit);
+        const start = (activityPage - 1) * activityLimit;
+        const pageItems = filtered.slice(start, start + activityLimit);
+
+        return {
+            items: pageItems,
+            total,
+            totalPages,
+            hasNext: activityPage < totalPages,
+            hasPrev: activityPage > 1
+        };
+
+    }, [
+        allActivityItems,
+        activityEntity,
+        activityAction,
+        activitySeverity,
+        activityAnimalId,
+        activityFrom,
+        activityTo,
+        activityPage,
+        activityLimit
+    ]);
+
+    const activityItems = filteredAndPaginatedActivity.items;
+
+    // Stats Calculadas localmente
+    const actions7 = allActivityItems.filter(i => {
+        const diff = Date.now() - i.ts;
+        return diff <= 7 * 24 * 60 * 60 * 1000;
+    }).length;
+
+    const actions30 = allActivityItems.filter(i => {
+        const diff = Date.now() - i.ts;
+        return diff <= 30 * 24 * 60 * 60 * 1000;
+    }).length;
+
+    const distinctAnimals30 = new Set(
+        allActivityItems
+            .filter(i => (Date.now() - i.ts) <= 30 * 24 * 60 * 60 * 1000)
+            .map(i => i.animal_id)
+            .filter(Boolean)
+    ).size;
+
+    const lastActivityAt = allActivityItems.length > 0 ? allActivityItems[0].timestamp : null;
+
+    const activeTreatmentsStats = useMemo(() => {
         const now = Date.now();
         return userTreatments.filter((t: any) => {
             const endTs = toEpochMs(t.endDateRaw);
@@ -1011,8 +1067,7 @@ const UserProfile = () => {
         return groups;
     }, [activityItems]);
 
-    const activityHasNext =
-        activityMeta?.has_next ?? (typeof activityMeta?.total_pages === 'number' ? activityPage < activityMeta.total_pages : activityItems.length === activityLimit);
+    const activityHasNext = filteredAndPaginatedActivity.hasNext;
 
     const resolveNavLink = (raw: string): string => {
         if (!raw) return raw;
@@ -1167,7 +1222,7 @@ const UserProfile = () => {
                                         <Activity className="h-4 w-4 text-green-600" aria-hidden />
                                     </div>
                                     <p className="mt-1 text-lg font-semibold text-foreground">
-                                        {summaryLoading ? '-' : actions7} <span className="text-muted-foreground">/</span> {summaryLoading ? '-' : actions30}
+                                        {actions7} <span className="text-muted-foreground">/</span> {actions30}
                                     </p>
                                     <p className="text-[11px] text-muted-foreground">Eventos recientes</p>
                                 </div>
@@ -1176,7 +1231,7 @@ const UserProfile = () => {
                                         <p className="text-xs text-muted-foreground">Mis animales</p>
                                         <User className="h-4 w-4 text-green-600" aria-hidden />
                                     </div>
-                                    <p className="mt-1 text-lg font-semibold text-foreground">{summaryLoading ? '-' : distinctAnimals30}</p>
+                                    <p className="mt-1 text-lg font-semibold text-foreground">{distinctAnimals30}</p>
                                     <p className="text-[11px] text-muted-foreground">Involucrados (30d)</p>
                                 </div>
                                 <div className="rounded-lg border bg-white p-3">
@@ -1184,7 +1239,7 @@ const UserProfile = () => {
                                         <p className="text-xs text-muted-foreground">Tratamientos activos</p>
                                         <ClipboardList className="h-4 w-4 text-green-600" aria-hidden />
                                     </div>
-                                    <p className="mt-1 text-lg font-semibold text-foreground">{activeTreatments}</p>
+                                    <p className="mt-1 text-lg font-semibold text-foreground">{activeTreatmentsStats}</p>
                                     <p className="text-[11px] text-muted-foreground">En seguimiento</p>
                                 </div>
                                 <div className="rounded-lg border bg-white p-3">
@@ -1193,10 +1248,10 @@ const UserProfile = () => {
                                         <CalendarClock className="h-4 w-4 text-blue-600" aria-hidden />
                                     </div>
                                     <p className="mt-1 text-lg font-semibold text-foreground">
-                                        {summaryLoading ? '-' : lastActivityAt ? new Date(lastActivityAt).toLocaleDateString('es-ES') : '-'}
+                                        {loading ? '-' : lastActivityAt ? new Date(lastActivityAt).toLocaleDateString('es-ES') : '-'}
                                     </p>
                                     <p className="text-[11px] text-muted-foreground">
-                                        {summaryLoading ? '' : lastActivityAt ? new Date(lastActivityAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Sin eventos'}
+                                        {loading ? '' : lastActivityAt ? new Date(lastActivityAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'Sin eventos'}
                                     </p>
                                 </div>
                             </div>
@@ -1336,26 +1391,14 @@ const UserProfile = () => {
                                                     <SelectItem value="50">50</SelectItem>
                                                 </SelectContent>
                                             </Select>
-                                            <Button type="button" variant="outline" size="sm" onClick={refetchActivity} disabled={activityLoading}>
+                                            <Button type="button" variant="outline" size="sm" onClick={() => setActivityPage(1)} disabled={loading}>
                                                 Refrescar
                                             </Button>
                                         </div>
                                     </div>
                                 </div>
 
-                                {activityError ? (
-                                    <div className="mt-4">
-                                        <Alert className="bg-red-50 border-red-200">
-                                            <AlertTitle className="font-semibold">No se pudo cargar la actividad</AlertTitle>
-                                            <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                                <span className="text-sm">{activityError}</span>
-                                                <Button type="button" variant="outline" size="sm" onClick={refetchActivity}>
-                                                    Reintentar
-                                                </Button>
-                                            </AlertDescription>
-                                        </Alert>
-                                    </div>
-                                ) : activityLoading ? (
+                                {loading ? (
                                     <div className="mt-4 flex justify-center py-6">
                                         <ClimbingBoxLoader color="#16a34a" size={10} />
                                     </div>
@@ -1458,8 +1501,8 @@ const UserProfile = () => {
                                         <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                             <p className="text-xs text-muted-foreground">
                                                 Pagina {activityPage}
-                                                {typeof activityMeta?.total_pages === 'number' ? ` de ${activityMeta.total_pages}` : ''}
-                                                {typeof activityMeta?.total === 'number' ? ` · Total: ${activityMeta.total}` : ''}
+                                                {` de ${filteredAndPaginatedActivity.totalPages}`}
+                                                {` · Total: ${filteredAndPaginatedActivity.total}`}
                                             </p>
                                             <div className="flex gap-2">
                                                 <Button
@@ -1467,7 +1510,7 @@ const UserProfile = () => {
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
-                                                    disabled={activityPage <= 1 || activityLoading}
+                                                    disabled={!filteredAndPaginatedActivity.hasPrev}
                                                 >
                                                     Anterior
                                                 </Button>
@@ -1476,7 +1519,7 @@ const UserProfile = () => {
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => setActivityPage((p) => p + 1)}
-                                                    disabled={!activityHasNext || activityLoading}
+                                                    disabled={!filteredAndPaginatedActivity.hasNext}
                                                 >
                                                     Siguiente
                                                 </Button>

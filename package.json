@@ -16,6 +16,7 @@
     "openapi:gen": "node scripts/generate_openapi_from_services.mjs"
   },
   "dependencies": {
+    "@google/jules": "^0.1.42",
     "@heroicons/react": "^2.2.0",
     "@heroui/react": "2.8.4",
     "@hookform/resolvers": "3.10.0",

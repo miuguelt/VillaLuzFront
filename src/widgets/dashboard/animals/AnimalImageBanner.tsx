@@ -31,6 +31,10 @@ interface AnimalImageBannerProps {
   fullscreen?: boolean;
   /** Imágenes iniciales para evitar fetch redundante */
   initialImages?: any[];
+  /** Diferir la carga hasta que el banner sea visible */
+  deferLoad?: boolean;
+  /** Margen para pre-cargar antes de entrar en vista */
+  deferRootMargin?: string;
 }
 
 type BannerImage = AnimalImage & { isPlaceholder?: boolean };
@@ -67,9 +71,11 @@ export function AnimalImageBanner({
   objectFit = 'cover',
   fullscreen = false,
   initialImages,
+  deferLoad = false,
+  deferRootMargin = '200px',
 }: AnimalImageBannerProps) {
   const [images, setImages] = useState<BannerImage[]>(initialImages || []);
-  const [loading, setLoading] = useState(!initialImages);
+  const [loading, setLoading] = useState(!initialImages && !deferLoad);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedImage, setSelectedImage] = useState<BannerImage | null>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -78,6 +84,7 @@ export function AnimalImageBanner({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [brokenImages, setBrokenImages] = useState(0);
   const [brokenNotice, setBrokenNotice] = useState<string | null>(null);
+  const [shouldFetch, setShouldFetch] = useState(!deferLoad);
   const touchStartX = useRef<number>(0);
   const touchEndX = useRef<number>(0);
   const carouselRef = useRef<HTMLDivElement | null>(null);
@@ -89,6 +96,10 @@ export function AnimalImageBanner({
       element.style.setProperty('--banner-height', height);
     }
   }, [height, fullscreen]);
+  const setContainerRef = useCallback((element: HTMLDivElement | null) => {
+    carouselRef.current = element;
+    setBannerHeight(element);
+  }, [setBannerHeight]);
 
   // Cargar imágenes con manejo completo de errores
   const fetchImages = useCallback(async () => {
@@ -143,6 +154,9 @@ export function AnimalImageBanner({
       } else if (err.code === 'ERR_NETWORK' || !window.navigator.onLine) {
         setImages([]);
         setFetchError('Sin conexión a internet');
+      } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        setImages([]);
+        setFetchError('La solicitud ha tardado demasiado. Por favor, intenta de nuevo.');
       } else {
         setImages([]);
         setFetchError('Error al cargar las imágenes');
@@ -153,6 +167,26 @@ export function AnimalImageBanner({
   }, [animalId]);
 
   useEffect(() => {
+    if (!deferLoad) return;
+    const target = carouselRef.current;
+    if (!target || shouldFetch) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldFetch(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: deferRootMargin }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [deferLoad, deferRootMargin, shouldFetch]);
+
+  useEffect(() => {
+    if (!shouldFetch) return;
     // Si se proporcionan imágenes iniciales y no hay una orden de refresco manual,
     // evitamos el primer fetch para optimizar rendimiento.
     if (initialImages && refreshTrigger === 0) {
@@ -160,7 +194,7 @@ export function AnimalImageBanner({
       return;
     }
     fetchImages();
-  }, [fetchImages, refreshTrigger, initialImages]);
+  }, [fetchImages, refreshTrigger, initialImages, shouldFetch]);
 
   // Refrescar al recibir evento global
   useEffect(() => {
@@ -281,10 +315,27 @@ export function AnimalImageBanner({
   }, [goToNext, goToPrevious]);
 
   // Loading state
+  if (!shouldFetch && images.length === 0 && !fetchError) {
+    return (
+      <div
+        ref={setContainerRef}
+        className={`overflow-hidden bg-accent/10 flex items-center justify-center ${fullscreen
+          ? 'fixed inset-0 z-50 w-screen h-screen'
+          : 'relative w-full h-full rounded-xl banner-container-dynamic'
+          }`}
+      >
+        <div className="text-center">
+          <ImageIcon className="w-10 h-10 mx-auto text-muted-foreground/70 mb-2" />
+          <p className="text-xs text-muted-foreground">Cargando imágenes...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div
-        ref={setBannerHeight}
+        ref={setContainerRef}
         className={`overflow-hidden bg-accent/10 flex items-center justify-center ${fullscreen
           ? 'fixed inset-0 z-50 w-screen h-screen'
           : 'relative w-full h-full rounded-xl banner-container-dynamic'
@@ -305,7 +356,7 @@ export function AnimalImageBanner({
     }
     return (
       <div
-        ref={setBannerHeight}
+        ref={setContainerRef}
         className={`overflow-hidden bg-gradient-to-br from-destructive/5 to-destructive/10 flex items-center justify-center border-2 border-dashed border-destructive/30 ${fullscreen
           ? 'fixed inset-0 z-50 w-screen h-screen'
           : 'relative w-full h-full rounded-xl banner-container-dynamic'
@@ -337,7 +388,7 @@ export function AnimalImageBanner({
     }
     return (
       <div
-        ref={setBannerHeight}
+        ref={setContainerRef}
         className={`overflow-hidden bg-gradient-to-br from-accent/5 to-accent/10 flex items-center justify-center border-2 border-dashed border-border ${fullscreen
           ? 'fixed inset-0 z-50 w-screen h-screen'
           : 'relative w-full h-full rounded-xl banner-container-dynamic'
@@ -365,7 +416,7 @@ export function AnimalImageBanner({
     <>
       {/* Banner principal - Carrusel elegante y responsivo */}
       <div
-        ref={(el) => { carouselRef.current = el; setBannerHeight(el); }}
+        ref={setContainerRef}
         className={`overflow-hidden group ${fullscreen
           ? 'fixed inset-0 z-50 bg-black w-screen h-screen'
           : `relative w-full h-full rounded-xl banner-container-dynamic ${isContainMode ? 'bg-slate-900/80 dark:bg-black' : ''}`
@@ -393,6 +444,7 @@ export function AnimalImageBanner({
                   className={`block w-full h-full carousel-image ${objectFit === 'cover' ? 'object-cover' : 'object-contain'
                     } transition-transform duration-700 ease-out ${image.isPlaceholder ? 'opacity-80' : ''
                     }`}
+                  decoding="async"
                   loading={index === 0 ? 'eager' : 'lazy'}
                   onError={() => handleBrokenImage(image)}
                 />

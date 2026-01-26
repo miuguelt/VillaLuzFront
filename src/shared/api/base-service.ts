@@ -12,14 +12,12 @@ import {
 } from '@/shared/api/cache/indexedDBCache';
 import { offlineQueue } from '@/shared/api/offline/offlineQueue';
 import { getApiBaseURL } from '@/shared/utils/envConfig';
+import { getEnvVar, isDevMode } from '@/shared/utils/viteEnv';
 
-// Compatible flag for dev mode (avoids use of import.meta in Jest/CommonJS)
-const __DEV__ = (typeof (globalThis as any).process !== 'undefined' && (globalThis as any).process.env && (globalThis as any).process.env.NODE_ENV === 'development');
-const ENV: Record<string, any> = ((globalThis as any)?.['import']?.['meta']?.['env'])
-  ?? ((typeof (globalThis as any).process !== 'undefined' ? ((globalThis as any).process as any).env : undefined) as any)
-  ?? {};
-const AUTH_STORAGE_KEY = ENV.VITE_AUTH_STORAGE_KEY || 'finca_access_token';
-const USE_BEARER_AUTH = String(ENV.VITE_USE_BEARER_AUTH ?? '').toLowerCase() === 'true';
+const __DEV__ = isDevMode();
+
+const AUTH_STORAGE_KEY = String(getEnvVar('VITE_AUTH_STORAGE_KEY', 'finca_access_token') ?? 'finca_access_token');
+const USE_BEARER_AUTH = String(getEnvVar('VITE_USE_BEARER_AUTH', '') ?? '').toLowerCase() === 'true';
 
 interface ServiceOptions {
   enableCache?: boolean;
@@ -182,13 +180,10 @@ export class BaseService<T> {
     // 2. Limpiar IndexedDB en background (ahora awaited para consistencia)
     const prefix = `service:${this.endpoint}`;
     try {
-      // No esperar a IDB para evitar bloqueos en la UI "Processing..."
-      // La invalidación ocurre en background.
-      invalidateIndexedDBCacheByPrefix(prefix).catch((err) => {
-        if (__DEV__) console.warn('[BaseService] Error limpiando cache IndexedDB:', err);
-      });
+      // Modificado: Esperar a IDB para evitar race conditions donde se leen datos viejos
+      await invalidateIndexedDBCacheByPrefix(prefix);
     } catch (err) {
-      if (__DEV__) console.warn('[BaseService] Error iniciando limpieza IDB:', err);
+      if (__DEV__) console.warn('[BaseService] Error limpando cache IDB:', err);
     }
 
     if (__DEV__) {

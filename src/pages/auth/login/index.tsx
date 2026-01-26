@@ -6,7 +6,8 @@ import { useState, useEffect, useRef } from "react";
 import { loginUser, normalizeRole } from '@/features/auth/api/auth.service';
 import { FaUser, FaLock, FaCheckCircle } from "react-icons/fa";
 import { LogIn } from 'lucide-react';
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { useToast } from "@/shared/hooks/use-toast";
 import { ClimbingBoxLoader } from "react-spinners";
 import { Alert, AlertDescription, AlertTitle } from "@/shared/ui/alert";
 
@@ -18,6 +19,8 @@ const LoginForm = () => {
   const [errors, setErrors] = useState<{ identification?: string; password?: string; general?: string }>({});
   const { login } = useAuth();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
   const successTimerRef = useRef<number | null>(null);
 
   // Helper: ensure any error value becomes a safe, readable string
@@ -36,6 +39,24 @@ const LoginForm = () => {
     }
     return String(val);
   };
+
+  // Check for session expiry reason in URL
+  useEffect(() => {
+    const reason = searchParams.get('reason');
+    if (reason === 'expired') {
+      toast({
+        title: "Sesión expirada",
+        description: "Tu sesión ha expirado. Por favor inicia sesión nuevamente.",
+        variant: "destructive",
+      });
+    } else if (reason === 'missing') {
+      toast({
+        title: "Sesión requerida",
+        description: "Debes iniciar sesión para continuar.",
+        variant: "default",
+      });
+    }
+  }, [searchParams, toast]);
 
   // Check for success message in location state
   useEffect(() => {

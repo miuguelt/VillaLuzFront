@@ -4,6 +4,30 @@ import { apiFetch } from '@/shared/api/apiFetch';
 import { ANIMAL_IMAGES_ENDPOINTS } from '@/shared/config/apiEndpoints';
 import { getBackendBaseURL, getApiBaseURL, isDevelopment } from '@/shared/utils/envConfig';
 
+const IMAGE_FETCH_CONCURRENCY = 4;
+const IMAGE_FETCH_TIMEOUT_MS = 15000;
+let imageFetchActive = 0;
+const imageFetchQueue: Array<() => void> = [];
+
+const acquireImageFetchSlot = () =>
+  new Promise<void>((resolve) => {
+    if (imageFetchActive < IMAGE_FETCH_CONCURRENCY) {
+      imageFetchActive += 1;
+      resolve();
+      return;
+    }
+    imageFetchQueue.push(resolve);
+  });
+
+const releaseImageFetchSlot = () => {
+  imageFetchActive = Math.max(0, imageFetchActive - 1);
+  const next = imageFetchQueue.shift();
+  if (next) {
+    imageFetchActive += 1;
+    next();
+  }
+};
+
 /**
  * Interfaz para una imagen de animal
  */
@@ -72,7 +96,8 @@ export interface UploadOptions {
 class AnimalImageService extends BaseService<AnimalImage> {
   constructor() {
     super('animal-images', {
-      enableCache: false, // Las imágenes no se cachean en memoria
+      enableCache: true, // Habilitar caché para evitar re-peticiones constantes
+      cacheTimeout: 5 * 60 * 1000, // 5 minutos
     });
   }
 
@@ -169,12 +194,19 @@ class AnimalImageService extends BaseService<AnimalImage> {
       throw new Error('El ID del animal es requerido');
     }
 
+    const cacheKey = `animal-images:${animalId}`;
+    const cached = await this.getFromCache(cacheKey);
+    if (cached) return cached as AnimalImagesResponse;
+
+    await acquireImageFetchSlot();
     try {
       const response = await api.get<AnimalImagesResponse>(
         ANIMAL_IMAGES_ENDPOINTS.GET_BY_ANIMAL(animalId),
         {
           params: { _ts: Date.now() },
           headers: { 'Cache-Control': 'no-cache' },
+          timeout: IMAGE_FETCH_TIMEOUT_MS, // Timeout más agresivo para imágenes
+          skipTimeoutRetry: true,
         }
       );
 
@@ -257,7 +289,8 @@ class AnimalImageService extends BaseService<AnimalImage> {
           return image;
         });
       }
-      
+
+      this.setCache(cacheKey, response.data);
       return response.data;
     } catch (error: any) {
       const status = error?.response?.status;
@@ -279,6 +312,8 @@ class AnimalImageService extends BaseService<AnimalImage> {
 
       console.error('[AnimalImageService] Error fetching images:', error);
       throw error;
+    } finally {
+      releaseImageFetchSlot();
     }
   }
 
@@ -293,6 +328,7 @@ class AnimalImageService extends BaseService<AnimalImage> {
 
     try {
       await apiFetch({ url: ANIMAL_IMAGES_ENDPOINTS.DELETE(imageId), method: 'DELETE' });
+      await this.clearCache();
     } catch (error: any) {
       const status = error?.response?.status;
       const message =
@@ -338,6 +374,7 @@ class AnimalImageService extends BaseService<AnimalImage> {
       const response = await api.put<{ success: boolean; data: AnimalImage }>(
         ANIMAL_IMAGES_ENDPOINTS.SET_PRIMARY(imageId)
       );
+      await this.clearCache();
       return response.data.data;
     } catch (error: any) {
       console.error('[AnimalImageService] Error setting primary image:', error);
@@ -457,14 +494,14 @@ class AnimalImageService extends BaseService<AnimalImage> {
     if (status === 413) {
       return new Error(
         data?.message ||
-          'El archivo es demasiado grande. Tamaño máximo: 5MB por archivo.'
+        'El archivo es demasiado grande. Tamaño máximo: 5MB por archivo.'
       );
     }
 
     if (status === 415) {
       return new Error(
         data?.message ||
-          'Tipo de archivo no permitido. Solo se permiten: JPG, PNG, WEBP, GIF.'
+        'Tipo de archivo no permitido. Solo se permiten: JPG, PNG, WEBP, GIF.'
       );
     }
 

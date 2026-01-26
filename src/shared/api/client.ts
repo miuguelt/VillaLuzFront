@@ -4,27 +4,31 @@ import { getApiBaseURL, getBackendBaseURL } from '@/shared/utils/envConfig';
 import { getIndexedDBCache, setIndexedDBCache, startIndexedDBCacheCleanup } from '@/shared/api/cache/indexedDBCache';
 import { shouldRefreshToken, isValidTokenFormat } from '@/shared/utils/jwtUtils';
 import { extractJWT } from '@/shared/utils/tokenUtils';
+import { toast } from "@/shared/hooks/use-toast"
+import { getEnvVar } from '@/shared/utils/viteEnv'
 
-// ENV y configuración
-const env: Record<string, any> = ((globalThis as any)?.['import']?.['meta']?.['env'])
-  ?? ((typeof (globalThis as any).process !== 'undefined' ? ((globalThis as any).process as any).env : undefined) as any)
-  ?? {};
-const API_TIMEOUT = Number(env.VITE_API_TIMEOUT ?? 30000); // Increased from 10s to 30s
-const REFRESH_TIMEOUT = Number(env.VITE_REFRESH_TIMEOUT ?? 15000); // Increased from 8s to 15s
+const envStr = (key: string, fallback = ''): string => String(getEnvVar(key, fallback) ?? fallback);
+
+const API_TIMEOUT = Number(envStr('VITE_API_TIMEOUT', '30000'));
+const REFRESH_TIMEOUT = Number(envStr('VITE_REFRESH_TIMEOUT', '15000'));
 // Mantener compatibilidad con VITE_FORCE_ABSOLUTE_BASE_URL pero preferir getApiBaseURL()
-const DEBUG_LOG = String(env.VITE_DEBUG_MODE ?? '').toLowerCase() === 'true';
-const AUTH_STORAGE_KEY = env.VITE_AUTH_STORAGE_KEY || 'finca_access_token';
+// Mantener compatibilidad con VITE_FORCE_ABSOLUTE_BASE_URL pero preferir getApiBaseURL()
+const DEBUG_LOG = envStr('VITE_DEBUG_MODE', '').toLowerCase() === 'true';
+const AUTH_STORAGE_KEY = envStr('VITE_AUTH_STORAGE_KEY', 'finca_access_token');
 // Best practice: prefer cookie-based auth (HttpOnly) over storing bearer tokens in web storage.
 // If your backend still requires Authorization: Bearer, set VITE_USE_BEARER_AUTH=true explicitly.
-const USE_BEARER_AUTH = String(env.VITE_USE_BEARER_AUTH ?? '').toLowerCase() === 'true';
-const HTTP_CACHE_TTL = Number(env.VITE_HTTP_CACHE_TTL ?? 20000); // TTL por defecto 20s
-const LOGIN_REDIRECT_PATH = env.VITE_LOGIN_PATH || '/login';
+const USE_BEARER_AUTH = envStr('VITE_USE_BEARER_AUTH', '').toLowerCase() === 'true';
+const HTTP_CACHE_TTL = Number(envStr('VITE_HTTP_CACHE_TTL', '20000')); // TTL por defecto 20s
+const LOGIN_REDIRECT_PATH = envStr('VITE_LOGIN_PATH', '/login');
 const SESSION_STORAGE_KEYS = [AUTH_STORAGE_KEY, 'access_token'];
 const SESSION_COOKIE_CANDIDATES = ['access_token_cookie', 'access_token', 'csrf_access_token', 'csrf_refresh_token'];
-const REALTIME_TRANSPORT = String(env.VITE_REALTIME_TRANSPORT ?? '').toLowerCase();
-const TIMEOUT_RETRY_ATTEMPTS = Number(env.VITE_TIMEOUT_RETRY_ATTEMPTS ?? 2);
-const TIMEOUT_RETRY_BASE_MS = Number(env.VITE_TIMEOUT_RETRY_BASE_MS ?? 400);
-const TIMEOUT_RETRY_MAX_MS = Number(env.VITE_TIMEOUT_RETRY_MAX_MS ?? 3000);
+const REALTIME_TRANSPORT = envStr('VITE_REALTIME_TRANSPORT', '').toLowerCase();
+const TIMEOUT_RETRY_ATTEMPTS = Number(envStr('VITE_TIMEOUT_RETRY_ATTEMPTS', '2'));
+const TIMEOUT_RETRY_BASE_MS = Number(envStr('VITE_TIMEOUT_RETRY_BASE_MS', '400'));
+const TIMEOUT_RETRY_MAX_MS = Number(envStr('VITE_TIMEOUT_RETRY_MAX_MS', '3000'));
+const TOAST_DEDUP_MS = Number(envStr('VITE_TOAST_DEDUP_MS', '3000'));
+const IDB_READ_ONLINE = envStr('VITE_IDB_READ_ONLINE', 'false').toLowerCase() === 'true';
+const IDB_READ_TIMEOUT_MS = Math.max(0, Number(envStr('VITE_IDB_READ_TIMEOUT_MS', '50')) || 0);
 
 
 const AUTH_SESSION_ACTIVE_KEY = 'auth:session_active';
@@ -38,6 +42,15 @@ const AUTH_STATE_KEYS = [
   'dev_user_data_session',
   'finca_auth_login_path',
 ];
+
+const toastRecent = new Map<string, number>();
+const showToastOnce = (key: string, options: Parameters<typeof toast>[0]) => {
+  const now = Date.now();
+  const last = toastRecent.get(key) || 0;
+  if (now - last < TOAST_DEDUP_MS) return;
+  toastRecent.set(key, now);
+  toast(options);
+};
 
 function hasClientSession(): boolean {
   // Enforce re-authentication after a browser restart: only consider a session valid if the app
@@ -505,6 +518,14 @@ async function forceClientLogout(reason = 'expired', options?: { logoutUrl?: str
           const samePath = current.pathname === loginUrl.pathname;
           const sameSearch = current.search === loginUrl.search;
 
+          if (reason === 'expired' && (!samePath || !sameSearch)) {
+            showToastOnce('session-expired', {
+              title: "Sesión expirada",
+              description: "Tu sesión ha expirado. Por favor inicia sesión nuevamente.",
+              variant: "destructive",
+            });
+          }
+
           if (samePath) {
             if (!sameSearch) {
               // Only query differs; update it without triggering a reload
@@ -521,6 +542,13 @@ async function forceClientLogout(reason = 'expired', options?: { logoutUrl?: str
           const separator = hasQuery ? '&' : '?';
           const target = `${loginPath}${separator}reason=${encodeURIComponent(reason)}`;
           const currentPathWithQuery = `${window.location.pathname}${window.location.search}`;
+          if (reason === 'expired' && currentPathWithQuery !== target) {
+            showToastOnce('session-expired', {
+              title: "Sesión expirada",
+              description: "Tu sesión ha expirado. Por favor inicia sesión nuevamente.",
+              variant: "destructive",
+            });
+          }
           if (currentPathWithQuery === target) {
             window.history.replaceState(window.history.state, '', target);
             return;
@@ -746,6 +774,12 @@ api.interceptors.response.use(
             originalRequest._retry = true;
             await performRefresh({ retryOnCsrfError: true });
             if (DEBUG_LOG) console.log('[api] Refresh exitoso. Reintentando request original:', path);
+            // Reset authorization header to force re-reading from storage/cookies in request interceptor
+            if (originalRequest.headers) {
+              delete originalRequest.headers['Authorization'];
+              delete originalRequest.headers['X-CSRF-Token'];
+              delete originalRequest.headers['X-CSRF-TOKEN'];
+            }
             return api(originalRequest);
           } else {
             // Si ya reintentamos y sigue 401 -> Logout
@@ -773,7 +807,7 @@ api.interceptors.response.use(
     const isTimeoutLike = status === 408 || codeStr === 'ECONNABORTED' || codeStr === 'ETIMEDOUT' || msgStr.includes('timeout');
     const isNetworkLike = codeStr === 'ERR_NETWORK' || (!status && msgStr.includes('network'));
     const skipRetry = (originalRequest as any)?.skipTimeoutRetry === true;
-    const aborted = !!(originalRequest as any)?.signal && (originalRequest as any).signal.aborted === true;
+    const aborted = axios.isCancel(error) || (!!(originalRequest as any)?.signal && (originalRequest as any).signal.aborted === true);
     if (!skipRetry && !aborted && (method === 'get' || method === 'head') && (isTimeoutLike || isNetworkLike)) {
       const attempt = Number((originalRequest as any)._timeoutAttempt ?? 0) + 1;
       if (attempt <= TIMEOUT_RETRY_ATTEMPTS) {
@@ -786,6 +820,43 @@ api.interceptors.response.use(
       }
     }
 
+    // Global Error Toasts
+    if (!aborted) {
+      const data = error?.response?.data;
+      const detailMsg =
+        (typeof data === 'string' ? data : undefined) ||
+        data?.message ||
+        data?.error ||
+        data?.detail ||
+        data?.details ||
+        error?.message;
+      if (status === 403) {
+        showToastOnce('forbidden', {
+          title: "Acceso denegado",
+          description: "No tienes permisos para realizar esta acción.",
+          variant: "destructive",
+        });
+      } else if (status >= 500) {
+        showToastOnce('server-error', {
+          title: "Error del servidor",
+          description: "Error del servidor. Por favor intenta más tarde.",
+          variant: "destructive",
+        });
+      } else if (status === 0 || isNetworkLike || !status) {
+        showToastOnce('network-error', {
+          title: "Error",
+          description: detailMsg || "Ocurrió un error de red. Verifica tu conexión.",
+          variant: "destructive",
+        });
+      } else if (detailMsg) {
+        showToastOnce(`error-${status}`, {
+          title: "Error",
+          description: String(detailMsg),
+          variant: "destructive",
+        });
+      }
+    }
+
     return Promise.reject(error);
   }
 );
@@ -795,7 +866,7 @@ api.interceptors.response.use(
 const inflightGet = new Map<string, Promise<any>>();
 const rateLimitBackoff = new Map<string, number>();
 const lastRequestAt = new Map<string, number>();
-const REQUEST_MIN_INTERVAL_MS = Number(env.VITE_REQUEST_MIN_INTERVAL_MS ?? 500);
+const REQUEST_MIN_INTERVAL_MS = Number(getEnvVar('VITE_REQUEST_MIN_INTERVAL_MS', '500'));
 const stableStringify = (obj: any) => {
   if (!obj || typeof obj !== 'object') return '';
   const keys = Object.keys(obj).sort();
@@ -821,7 +892,14 @@ const memoryCache = new Map<string, { data: any; expiry: number; etag?: string; 
 /**
  * Lee del cache (memoria primero, luego IndexedDB)
  */
-async function readCache(key: string): Promise<any | null> {
+type CacheReadOptions = {
+  allowIdb?: boolean;
+  timeoutMs?: number;
+};
+
+const IDB_READ_TIMEOUT_SENTINEL = Symbol('IDB_READ_TIMEOUT');
+
+async function readCache(key: string, options?: CacheReadOptions): Promise<any | null> {
   const cacheKey = `http-cache:${key}`;
 
   // 1. Intentar memoria primero (ultra rápido)
@@ -830,19 +908,49 @@ async function readCache(key: string): Promise<any | null> {
     return memEntry.data;
   }
 
+  const isOnline = typeof navigator === 'undefined' || navigator.onLine !== false;
+  const allowIdb = options?.allowIdb ?? (isOnline ? IDB_READ_ONLINE : true);
+  if (!allowIdb) {
+    return null;
+  }
+
+  const timeoutMs = options?.timeoutMs ?? IDB_READ_TIMEOUT_MS;
+
   // 2. Fallback a IndexedDB (persistente entre sesiones)
   try {
-    const idbData = await getIndexedDBCache<any>(cacheKey, {
+    const idbPromise = getIndexedDBCache<any>(cacheKey, {
       allowStaleWhenOffline: true,
       offlineGraceMs: 10 * 60 * 1000, // hasta 10 minutos adicionales en modo offline
     });
-    if (idbData) {
+
+    const readWithTimeout = timeoutMs > 0
+      ? Promise.race([
+        idbPromise,
+        new Promise<symbol>((resolve) => setTimeout(() => resolve(IDB_READ_TIMEOUT_SENTINEL), timeoutMs)),
+      ])
+      : idbPromise;
+
+    const idbResult = await readWithTimeout;
+
+    if (idbResult === IDB_READ_TIMEOUT_SENTINEL) {
+      // No bloquear la request; hidratar memoria si el IDB termina luego
+      void idbPromise.then((data) => {
+        if (!data) return;
+        memoryCache.set(cacheKey, {
+          data,
+          expiry: Date.now() + HTTP_CACHE_TTL,
+        });
+      }).catch(() => { /* noop */ });
+      return null;
+    }
+
+    if (idbResult) {
       // Hidratar memoria con dato de IndexedDB
       memoryCache.set(cacheKey, {
-        data: idbData,
+        data: idbResult,
         expiry: Date.now() + HTTP_CACHE_TTL,
       });
-      return idbData;
+      return idbResult;
     }
   } catch (error) {
     console.warn('[api] Error leyendo cache IndexedDB:', error);
@@ -894,7 +1002,7 @@ const originalGet = api.get.bind(api);
   try {
     const until = rateLimitBackoff.get(path) || 0;
     if (until && Date.now() < until) {
-      const cachedBackoff = await readCache(key);
+      const cachedBackoff = await readCache(key, { allowIdb: true });
       if (cachedBackoff) {
         if (DEBUG_LOG) console.log('[api] Cache durante backoff:', key);
         return { data: cachedBackoff, status: 200, statusText: 'OK', headers: {}, config } as AxiosResponse;
@@ -1015,65 +1123,12 @@ function dispatchResourceChange(detail: { endpoint?: string; action?: string; id
   } catch { void 0; }
 }
 
-export function startServerEvents(candidateIndex?: number): void {
+export function startServerEvents(): void {
   // Disabled to prevent duplicate connections (429) & enable clean lints
   // console.warn('startServerEvents is deprecated. Use lib/events.ts');
 }
 
-let __wsStarted = false;
-let __ws: WebSocket | null = null;
-let __wsUrl: string | null = null;
-let __wsReconnectTimer: any = null;
-let __wsLastErrorAt = 0;
-
-function buildWsUrls(): string[] {
-  const baseApi = (api.defaults.baseURL || getApiBaseURL() || '').replace(/\/$/, '');
-  const backend = (getBackendBaseURL() || '').replace(/\/$/, '');
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const candidates: string[] = [];
-  if (/^https?:\/\//i.test(baseApi)) {
-    candidates.push(`${baseApi.replace(/^http/i, 'ws')}/ws`);
-  } else {
-    const wsOrigin = origin ? origin.replace(/^http/i, 'ws') : 'ws://localhost';
-    candidates.push(`${wsOrigin}${baseApi}/ws`);
-  }
-  if (backend) candidates.push(`${backend.replace(/^http/i, 'ws')}/ws`);
-  if (origin) candidates.push(`${origin.replace(/^http/i, 'ws')}/ws`);
-  candidates.push('ws://localhost/ws');
-  return candidates.filter((u, i, a) => !!u && a.indexOf(u) === i);
-}
-
-function parseWsData(raw: any): { endpoint?: string; action?: string; id?: string | number } {
-  try {
-    const txt = typeof raw === 'string' ? raw : String(raw ?? '');
-    const obj = JSON.parse(txt);
-    const endpoint =
-      obj.endpoint || obj.path || obj.resource || obj.collection || obj.model || obj.entity || obj.table;
-    const action = obj.action || obj.event || obj.type;
-    const id = obj.id ?? obj.pk ?? obj.item_id ?? obj.itemId;
-    return { endpoint: endpoint ? String(endpoint) : undefined, action: action ? String(action) : undefined, id };
-  } catch {
-    const txt = typeof raw === 'string' ? raw : '';
-    if (txt.includes(':')) {
-      const [topic, maybeId] = txt.split(':');
-      return { endpoint: topic, id: maybeId };
-    }
-    return {};
-  }
-}
-
-function ensureRealtimeStats(transport: 'ws' | 'sse') {
-  try {
-    const anyWin = window as any;
-    if (!anyWin.__realtimeStats) {
-      anyWin.__realtimeStats = { transport, connectedAt: 0, lastMessageAt: 0, messages: 0, reconnects: 0, errors: 0 };
-    } else {
-      anyWin.__realtimeStats.transport = transport;
-    }
-  } catch { void 0; }
-}
-
-export function startWebSocket(candidateIndex?: number): void {
+export function startWebSocket(): void {
   // Disabled: Use lib/events.ts instead
 }
 

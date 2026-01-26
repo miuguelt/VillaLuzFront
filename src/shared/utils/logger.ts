@@ -3,6 +3,8 @@
  * In production, only error logs are shown by default
  */
 
+import { isDevMode } from '@/shared/utils/viteEnv'
+
 const LOG_LEVELS = {
   DEBUG: 'debug',
   INFO: 'info', 
@@ -18,7 +20,7 @@ class Logger {
   private readonly isDevelopment: boolean;
 
   constructor() {
-    this.isDevelopment = import.meta.env.DEV;
+    this.isDevelopment = isDevMode();
     this.level = this.isDevelopment ? LOG_LEVELS.DEBUG : LOG_LEVELS.ERROR;
   }
 

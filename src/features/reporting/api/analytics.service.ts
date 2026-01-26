@@ -45,7 +45,7 @@ async function getWithMicroCache<T>(path: string, params?: Partial<FilterOptions
  * Se mantiene minimalista y alineado al contrato tipado existente.
  */
 class AnalyticsService {
-	private base = '/analytics';
+	private base = 'analytics';
 
 	/** Compatibilidad legacy: health check simple si backend expone /analytics/health/statistics */
 	async getHealthCheck(): Promise<any> {

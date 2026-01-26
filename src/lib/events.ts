@@ -3,9 +3,10 @@ type Handler = (data: any) => void;
 const SSE_URL = '/api/v1/events';
 const BASE_RETRY_DELAY_MS = 10000; // 10 seconds base delay
 const MAX_RETRY_DELAY_MS = 300000; // 5 minutes max
-const RATE_LIMIT_BACKOFF_MS = 120000; // 2 minutes backoff on 429
+const RATE_LIMIT_BACKOFF_MS = 20000; // 20 seconds base backoff on 429
+const MAX_RATE_LIMIT_DELAY_MS = 600000; // 10 minutes max rate limit wait
 const RAPID_FAILURE_THRESHOLD_MS = 5000; // If connection fails within 5s, it's likely 429
-const RAPID_FAILURE_COUNT_THRESHOLD = 2; // After 2 rapid failures, assume rate limited
+const RAPID_FAILURE_COUNT_THRESHOLD = 5; // After 5 rapid failures, assume rate limited
 
 const handlers = new Set<Handler>();
 let source: EventSource | null = null;
@@ -17,10 +18,12 @@ let isConnecting = false;
 let closeTimer: number | null = null;
 let lastConnectionAttemptAt = 0;
 let rapidFailureCount = 0;
+let rateLimitStrikeCount = 0; // Counts consecutive rate limit hits for exponential backoff
 
 // Persistencia del estado de rate limit para sobrevivir a reloads
 const LIMIT_STORAGE_KEY = 'sse:limit_ex';
 const FAIL_COUNT_KEY = 'sse:fail_count';
+const STRIKE_COUNT_KEY = 'sse:strike_count';
 
 const loadState = () => {
   if (typeof window === 'undefined') return;
@@ -41,6 +44,11 @@ const loadState = () => {
     if (storedCount) {
       rapidFailureCount = parseInt(storedCount, 10);
     }
+
+    const storedStrikes = localStorage.getItem(STRIKE_COUNT_KEY);
+    if (storedStrikes) {
+      rateLimitStrikeCount = parseInt(storedStrikes, 10);
+    }
   } catch { /* noop */ }
 };
 
@@ -57,6 +65,12 @@ const saveState = () => {
       localStorage.setItem(FAIL_COUNT_KEY, String(rapidFailureCount));
     } else {
       localStorage.removeItem(FAIL_COUNT_KEY);
+    }
+
+    if (rateLimitStrikeCount > 0) {
+      localStorage.setItem(STRIKE_COUNT_KEY, String(rateLimitStrikeCount));
+    } else {
+      localStorage.removeItem(STRIKE_COUNT_KEY);
     }
   } catch { /* noop */ }
 };
@@ -143,7 +157,13 @@ const validateEndpoint = async () => {
     if (res.status === 429) {
       console.warn('[SSE] Endpoint returned 429 (Too Many Requests) during validation. Backing off.');
       isRateLimited = true;
-      rateLimitExpiry = Date.now() + RATE_LIMIT_BACKOFF_MS;
+      rateLimitStrikeCount++;
+      // Exponential backoff: Base * 2^strikes
+      const backoffMs = Math.min(
+        RATE_LIMIT_BACKOFF_MS * Math.pow(2, rateLimitStrikeCount - 1),
+        MAX_RATE_LIMIT_DELAY_MS
+      );
+      rateLimitExpiry = Date.now() + backoffMs;
       saveState();
       return;
     }
@@ -202,6 +222,7 @@ const createEventSource = () => {
       console.log('[SSE] Connection established');
       retryAttempt = 0; // Reset on successful connection
       rapidFailureCount = 0; // Reset rapid failure counter
+      rateLimitStrikeCount = 0; // Reset rate limit strikes
       isRateLimited = false;
       saveState(); // Clear storage
       isConnecting = false;
@@ -223,7 +244,14 @@ const createEventSource = () => {
         if (rapidFailureCount >= RAPID_FAILURE_COUNT_THRESHOLD) {
           // Assume rate limited after consecutive rapid failures
           isRateLimited = true;
-          rateLimitExpiry = Date.now() + RATE_LIMIT_BACKOFF_MS;
+          rateLimitStrikeCount++;
+
+          const backoffMs = Math.min(
+            RATE_LIMIT_BACKOFF_MS * Math.pow(2, rateLimitStrikeCount - 1),
+            MAX_RATE_LIMIT_DELAY_MS
+          );
+
+          rateLimitExpiry = Date.now() + backoffMs;
           rapidFailureCount = 0; // Reset counter
           saveState(); // Save rate limit state
           console.warn(`[SSE] Assuming rate limit after ${RAPID_FAILURE_COUNT_THRESHOLD} rapid failures. Backing off until ${new Date(rateLimitExpiry).toLocaleTimeString()}`);
@@ -240,8 +268,13 @@ const createEventSource = () => {
       const recentRateLimitEvent = (window as any).__lastSSERateLimitAt;
       if (recentRateLimitEvent && Date.now() - recentRateLimitEvent < 5000) {
         isRateLimited = true;
+        rateLimitStrikeCount++;
         if (!rateLimitExpiry || rateLimitExpiry < Date.now()) {
-          rateLimitExpiry = Date.now() + RATE_LIMIT_BACKOFF_MS;
+          const backoffMs = Math.min(
+            RATE_LIMIT_BACKOFF_MS * Math.pow(2, rateLimitStrikeCount - 1),
+            MAX_RATE_LIMIT_DELAY_MS
+          );
+          rateLimitExpiry = Date.now() + backoffMs;
         }
         saveState();
         console.warn(`[SSE] Rate limit event detected, backing off until ${new Date(rateLimitExpiry).toLocaleTimeString()}`);

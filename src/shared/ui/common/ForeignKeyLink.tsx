@@ -69,6 +69,11 @@ interface ForeignKeyLinkProps {
    * Habilitar botón de pantalla completa
    */
   enableFullScreenToggle?: boolean;
+
+  /**
+   * Gatillo personalizado para abrir el modal. Si se proporciona, ignora label/showIcon.
+   */
+  children?: React.ReactNode;
 }
 
 /**
@@ -85,7 +90,8 @@ export const ForeignKeyLink: React.FC<ForeignKeyLinkProps> = ({
   className = '',
   showIcon = true,
   size = 'lg',
-  enableFullScreenToggle = false
+  enableFullScreenToggle = false,
+  children
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [data, setData] = useState<any>(null);
@@ -144,8 +150,8 @@ export const ForeignKeyLink: React.FC<ForeignKeyLinkProps> = ({
               const displayValue = field.render
                 ? field.render(value, item)
                 : value !== null && value !== undefined
-                ? String(value)
-                : '-';
+                  ? String(value)
+                  : '-';
 
               return (
                 <div key={field.key}>
@@ -204,14 +210,20 @@ export const ForeignKeyLink: React.FC<ForeignKeyLinkProps> = ({
 
   return (
     <>
-      <button
-        onClick={handleClick}
-        className={`inline-flex items-center gap-0.5 text-primary hover:text-primary/80 hover:underline transition-colors cursor-pointer font-medium text-[9px] ${className}`}
-        title={`Click para ver detalles de ${label}`}
-      >
-        <span className="truncate">{label}</span>
-        {showIcon && <ExternalLink className="h-2.5 w-2.5 flex-shrink-0" />}
-      </button>
+      {children ? (
+        <div onClick={handleClick} className={className}>
+          {children}
+        </div>
+      ) : (
+        <button
+          onClick={handleClick}
+          className={`inline-flex items-center gap-0.5 text-primary hover:text-primary/80 hover:underline transition-colors cursor-pointer font-medium text-[9px] ${className}`}
+          title={`Click para ver detalles de ${label}`}
+        >
+          <span className="truncate">{label}</span>
+          {showIcon && <ExternalLink className="h-2.5 w-2.5 flex-shrink-0" />}
+        </button>
+      )}
 
       <GenericModal
         isOpen={showModal}

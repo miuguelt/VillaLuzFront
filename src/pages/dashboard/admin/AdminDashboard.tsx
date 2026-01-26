@@ -5,6 +5,7 @@ import { useToast } from '@/app/providers/ToastContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Button } from '@/shared/ui/button';
 import { Badge } from '@/shared/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/shared/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
 import { Alert, AlertDescription } from '@/shared/ui/alert';
 import {
@@ -31,10 +32,13 @@ import { apiFetch } from '@/shared/api/apiFetch';
 import { useT } from '@/shared/i18n';
 import axios from 'axios';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select';
-import { SkeletonCard, SkeletonTable } from '@/shared/ui/skeleton';
+import { SkeletonCard } from '@/shared/ui/skeleton';
 import { DashboardStatsCard, DashboardStatsGrid } from '@/widgets/dashboard/DashboardStatsCard';
 import { useCompleteDashboardStats, KpiCardSummary } from '@/features/dashboard/model/useCompleteDashboardStats';
 import KPICard from '@/widgets/analytics/KPICard';
+import { UserCard } from '@/widgets/dashboard/UserCard';
+import { analyticsService } from '@/features/reporting/api/analytics.service';
+import { ExternalLink } from 'lucide-react';
 
 const KPI_ORDER = [
   'health_index',
@@ -90,7 +94,7 @@ const AlertItem = memo(({ alert, onMarkRead, onNavigate, colorToClasses, renderI
                 size="sm"
                 onClick={() => onNavigate(`/admin/animals?q=${encodeURIComponent(alert.animal_record || String(alert.animal_id))}`)}
               >
-                Ver animal  
+                Ver animal
               </Button>
             )}
           </div>
@@ -277,7 +281,7 @@ const AdminDashboard: React.FC = () => {
           }
         }
         hasRetriedUsersRef.current = true
-        showToast(`Límite alcanzado (429). Reintentando en ${Math.round(delayMs/1000)}s…`, 'warning')
+        showToast(`Límite alcanzado (429). Reintentando en ${Math.round(delayMs / 1000)}s…`, 'warning')
         usersRetryTimeoutRef.current = window.setTimeout(() => {
           fetchUsers()
         }, delayMs)
@@ -295,13 +299,8 @@ const AdminDashboard: React.FC = () => {
     isFetchingAlertsRef.current = true
     try {
       // OPTIMIZACIÓN: Timeout extendido solo para este endpoint (puede ser lento)
-      const res = await apiFetch({
-        url: '/analytics/alerts',
-        method: 'GET',
-        params: { limit: 50 },
-        timeout: 30000 // 30 segundos (vs 10s default)
-      } as any)
-      const payload = unwrapApi<any>(res)
+      // OPTIMIZACIÓN: Timeout extendido solo para este endpoint (puede ser lento)
+      const payload = await analyticsService.getAlerts({ limit: 50 });
       const rawAlerts: any[] = Array.isArray(payload) ? payload : (payload?.alerts ?? [])
       const normalized: SystemAlert[] = rawAlerts.map((a: any) => ({
         id: String(a.id),
@@ -434,52 +433,6 @@ const AdminDashboard: React.FC = () => {
   // Generación de tarjetas del dashboard usando estadísticas completas del backend
   const renderCompleteStatsCards = () => (
     <div className="space-y-6">
-      {kpiCards.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base font-semibold text-foreground">
-                KPIs de salud y operación
-              </CardTitle>
-              {kpiResumen?.ventana_dias && (
-                <CardDescription className="text-xs">
-                  Ventana móvil de {kpiResumen.ventana_dias} días
-                </CardDescription>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {kpiCards.map((card) => {
-              const isBadWhenHigher =
-                card.id === 'mortality_rate_30d' ||
-                card.id === 'sales_rate_30d' ||
-                card.id === 'alert_pressure' ||
-                card.id === 'task_load_index';
-              const goodWhenHigher = !isBadWhenHigher;
-              const iconNode =
-                kpiIconMap[card.id] ?? (card.icono ? <span>{card.icono}</span> : null);
-              const unit = card.unidad || undefined;
-              const value =
-                typeof card.valor === 'number' && unit === '%'
-                  ? card.valor.toFixed(1)
-                  : card.valor;
-
-              return (
-                <KPICard
-                  key={card.id}
-                  title={card.titulo}
-                  value={value}
-                  unit={unit}
-                  change={card.cambio}
-                  icon={iconNode}
-                  subtitle={card.descripcion}
-                  goodWhenHigher={goodWhenHigher}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
       {/* Errores del endpoint completo */}
       {completeError && (
         <Alert>
@@ -492,43 +445,224 @@ const AdminDashboard: React.FC = () => {
         </Alert>
       )}
 
-      {/* Resumen General */}
-      <DashboardStatsGrid>
-        <DashboardStatsCard title="Usuarios Registrados" icon={Users} stat={completeStats?.usuarios_registrados} description="Total de usuarios" onClick={() => navigate('/admin/users')} />
-        <DashboardStatsCard title="Usuarios Activos" icon={Users} stat={completeStats?.usuarios_activos} description="Actividad reciente (30 días)" onClick={() => navigate('/admin/users?filter=active')} />
-        <DashboardStatsCard title="Animales Registrados" icon={Building2} stat={completeStats?.animales_registrados} description="Total de animales" onClick={() => navigate('/admin/animals')} />
-        <DashboardStatsCard title="Animales Activos" icon={Building2} stat={completeStats?.animales_activos} description="En seguimiento" onClick={() => navigate('/admin/animals')} />
-        <DashboardStatsCard title="Tratamientos Activos" icon={ClipboardList} stat={completeStats?.tratamientos_activos} description="En proceso" onClick={() => navigate('/admin/treatments')} />
-        <DashboardStatsCard title="Tratamientos Totales" icon={ClipboardList} stat={completeStats?.tratamientos_totales} description="Histórico" onClick={() => navigate('/admin/treatments')} />
-        <DashboardStatsCard title="Vacunas Aplicadas" icon={ClipboardList} stat={completeStats?.vacunas_aplicadas} description="Total histórico" onClick={() => navigate('/admin/vaccinations')} />
-        <DashboardStatsCard title="Controles Realizados" icon={ClipboardList} stat={completeStats?.controles_realizados} description="Sanidad" onClick={() => navigate('/admin/control')} />
-      </DashboardStatsGrid>
+      <Accordion
+        type="multiple"
+        defaultValue={kpiCards.length > 0 ? ['kpis', 'general', 'alerts'] : ['general', 'alerts']}
+        className="w-full"
+      >
+        {kpiCards.length > 0 && (
+          <AccordionItem value="kpis">
+            <AccordionTrigger className="text-left">
+              <div className="flex items-center gap-2">
+                <span>KPIs de salud y operación</span>
+                {kpiResumen?.ventana_dias && (
+                  <span className="text-xs text-muted-foreground">
+                    Ventana móvil {kpiResumen.ventana_dias}d
+                  </span>
+                )}
+                <Badge variant="secondary">{kpiCards.length}</Badge>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {kpiCards.map((card) => {
+                  const isBadWhenHigher =
+                    card.id === 'mortality_rate_30d' ||
+                    card.id === 'sales_rate_30d' ||
+                    card.id === 'alert_pressure' ||
+                    card.id === 'task_load_index';
+                  const goodWhenHigher = !isBadWhenHigher;
+                  const iconNode =
+                    kpiIconMap[card.id] ?? (card.icono ? <span>{card.icono}</span> : null);
+                  const unit = card.unidad || undefined;
+                  const value =
+                    typeof card.valor === 'number' && unit === '%'
+                      ? card.valor.toFixed(1)
+                      : card.valor;
 
-      {/* Operación */}
-      <DashboardStatsGrid>
-        <DashboardStatsCard title="Potreros" icon={Building2} stat={completeStats?.campos_registrados} description="Campos registrados" onClick={() => navigate('/admin/fields')} />
-        <DashboardStatsCard title="Tareas Pendientes" icon={AlertTriangle} stat={completeStats?.tareas_pendientes} description="Requieren atención" />
-        <DashboardStatsCard title="Alertas del Sistema" icon={AlertTriangle} stat={completeStats?.alertas_sistema} description="Notificaciones" />
-        <DashboardStatsCard title="Mejoras Genéticas" icon={ClipboardList} stat={completeStats?.mejoras_geneticas} description="Programas activos" onClick={() => navigate('/admin/genetic_improvements')} />
-      </DashboardStatsGrid>
+                  return (
+                    <KPICard
+                      key={card.id}
+                      title={card.titulo}
+                      value={value}
+                      unit={unit}
+                      change={card.cambio}
+                      icon={iconNode}
+                      subtitle={card.descripcion}
+                      goodWhenHigher={goodWhenHigher}
+                    />
+                  );
+                })}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
 
-      {/* Catálogos */}
-      <DashboardStatsGrid columns={3}>
-        <DashboardStatsCard title="Vacunas" icon={ClipboardList} stat={completeStats?.catalogo_vacunas} description="Catálogo" onClick={() => navigate('/admin/vaccines')} />
-        <DashboardStatsCard title="Medicamentos" icon={ClipboardList} stat={completeStats?.catalogo_medicamentos} description="Catálogo" onClick={() => navigate('/admin/medications')} />
-        <DashboardStatsCard title="Enfermedades" icon={ClipboardList} stat={completeStats?.catalogo_enfermedades} description="Catálogo" onClick={() => navigate('/admin/diseases')} />
-        <DashboardStatsCard title="Especies" icon={ClipboardList} stat={completeStats?.catalogo_especies} description="Catálogo" onClick={() => navigate('/admin/species')} />
-        <DashboardStatsCard title="Razas" icon={ClipboardList} stat={completeStats?.catalogo_razas} description="Catálogo" onClick={() => navigate('/admin/breeds')} />
-        <DashboardStatsCard title="Tipos de Alimento" icon={ClipboardList} stat={completeStats?.catalogo_tipos_alimento} description="Catálogo" onClick={() => navigate('/admin/food-types')} />
-      </DashboardStatsGrid>
+        <AccordionItem value="general">
+          <AccordionTrigger className="text-left">
+            <div className="flex items-center gap-2">
+              <span>Resumen general</span>
+              <Badge variant="secondary">8</Badge>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-2">
+            <DashboardStatsGrid>
+              <DashboardStatsCard title="Usuarios Registrados" icon={Users} stat={completeStats?.usuarios_registrados} description="Total de usuarios" onClick={() => navigate('/admin/users')} />
+              <DashboardStatsCard title="Usuarios Activos" icon={Users} stat={completeStats?.usuarios_activos} description="Actividad reciente (30 días)" onClick={() => navigate('/admin/users?filter=active')} />
+              <DashboardStatsCard title="Animales Registrados" icon={Building2} stat={completeStats?.animales_registrados} description="Total de animales" onClick={() => navigate('/admin/animals')} />
+              <DashboardStatsCard title="Animales Activos" icon={Building2} stat={completeStats?.animales_activos} description="En seguimiento" onClick={() => navigate('/admin/animals')} />
+              <DashboardStatsCard title="Tratamientos Activos" icon={ClipboardList} stat={completeStats?.tratamientos_activos} description="En proceso" onClick={() => navigate('/admin/treatments')} />
+              <DashboardStatsCard title="Tratamientos Totales" icon={ClipboardList} stat={completeStats?.tratamientos_totales} description="Histórico" onClick={() => navigate('/admin/treatments')} />
+              <DashboardStatsCard title="Vacunas Aplicadas" icon={ClipboardList} stat={completeStats?.vacunas_aplicadas} description="Total histórico" onClick={() => navigate('/admin/vaccinations')} />
+              <DashboardStatsCard title="Controles Realizados" icon={ClipboardList} stat={completeStats?.controles_realizados} description="Sanidad" onClick={() => navigate('/admin/control')} />
+            </DashboardStatsGrid>
+          </AccordionContent>
+        </AccordionItem>
 
-      {/* Relaciones y Tratamientos */}
-      <DashboardStatsGrid columns={3}>
-        <DashboardStatsCard title="Animales por Campo" icon={ClipboardList} stat={completeStats?.animales_por_campo} description="Distribución" onClick={() => navigate('/admin/animal-fields')} />
-        <DashboardStatsCard title="Animales por Enfermedad" icon={ClipboardList} stat={completeStats?.animales_por_enfermedad} description="Sanidad" onClick={() => navigate('/admin/disease-animals')} />
-        <DashboardStatsCard title="Tratamientos con Medicamentos" icon={ClipboardList} stat={completeStats?.tratamientos_medicamentos} description="Aplicados" onClick={() => navigate('/admin/treatment_medications')} />
-        <DashboardStatsCard title="Tratamientos con Vacunas" icon={ClipboardList} stat={completeStats?.tratamientos_vacunas} description="Aplicados" onClick={() => navigate('/admin/treatment_vaccines')} />
-      </DashboardStatsGrid>
+        <AccordionItem value="operation">
+          <AccordionTrigger className="text-left">
+            <div className="flex items-center gap-2">
+              <span>Operación</span>
+              <Badge variant="secondary">4</Badge>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-2">
+            <DashboardStatsGrid>
+              <DashboardStatsCard title="Potreros" icon={Building2} stat={completeStats?.campos_registrados} description="Campos registrados" onClick={() => navigate('/admin/fields')} />
+              <DashboardStatsCard title="Tareas Pendientes" icon={AlertTriangle} stat={completeStats?.tareas_pendientes} description="Requieren atención" />
+              <DashboardStatsCard title="Alertas del Sistema" icon={AlertTriangle} stat={completeStats?.alertas_sistema} description="Notificaciones" />
+              <DashboardStatsCard title="Mejoras Genéticas" icon={ClipboardList} stat={completeStats?.mejoras_geneticas} description="Programas activos" onClick={() => navigate('/admin/genetic_improvements')} />
+            </DashboardStatsGrid>
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="catalogs">
+          <AccordionTrigger className="text-left">
+            <div className="flex items-center gap-2">
+              <span>Catálogos</span>
+              <Badge variant="secondary">6</Badge>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-2">
+            <DashboardStatsGrid columns={3}>
+              <DashboardStatsCard title="Vacunas" icon={ClipboardList} stat={completeStats?.catalogo_vacunas} description="Catálogo" onClick={() => navigate('/admin/vaccines')} />
+              <DashboardStatsCard title="Medicamentos" icon={ClipboardList} stat={completeStats?.catalogo_medicamentos} description="Catálogo" onClick={() => navigate('/admin/medications')} />
+              <DashboardStatsCard title="Enfermedades" icon={ClipboardList} stat={completeStats?.catalogo_enfermedades} description="Catálogo" onClick={() => navigate('/admin/diseases')} />
+              <DashboardStatsCard title="Especies" icon={ClipboardList} stat={completeStats?.catalogo_especies} description="Catálogo" onClick={() => navigate('/admin/species')} />
+              <DashboardStatsCard title="Razas" icon={ClipboardList} stat={completeStats?.catalogo_razas} description="Catálogo" onClick={() => navigate('/admin/breeds')} />
+              <DashboardStatsCard title="Tipos de Alimento" icon={ClipboardList} stat={completeStats?.catalogo_tipos_alimento} description="Catálogo" onClick={() => navigate('/admin/food-types')} />
+            </DashboardStatsGrid>
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value="relations">
+          <AccordionTrigger className="text-left">
+            <div className="flex items-center gap-2">
+              <span>Relaciones y tratamientos</span>
+              <Badge variant="secondary">4</Badge>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent className="pt-2">
+            <DashboardStatsGrid columns={3}>
+              <DashboardStatsCard title="Animales por Campo" icon={ClipboardList} stat={completeStats?.animales_por_campo} description="Distribución" onClick={() => navigate('/admin/animal-fields')} />
+              <DashboardStatsCard title="Animales por Enfermedad" icon={ClipboardList} stat={completeStats?.animales_por_enfermedad} description="Sanidad" onClick={() => navigate('/admin/disease-animals')} />
+              <DashboardStatsCard title="Tratamientos con Medicamentos" icon={ClipboardList} stat={completeStats?.tratamientos_medicamentos} description="Aplicados" onClick={() => navigate('/admin/treatment_medications')} />
+              <DashboardStatsCard title="Tratamientos con Vacunas" icon={ClipboardList} stat={completeStats?.tratamientos_vacunas} description="Aplicados" onClick={() => navigate('/admin/treatment_vaccines')} />
+            </DashboardStatsGrid>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Alertas del sistema colapsables */}
+        {hasPermission('system:read') && (
+          <AccordionItem value="alerts">
+            <AccordionTrigger className="text-left">
+              <div className="flex items-center justify-between w-full pr-4">
+                <div className="flex items-center gap-2">
+                  <span>{t('dashboard.alerts.title')}</span>
+                  <Badge variant={alerts.filter(a => !a.isRead).length > 0 ? "destructive" : "secondary"}>
+                    {alerts.length}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <Select value={filterType} onValueChange={setFilterType}>
+                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos los tipos</SelectItem>
+                      {uniqueTypes.map((type) => (
+                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterPriority} onValueChange={setFilterPriority}>
+                    <SelectTrigger className="w-[130px] h-8 text-xs">
+                      <SelectValue placeholder="Prioridad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las prioridades</SelectItem>
+                      {uniquePriorities.map((p) => (
+                        <SelectItem key={p!} value={p!}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => {
+                      setFilterType('all')
+                      setFilterPriority('all')
+                    }}
+                  >
+                    Limpiar
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={markAllAlertsAsRead}
+                    disabled={alerts.filter(a => !a.isRead).length === 0}
+                  >
+                    {t('dashboard.actions.markAllRead')}
+                  </Button>
+                </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2">
+              <div className="bg-white border rounded-lg p-4">
+                {alerts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    {t('dashboard.alerts.noAlerts')}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredAlerts.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        No hay alertas que coincidan con los filtros.
+                      </div>
+                    ) : (
+                      filteredAlerts.map((alert) => (
+                        <AlertItem
+                          key={alert.id}
+                          alert={alert}
+                          onMarkRead={markAlertAsRead}
+                          onNavigate={navigate}
+                          colorToClasses={colorToClasses}
+                          renderIcon={renderAlertIcon}
+                        />
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        )}
+      </Accordion>
     </div>
   );
 
@@ -548,137 +682,66 @@ const AdminDashboard: React.FC = () => {
         </Suspense>
       )}
 
-      {/* Alertas del sistema */}
-      {hasPermission('system:read') && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>{t('dashboard.alerts.title')}</CardTitle>
-              <CardDescription>{t('dashboard.alerts.description')}</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los tipos</SelectItem>
-                  {uniqueTypes.map((type) => (
-                    <SelectItem key={type} value={type}>{type}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
 
-              <Select value={filterPriority} onValueChange={setFilterPriority}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Prioridad" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las prioridades</SelectItem>
-                  {uniquePriorities.map((p) => (
-                    <SelectItem key={p!} value={p!}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setFilterType('all')
-                  setFilterPriority('all')
-                }}
-              >
-                Limpiar filtros
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={markAllAlertsAsRead}
-                disabled={alerts.filter(a => !a.isRead).length === 0}
-              >
-                {t('dashboard.actions.markAllRead')}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {alerts.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {t('dashboard.alerts.noAlerts')}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredAlerts.map((alert) => (
-                  <AlertItem
-                    key={alert.id}
-                    alert={alert}
-                    onMarkRead={markAlertAsRead}
-                    onNavigate={navigate}
-                    colorToClasses={colorToClasses}
-                    renderIcon={renderAlertIcon}
-                  />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Usuarios recientes */}
       {hasPermission('user:read') && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('dashboard.recentUsers.title')}</CardTitle>
-            <CardDescription>{t('dashboard.recentUsers.description')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <SkeletonTable rows={5} />
-            ) : users.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {t('dashboard.recentUsers.noUsers')}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {users.slice(0, 5).map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                        <span className="text-sm font-medium">
-                          {user.username?.charAt?.(0)?.toUpperCase?.() ?? '?'}
-                        </span>
-                      </div>
-                      <div>
-                        <div className="font-medium">{user.username}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {user.email}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                        {user.isActive ? t('common.active') : t('common.inactive')}
-                      </Badge>
-                      {user.lastLogin && (
-                        <div className="text-xs text-muted-foreground">
-                          {new Date(user.lastLogin).toLocaleDateString()}
-                        </div>
-                      )}
-                    </div>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">{t('dashboard.recentUsers.title')}</h2>
+              <p className="text-sm text-muted-foreground">{t('dashboard.recentUsers.description')}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/admin/users')}
+              className="hidden sm:flex items-center gap-2"
+            >
+              {t('dashboard.recentUsers.viewAll')} <ExternalLink className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <Card className="border-none shadow-none bg-transparent">
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <SkeletonCard key={i} />
+                  ))}
+                </div>
+              ) : users.length === 0 ? (
+                <div className="text-center py-12 border-2 border-dashed rounded-lg bg-gray-50/50">
+                  <div className="mx-auto h-12 w-12 text-gray-400 mb-3">
+                    <Users className="h-12 w-12 opacity-50" />
                   </div>
-                ))}
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => navigate('/users')}
-                >
-                  {t('dashboard.recentUsers.viewAll')}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <h3 className="text-lg font-medium text-gray-900">{t('dashboard.recentUsers.noUsers')}</h3>
+                  <p className="text-sm text-gray-500 mt-1">No hay usuarios registrados recientemente.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {users.slice(0, 8).map((user) => (
+                      <UserCard
+                        key={user.id}
+                        user={user}
+                        onView={() => navigate(`/admin/users?id=${user.id}`)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Button
+                variant="outline"
+                className="w-full sm:hidden mt-4"
+                onClick={() => navigate('/admin/users')}
+              >
+                {t('dashboard.recentUsers.viewAll')}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   )

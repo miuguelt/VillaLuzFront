@@ -41,8 +41,8 @@ const spyTreatmentsGetPaginated = jest.spyOn(treatmentsServiceModule.treatmentsS
 const spyTreatmentsGetById = jest.spyOn(treatmentsServiceModule.treatmentsService, 'getById')
 const spyVaccinesGetAll = jest.spyOn(vaccinesServiceModule.vaccinesService as any, 'getAll')
 const spyMedicationsGetAll = jest.spyOn(medicationsServiceModule.medicationsService as any, 'getAll')
-const spyTreatmentVaccinesGetAll = jest.spyOn(treatmentVaccinesServiceModule.treatmentVaccinesService as any, 'getAll')
-const spyTreatmentMedicationsGetAll = jest.spyOn(treatmentMedicationServiceModule.treatmentMedicationService as any, 'getAll')
+const spyTreatmentVaccinesGetAll = jest.spyOn(treatmentVaccinesServiceModule.treatmentVaccinesService as any, 'getTreatmentVaccines')
+const spyTreatmentMedicationsGetAll = jest.spyOn(treatmentMedicationServiceModule.treatmentMedicationService as any, 'getTreatmentMedications')
 const spyAnimalsGet = jest.spyOn(animalsServiceModule.animalsService, 'getAnimals' as any)
 
 describe('Tratamientos: Insumos layout', () => {
